@@ -1,0 +1,12 @@
+# ltsdecoding GUI (view / edit LightTools .lts)
+# install: python -m pip install -r requirements-gui.txt
+PyQt5>=5.15
+vtk>=9.3
+numpy>=1.24
+scipy>=1.10
+trimesh>=4.0
+manifold3d>=2.5
+# OpenCascade boolean (optional; either package works)
+#   pip install cadquery-ocp
+#   conda install -c conda-forge pythonocc-core
+cadquery-ocp>=7.7
