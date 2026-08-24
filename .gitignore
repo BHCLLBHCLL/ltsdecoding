@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv*/
+.venv-occ/
+
+# Probe dumps / generated SAT / logs
+output/
+0
+
+# Local LightTools fixtures (often large)
+*.lts
+!tests/**/*.lts
