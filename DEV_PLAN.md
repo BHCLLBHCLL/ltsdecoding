@@ -15,7 +15,7 @@
 | **M2** 几何验证链闭环 | **✅ 完成** | `verify_sat_import.py` 四重全绿：本地自洽 66/66、COM 导入 66/66、重导出 body bbox 66/66（≤1e-6）、loop 级裁剪面 bbox 66/66（**dev=0 逐位一致**）；loop 并集包围盒确认为权威参照 |
 | M1 解析层 100% | 🔶 部分 | 378 类可读；对象创建写回/往返字节级一致/Undo 未建 |
 | M3 光学属性 100% | 🔶 部分 | PropertyZone 链 205/205 解析并逐面绑定；Fresnel/RT/TIR/Lambert/Mirror/Mechanical 分区物理；`tests/test_zones_receivers.py` 10 项纯物理单测（合成 LTS 全绿） |
-| M4/M5 追迹+分析 | 🔶 部分 | 面发射采样（位置+方向 apodizer+光谱+灯功率 lm/ray）；远场接收器 30×60 网格（立体角归一 candela）与 LT 已算网格比对；通量守恒闭合（Beer/TIR 计入吸收） |
+| M4/M5 追迹+分析 | 🔶 部分 | 面发射采样（位置+方向 apodizer+光谱+灯功率 lm/ray）；远场接收器 30×60 网格（立体角归一 candela）与 LT 已算网格比对；通量守恒闭合（Beer/TIR 计入吸收）；接收器假彩色/极坐标图 + LT 参考对比 + CSV 导出（matplotlib）；区链支持 setPropertiesName 预设与纹理区域（VariableSpacedTexture/PlanarReferenceSurface，backlight 语料 205 区全部解析） |
 | M6 优化器+MACRO+API | ⬜ | 空白 |
 
 关键解锁：**LightTools 9.1.0 license 可用**，COM 自动化（LTLocator/Dispatch + JumpStart ltcom64.jsml）全链路打通，"对表验证"不再被阻塞。

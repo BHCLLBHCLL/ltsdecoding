@@ -1746,7 +1746,26 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                 lines.append("  peak row : %d / %d" % (peak, grid["nx"]))
                 lines.append("")
                 lines.append(_ascii_num_grid(g, grid["max"]))
-        AnalysisGridDialog("Illuminance", "\n".join(lines), self).exec_()
+        text = "\n".join(lines)
+        chart_data = None
+        if planes:
+            rr = planes[0]
+            grid = rr["grid"]
+            spec = rr.get("spec")
+            chart_data = {
+                "kind": "plane",
+                "values": grid["illuminance"],
+                "rows": grid["rows"], "cols": grid["cols"],
+                "bounds": grid["bounds"],
+                "title": "Illuminance  %s  (%dx%d)" % (
+                    spec.name, grid["rows"], grid["cols"]),
+                "units": getattr(spec, "illuminance_units", "Lux"),
+            }
+        dlg = self._chart_dialog("Illuminance", text, chart_data)
+        if dlg is not None:
+            dlg.exec_()
+        else:
+            AnalysisGridDialog("Illuminance", text, self).exec_()
         self.log(lines[2], tab="sim")
 
     def _analysis_intensity(self) -> None:
@@ -1792,8 +1811,38 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             lines.append("  escaped samples : %d" % len(res.escaped_dirs))
             lines.append("")
             lines.append(_ascii_num_grid(grid["grid"], grid["max"]))
-        AnalysisGridDialog("Intensity", "\n".join(lines), self).exec_()
+        text = "\n".join(lines)
+        chart_data = None
+        if receivers:
+            rr = receivers[0]
+            grid = rr["grid"]
+            spec = rr.get("spec")
+            chart_data = {
+                "kind": "farfield",
+                "values": grid["intensity"],
+                "rows": grid["rows"], "cols": grid["cols"],
+                "bounds": grid["bounds"],
+                "title": "Intensity  %s  (%dx%d)" % (
+                    spec.name, grid["rows"], grid["cols"]),
+                "units": getattr(spec, "responsivity", "Photometric"),
+                "reference": grid.get("reference"),
+            }
+        dlg = self._chart_dialog("Intensity", text, chart_data)
+        if dlg is not None:
+            dlg.exec_()
+        else:
+            AnalysisGridDialog("Intensity", text, self).exec_()
         self.log(lines[2], tab="sim")
+
+    def _chart_dialog(self, title: str, report: str, chart_data=None):
+        """接收器网格 -> matplotlib 图表对话框 (不可用时返回 None)."""
+        if chart_data is None:
+            return None
+        try:
+            from lts_charts import make_chart_dialog
+            return make_chart_dialog(title, report, chart_data, self)
+        except Exception:
+            return None
 
     def _table_view(self) -> None:
         if self.model is None:

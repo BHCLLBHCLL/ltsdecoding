@@ -303,6 +303,8 @@ class ZoneProp:
     scatter_side: str = "reflected"
     refract_mode: str = "refract"
     prob_rt: bool = False
+    preset: str = ""                      # setPropertiesName 预设名
+    region: Optional[ZoneRegion] = None   # 纹理区域 (None = 整面)
     prop: Optional[SurfaceOpt] = None
 
     def summary(self) -> str:
@@ -312,10 +314,104 @@ class ZoneProp:
             extra = " side=%s" % self.scatter_side
         elif self.amplitude == "rt":
             extra = " refract=%s" % self.refract_mode
-        return "%s  %s  R=%.3f T=%.3f%s%s" % (
+        tag = "  preset=%s" % self.preset if self.preset else ""
+        rg = "  region=%.2fx%.2f@(%.2f,%.2f,%.2f)" % (
+            2 * self.region.half_w, 2 * self.region.half_h,
+            *self.region.center) if self.region else ""
+        return "%s  %s  R=%.3f T=%.3f%s%s%s%s" % (
             self.amplitude or "-", self.direction or "-",
-            self.reflectivity, self.transmission, extra,
+            self.reflectivity, self.transmission, extra, tag, rg,
             ("  kind=%s" % p.kind) if p is not None else "")
+
+
+# ---------------------------------------------------------------------------
+# 属性预设 (setPropertiesName) 与纹理区域 (texture boundary region)
+# ---------------------------------------------------------------------------
+
+# LightTools 内置光学属性预设 -> SurfaceOpt 语义 (无显式 AmplDir 时使用)。
+# 默认光学属性模板 (Default Optical Properties) 中的同名区即这些预设。
+PRESET_PROPS: Dict[str, dict] = {
+    "bare":          {"kind": "fresnel"},                       # 默认 Fresnel
+    "smooth optical": {"kind": "fresnel"},
+    "transmitting":  {"kind": "rt", "R": 0.0, "T": 1.0, "mode": "tir"},
+    "transmissive":  {"kind": "rt", "R": 0.0, "T": 1.0, "mode": "tir"},
+    "mirror":        {"kind": "mirror", "R": 1.0},
+    "reflective":    {"kind": "mirror", "R": 1.0},
+    "reflecting":    {"kind": "mirror", "R": 1.0},
+    "absorbing":     {"kind": "absorbing"},
+    "absorber":      {"kind": "absorbing"},
+    "mechanical":    {"kind": "mechanical"},
+    "opaque":        {"kind": "opaque", "R": 0.9, "specular": 0.5},
+    "lambertian scattering": {"kind": "lambert_scatter", "R": 0.5, "T": 0.0,
+                              "side": "reflected"},
+    "lambertianscatter": {"kind": "lambert_scatter", "R": 0.5, "T": 0.0,
+                          "side": "reflected"},
+    "lambertian":    {"kind": "lambert_scatter", "R": 0.5, "T": 0.0,
+                      "side": "reflected"},
+}
+
+
+class ZoneRegion:
+    """区覆盖区域: 纹理参考平面上的矩形 (HP frame, 毫米).
+
+    LightTools 用 VariableSpacedTexture/PlanarReferenceSurface 表达区的
+    空间范围: 参照面 = restoreHP 位置/朝向; 区范围 = setZoneWidth/Height
+    环绕参照面中心 ± 随机放置偏移。
+    """
+
+    __slots__ = ("center", "rot", "half_w", "half_h", "tol_plane")
+
+    def __init__(self, center, rot, half_w, half_h, tol_plane=4.0):
+        self.center = np.asarray(center, dtype=float)
+        self.rot = np.asarray(rot, dtype=float).reshape(3, 3)
+        self.half_w = max(float(half_w), 0.0)
+        self.half_h = max(float(half_h), 0.0)
+        self.tol_plane = float(tol_plane)
+
+    def local(self, p):
+        return self.rot.T @ (np.asarray(p, dtype=float) - self.center)
+
+    def contains(self, p) -> bool:
+        """参照面矩形内的 (X,Y) 投影判定.
+
+        参照面不一定贴在真实面上 (lightguide 纹理区在 z=0 平面定义),
+        面的归属由"所属解析面"的几何距离约束 (see _ZoneMatcher).
+        """
+        q = self.local(p)
+        return (abs(q[0]) <= self.half_w + 1e-6
+                and abs(q[1]) <= self.half_h + 1e-6)
+
+    def distance(self, p) -> float:
+        """区域内为 0; 区域外为平面内矩形距离 (供排序/对比)."""
+        q = self.local(p)
+        dx = max(abs(q[0]) - self.half_w, 0.0)
+        dy = max(abs(q[1]) - self.half_h, 0.0)
+        return math.sqrt(dx * dx + dy * dy)
+
+
+def zone_region(objects: dict, zone_oid: str) -> Optional[ZoneRegion]:
+    """区 -> 纹理区域 (无边界/未知布局返回 None)."""
+    zone = objects.get(zone_oid)
+    if zone is None:
+        return None
+    tex_oid = _edge(zone, "setBoundary")
+    tex = objects.get(tex_oid)
+    if tex is None:
+        return None
+    ref_oid = _edge(tex, "restoreReferenceSurface")
+    ref = objects.get(ref_oid)
+    if ref is None:
+        return None
+    hp_oid = _edge(ref, "restoreHP")
+    hp = objects.get(hp_oid)
+    if hp is None:
+        return None
+    center = _vec3_field(hp, "setPosition")
+    rot = _mat33_field(hp, "setOrientation")
+    w = float(_float(tex, "setZoneWidth", 0.0))
+    h = float(_float(tex, "setZoneHeight", 0.0))
+    # 矩形放置偏移 (X/Y 偏移), 部分模型用 spacing 序列; 近似取边距 0
+    return ZoneRegion(center, rot, 0.5 * w, 0.5 * h)
 
 
 @dataclass
@@ -340,9 +436,9 @@ def _yes(v) -> bool:
 
 
 def _direction_mode(direction: Optional[LTSObjectLike]) -> Tuple[str, str]:
-    """direction obj -> (kind, refract_mode)."""
+    """direction obj -> (kind, refract_mode). 无方向对象时 mode 为空. """
     if direction is None:
-        return "", "refract"
+        return "", ""
     cls = direction.cls or ""
     if "DominantRayDirection" in cls:
         return "dominant", _str(direction, "setRefractMode", "Split")
@@ -389,6 +485,7 @@ def zone_prop(objects: dict, zone_oid: Optional[str]) -> Optional[ZoneProp]:
     dkind, mode = _direction_mode(direction)
     zp.direction = dkind
 
+    preset_name = _str(zone, "setPropertiesName", "")
     if amp is None:
         zp.amplitude = "none"
     else:
@@ -420,7 +517,46 @@ def zone_prop(objects: dict, zone_oid: Optional[str]) -> Optional[ZoneProp]:
         else:
             zp.amplitude = "fresnel"  # 未知振幅按 Fresnel 界面走
 
-    if mode.lower() in ("reflect", "mechanical", "refract", "tir"):
+    # setPropertiesName 预设链: 无显式振幅时按预设 (默认光学属性模板)
+    if preset_name:
+        zp.preset = preset_name
+        key = preset_name.strip().lower()
+        if zp.amplitude in ("none",):
+            preset = PRESET_PROPS.get(key)
+            if preset is not None:
+                kind = preset["kind"]
+                if kind == "fresnel":
+                    zp.amplitude = "fresnel"
+                elif kind == "rt":
+                    zp.amplitude = "rt"
+                    zp.reflectivity = float(preset.get("R", 0.0))
+                    zp.transmission = float(preset.get("T", 1.0))
+                    zp.refract_mode = preset.get("mode", "tir")
+                elif kind == "mirror":
+                    zp.amplitude = "mirror"
+                    zp.reflectivity = float(preset.get("R", 1.0))
+                    zp.refract_mode = "reflect"
+                elif kind == "mechanical":
+                    zp.amplitude = "rt"
+                    zp.reflectivity = 0.0
+                    zp.transmission = 0.0
+                    zp.refract_mode = "mechanical"
+                elif kind == "absorbing":
+                    zp.amplitude = "rt"
+                    zp.reflectivity = 0.0
+                    zp.transmission = 0.0
+                    zp.refract_mode = "refract"
+                elif kind == "opaque":
+                    zp.amplitude = "mirror"
+                    zp.reflectivity = float(preset.get("R", 0.9))
+                    zp.refract_mode = "reflect"
+                elif kind == "lambert_scatter":
+                    zp.amplitude = "lambert"
+                    zp.reflectivity = float(preset.get("R", 0.5))
+                    zp.transmission = float(preset.get("T", 0.0))
+                    zp.scatter_side = preset.get("side", "reflected")
+
+    if mode and mode.lower() in ("reflect", "mechanical", "refract", "tir"):
         zp.refract_mode = mode.lower()
 
     # 组装 SurfaceOpt
@@ -452,6 +588,7 @@ def zone_prop(objects: dict, zone_oid: Optional[str]) -> Optional[ZoneProp]:
     if kind == "lambert_scatter" and zp.scatter_side == "reflected":
         prop.specular_frac = 0.0
     zp.prop = prop
+    zp.region = zone_region(objects, zone_oid)
     return zp
 
 

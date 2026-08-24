@@ -162,10 +162,15 @@ def _lf(obj, key, default):
 
 
 class _ZoneMatcher:
-    """一个实体上全部叶面的区 -> 最小几何距离分类器."""
+    """一个实体上全部叶面的区 -> 按 LT 语义的顺序区分类器.
+
+    LT 区语义: 表面区 0 (bare) 为默认; 随后的区 1..N 带区域 (region),
+    按加入顺序 (先到先得) 匹配命中区域的三角; 无命中退回 bare 区。
+    区域区同时受"所属解析表面" (几何距离) 约束。
+    """
 
     def __init__(self, objects, solid_oid, wl_nm=550.0, catalog=None):
-        self.entries = []
+        self.entries = []   # (order, z_oid, dist_fn, zp)
         for leaf_oid, r, t, recs in _leaf_frames(objects, solid_oid):
             import lts_geom
             dims = _leaf_dims(objects, leaf_oid)
@@ -174,33 +179,48 @@ class _ZoneMatcher:
                 face = _face_key(shape, rec.surface_number)
                 dist_fn = (lambda _p, s=shape, d=dims, f=face:
                            _face_distance(s, _p, d, f))
-                for z_oid in rec.zone_oids:
+                for zi, z_oid in enumerate(rec.zone_oids):
                     zp = zone_prop(objects, z_oid)
                     if zp is None:
                         continue
                     zp.surface_name = (zp.surface_name or rec.surface_name)
-                    self.entries.append(
-                        (zp.oid, z_oid, dist_fn, zp, rec.surface_name))
+                    self.entries.append((zi, z_oid, dist_fn, zp))
+        self.entries.sort(key=lambda e: e[0])
 
-    def decide_zone(self, tri_centroid):
-        """最近区 oid; 无区返回 None."""
-        best_z, best_d = None, None
-        for _zid, z_oid, dist_fn, zp, _sname in self.entries:
-            q = dist_fn(tri_centroid) if dist_fn else 0.0
-            if best_d is None or q < best_d:
-                best_d, best_z = q, z_oid
-        if best_d is None:
-            return None
-        return best_z
+    def decide_zone(self, tri_centroid, tol=2.0):
+        """命中区 oid (发射面分类用); 无命中返回 None."""
+        # 1) 区域区按顺序预检 (先到先得)
+        for _o, z_oid, dist_fn, zp in self.entries:
+            if zp.region is not None:
+                if dist_fn(tri_centroid) <= tol * 2.0 and                         zp.region.contains(tri_centroid):
+                    return z_oid
+        # 2) 无区域区: 最小面距离
+        best, best_d = None, None
+        for _o, z_oid, dist_fn, zp in self.entries:
+            if zp.region is not None:
+                continue
+            d = dist_fn(tri_centroid)
+            if best_d is None or d < best_d:
+                best_d, best = d, z_oid
+        if best is not None and best_d <= tol * 2.0:
+            return best
+        return None
 
     def decide(self, tri_centroid, material_prop, tol):
-        """返回该三角的 SurfaceOpt."""
-        z_oid = self.decide_zone(tri_centroid)
-        if z_oid is None:
-            return material_prop
-        for _zid, _zo, _dist_fn, zp, _sname in self.entries:
-            if _zo == z_oid:
-                return _merge_zone_into(zp, material_prop)
+        """返回该三角的 SurfaceOpt (区域区按序优先, 否则最小面距离)."""
+        for _o, z_oid, dist_fn, zp in self.entries:
+            if zp.region is not None:
+                if dist_fn(tri_centroid) <= tol * 2.0 and                         zp.region.contains(tri_centroid):
+                    return _merge_zone_into(zp, material_prop)
+        best, best_d = None, None
+        for _o, z_oid, dist_fn, zp in self.entries:
+            if zp.region is not None:
+                continue
+            d = dist_fn(tri_centroid)
+            if best_d is None or d < best_d:
+                best_d, best = d, zp
+        if best is not None and best_d <= tol * 2.0:
+            return _merge_zone_into(best, material_prop)
         return material_prop
 
 

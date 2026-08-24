@@ -445,3 +445,212 @@ def test_far_field_frame_matches_receiver():
     out2 = far_field_grid([(1.0, 0.0, 0.0, 1.0)], r2)
     # 世界 +X -> 局部 +Y -> theta=90°, phi=90° -> 行 3 (theta 90/180*6), 列 3
     assert abs(out2["grid"][3, 3] - 1.0) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# 预设链 + 纹理区域区 (setPropertiesName / VariableSpacedTexture)
+# ---------------------------------------------------------------------------
+
+SYNTH_REGION = r"""#ORACAD Database File - Version 4.4
+$ORALensDatabaseManagerObj create -> $ORALensDatabaseManagerObj_0
+{
+	$ORACuboidObj create -> $ORACuboidObj_0;
+	initSolid: $ORACuboidObj_0;
+	$ORACuboidObj_0
+	{
+		setName: "Lightguide";
+		setMaterialName: "PMMA_USER";
+		setPosition:  { 0. 0. 0.  } ;
+		setOrientation: [3,3] { 1. 0. 0. 0. 1. 0. 0. 0. 1.  } ;
+		getCSGTree -> $ORACSGTreeObj_0;
+		$ORACSGCuboidPrimitiveObj create -> $ORACSGCuboidPrimitiveObj_0
+		{
+			setName: "CubePrimitive_1";
+			setWidth: 20.;
+			setHeight: 10.;
+			setLength: 30.;
+			$ORASurfaceInfoObj create -> $ORASurfaceInfoObj_0
+			{
+				setSurfaceNumber: 0;
+				setSurfaceName: "LeftSurface";
+				$ORAPropertyZoneObj create -> $ORAPropertyZoneObj_0
+				{
+					setName: "BareSurface";
+					setPropertiesName: "Smooth Optical";
+				} setBareSurfaceProperties: $ORAPropertyZoneObj_0;
+			} addSurfaceInfo: $ORASurfaceInfoObj_0;
+			$ORASurfaceInfoObj create -> $ORASurfaceInfoObj_1
+			{
+				setSurfaceNumber: 1;
+				setSurfaceName: "BackSurface";
+				$ORAPropertyZoneObj create -> $ORAPropertyZoneObj_1
+				{
+					setName: "BareSurface";
+					setPropertiesName: "Smooth Optical";
+				} setBareSurfaceProperties: $ORAPropertyZoneObj_1;
+			} addSurfaceInfo: $ORASurfaceInfoObj_1;
+			$ORASurfaceInfoObj create -> $ORASurfaceInfoObj_2
+			{
+				setSurfaceNumber: 2;
+				setSurfaceName: "TopSurface";
+				$ORAPropertyZoneObj create -> $ORAPropertyZoneObj_2
+				{
+					setName: "BareSurface";
+					setPropertiesName: "Smooth Optical";
+				} setBareSurfaceProperties: $ORAPropertyZoneObj_2;
+			} addSurfaceInfo: $ORASurfaceInfoObj_2;
+			$ORASurfaceInfoObj create -> $ORASurfaceInfoObj_3
+			{
+				setSurfaceNumber: 3;
+				setSurfaceName: "FrontSurface";
+				$ORAPropertyZoneObj create -> $ORAPropertyZoneObj_3
+				{
+					setName: "BareSurface";
+					setPropertiesName: "Smooth Optical";
+				} setBareSurfaceProperties: $ORAPropertyZoneObj_3;
+			} addSurfaceInfo: $ORASurfaceInfoObj_3;
+			$ORASurfaceInfoObj create -> $ORASurfaceInfoObj_4
+			{
+				setSurfaceNumber: 4;
+				setSurfaceName: "TexturedSurface";
+				setHighestZoneId: 1;
+				$ORAPropertyZoneObj create -> $ORAPropertyZoneObj_4
+				{
+					setName: "BareSurface";
+					setPropertiesName: "Smooth Optical";
+				} setBareSurfaceProperties: $ORAPropertyZoneObj_4;
+				$ORAPropertyZoneObj create -> $ORAPropertyZoneObj_5
+				{
+					$VariableSpacedTexture create -> $VariableSpacedTexture_0;
+					setBoundary: $VariableSpacedTexture_0;
+					$VariableSpacedTexture_0
+					{
+						$PlanarReferenceSurface create -> $PlanarReferenceSurface_0
+						{
+							$ORAHierarchicalPositionObj create -> $ORAHierarchicalPositionObj_0
+							{
+								setPosition:  { 2. 0. 0.  } ;
+								setOrientation: [3,3] { 1. 0. 0. 0. 1. 0. 0. 0. 1.  } ;
+							} restoreHP: $ORAHierarchicalPositionObj_0;
+						} restoreReferenceSurface: $PlanarReferenceSurface_0;
+						setZoneWidth: 8.;
+						setZoneHeight: 16.;
+					}
+					setName: "Texture";
+					setPropertiesName: "Transmitting";
+				} addPropertyZone: $ORAPropertyZoneObj_5;
+			} addSurfaceInfo: $ORASurfaceInfoObj_4;
+			$ORASurfaceInfoObj create -> $ORASurfaceInfoObj_5
+			{
+				setSurfaceNumber: 5;
+				setSurfaceName: "RightSurface";
+				$ORAPropertyZoneObj create -> $ORAPropertyZoneObj_6
+				{
+					setName: "BareSurface";
+					setPropertiesName: "Smooth Optical";
+				} setBareSurfaceProperties: $ORAPropertyZoneObj_6;
+			} addSurfaceInfo: $ORASurfaceInfoObj_5;
+		} restoreRootNode: $ORACSGCuboidPrimitiveObj_0;
+	} restoreObject: $ORACuboidObj_0;
+} ;
+"""
+
+
+def test_preset_and_region_resolution():
+    """setPropertiesName 预设 + 纹理区域解析."""
+    objs = lts_parser.LTSParser(SYNTH_REGION).parse().objects
+    zs = ob.zones_for_solid(objs, "$ORACuboidObj_0")
+    byname = {}
+    for _l, rec, zp in zs:
+        byname[(rec.surface_name, zp.oid)] = zp
+    # 预设链
+    bare = byname[("LeftSurface", "$ORAPropertyZoneObj_0")]
+    assert bare.preset == "Smooth Optical"
+    assert bare.amplitude == "fresnel"
+    assert bare.prop.kind == "transmitting"
+    tex = byname[("TexturedSurface", "$ORAPropertyZoneObj_5")]
+    assert tex.preset == "Transmitting"
+    assert tex.amplitude == "rt"
+    assert abs(tex.reflectivity) < 1e-12
+    assert abs(tex.transmission - 1.0) < 1e-12
+    assert tex.refract_mode == "tir"
+    assert tex.prop.kind == "rt"
+    # 区域
+    assert tex.region is not None
+    assert abs(2 * tex.region.half_w - 8.0) < 1e-9
+    assert abs(2 * tex.region.half_h - 16.0) < 1e-9
+    assert np.allclose(tex.region.center, (2.0, 0.0, 0.0))
+    assert tex.region.contains((2.0, 0.0, 0.0))
+    assert not tex.region.contains((10.0, 0.0, 0.0))
+
+
+def test_region_zone_classifies_faces():
+    """区域区只覆盖所属面 (surface 4) 的区域矩形, 其余面走 bare."""
+    from lts_model import LTSModel
+    from lts_optics_bind import bind_materials, surface_opt_for_name
+    objs = lts_parser.LTSParser(SYNTH_REGION).parse().objects
+    mdl = LTSModel()
+    mdl.objects = objs
+    mdl.tess_parts = lts_geom.build_geometry(objs)
+    cat = bind_materials(objs)
+    parts = [p for p in mdl.tess_parts if p.kind == "solid"]
+    assert len(parts) == 1
+    p = parts[0]
+    base = surface_opt_for_name(p.material, cat)
+    zprops = _zone_props_for_part(mdl, p, base, 550.0, cat)
+    cnt = {}
+    for z in zprops:
+        cnt[z.kind] = cnt.get(z.kind, 0) + 1
+    assert cnt.get("rt", 0) > 0            # 纹理区 (区域矩形内)
+    assert cnt.get("transmitting", 0) > 0  # 其余面/矩形外
+    # 区域矩形: x∈[-2,6], z 任意; 底面 (4) 与它面
+    pts = np.asarray(p.points, dtype=np.float64)
+    tris = np.asarray(p.triangles, dtype=np.int64)
+    cen = pts[tris].mean(axis=1)
+    rt_in = []
+    for i, z in enumerate(zprops):
+        if z.kind == "rt":
+            rt_in.append(cen[i])
+    assert rt_in
+    arr = np.asarray(rt_in)
+    assert arr[:, 0].min() >= -2.0 - 1e-6
+    assert arr[:, 0].max() <= 6.0 + 1e-6
+
+
+# ---------------------------------------------------------------------------
+# 接收器图表数据层 (CSV / 差异网格 / PNG offscreen)
+# ---------------------------------------------------------------------------
+
+def test_grid_csv_and_diff():
+    from lts_charts import grid_to_csv, diff_grid, ref_normalized
+    data = {"kind": "farfield",
+            "values": np.array([[1.0, 2.0], [3.0, 4.0]]),
+            "bounds": (0.0, 360.0, 0.0, 180.0),
+            "units": "candela"}
+    csv = grid_to_csv(data)
+    assert csv.startswith("# ")
+    assert r"rowcol" in csv
+    assert "3" in csv
+    ref = np.array([[0.5, 1.0], [1.5, 2.0]])
+    o = np.array([[1.0, 2.0], [3.0, 4.0]])
+    rn = ref_normalized(ref, o)
+    assert abs(rn.sum() - o.sum()) < 1e-9
+    d = diff_grid(o, ref)
+    assert d.shape == o.shape
+
+
+def test_render_to_png_offscreen():
+    from lts_charts import render_to_png, render_polar_png
+    import tempfile
+    data = {"kind": "farfield",
+            "values": np.random.default_rng(2).uniform(0.1, 5.0,
+                                                      (18, 36)),
+            "bounds": (0.0, 360.0, 0.0, 180.0),
+            "title": "demo", "units": "candela"}
+    with tempfile.TemporaryDirectory() as td:
+        p1 = os.path.join(td, "heat.png")
+        render_to_png(data, p1)
+        assert os.path.getsize(p1) > 1000
+        p2 = os.path.join(td, "polar.png")
+        render_polar_png(data, p2)
+        assert os.path.getsize(p2) > 1000
