@@ -15,7 +15,7 @@ from .physics import beer_absorption, surface_event
 
 class TraceResult:
     __slots__ = ("absorbed", "escaped", "launched", "face_flux",
-                 "n_rays", "n_bounces")
+                 "n_rays", "n_bounces", "hits", "escaped_dirs")
 
     def __init__(self, n_faces):
         self.absorbed = 0.0
@@ -24,6 +24,8 @@ class TraceResult:
         self.n_rays = 0
         self.n_bounces = 0
         self.face_flux = np.zeros(n_faces, dtype=float)
+        self.hits = []          # (x, y, z, weight)
+        self.escaped_dirs = []  # (dx, dy, dz, weight)
 
 
 class Engine:
@@ -41,7 +43,8 @@ class Engine:
     def set_medium_absorption(self, alpha_by_index: dict):
         self.medium_alpha.update(alpha_by_index)
 
-    def trace(self, initial_rays):
+    def trace(self, initial_rays, record_hits=False, record_escaped=False,
+              max_hits=50000):
         res = TraceResult(self.scene.n_tri)
         stack = [(r["p"], r["d"], r["weight"], r.get("medium", 1.0), 0)
                  for r in initial_rays]
@@ -60,6 +63,10 @@ class Engine:
             tri, t, hit, n = intersect_scene(self.scene, p, d)
             if tri is None:
                 res.escaped += w
+                if record_escaped:
+                    dd = np.asarray(d, dtype=float)
+                    res.escaped_dirs.append((float(dd[0]), float(dd[1]),
+                                             float(dd[2]), float(w)))
                 continue
             alpha = self.medium_alpha.get(med, 0.0)
             if alpha > 0:
@@ -68,10 +75,14 @@ class Engine:
                     continue
             res.n_bounces += 1
             res.face_flux[tri] += w
+            if record_hits and len(res.hits) < max_hits and hit is not None:
+                h = np.asarray(hit, dtype=float)
+                res.hits.append((float(h[0]), float(h[1]), float(h[2]), float(w)))
             prop = self.scene.face_prop(tri)
             children = surface_event(d, n, prop, med, self.rng)
             out_w_sum = 0.0
-            for cd, cw, cmed, ckind in children:
+            for cd, cfrac, cmed, ckind in children:
+                cw = float(cfrac) * w
                 if cw <= 0:
                     continue
                 out_w_sum += cw

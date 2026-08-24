@@ -11,8 +11,9 @@ from PyQt5.QtGui import QBrush, QColor, QFont
 from PyQt5.QtWidgets import (
     QAbstractItemView, QFileDialog, QFrame, QHBoxLayout, QLabel,
     QLineEdit, QListWidget, QListWidgetItem, QMenu, QPlainTextEdit,
-    QSplitter, QStyle, QStyleOptionViewItem, QTabWidget, QToolButton,
-    QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
+    QSplitter, QStyle, QStyleOptionViewItem, QTabWidget, QTableWidget,
+    QTableWidgetItem, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
+    QWidget,
 )
 
 from lts_icons import AppIcons
@@ -556,6 +557,34 @@ class SystemNavigator(QWidget):
 
         walk(it)
 
+    def selected_oids(self) -> list:
+        out = []
+        for it in self.tree.selectedItems():
+            data = it.data(0, Qt.UserRole)
+            if data and data[1]:
+                out.append(data[1])
+        return out
+
+    def checkable_oids(self) -> list:
+        oids = []
+        for oid, it in self._items_by_oid.items():
+            if it.flags() & Qt.ItemIsUserCheckable:
+                oids.append(oid)
+        return oids
+
+    def select_oids(self, oids) -> None:
+        self.tree.clearSelection()
+        first = None
+        for oid in oids:
+            it = self._items_by_oid.get(oid)
+            if it is None:
+                continue
+            it.setSelected(True)
+            if first is None:
+                first = it
+        if first is not None:
+            self.tree.setCurrentItem(first)
+
     def _apply_filter(self, text: str) -> None:
         needle = (text or "").strip().lower()
 
@@ -741,6 +770,42 @@ class WindowNavigator(QWidget):
     def _click(self, item, _col) -> None:
         if item:
             self.view_activated.emit(item.text(0))
+
+
+class TableViewPage(QWidget):
+    """LightTools Table View: one row per display body."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        v = QVBoxLayout(self)
+        v.setContentsMargins(4, 4, 4, 4)
+        self.table = QTableWidget(self)
+        self.table.setColumnCount(7)
+        self.table.setHorizontalHeaderLabels(
+            ["Name", "Object", "Kind", "Material", "Tris", "BBox diag", "Traceable"])
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        v.addWidget(self.table)
+
+    def populate(self, model) -> None:
+        boxes = list(getattr(model, "geo_boxes", None) or [])
+        self.table.setRowCount(len(boxes))
+        for i, b in enumerate(boxes):
+            bb = b.bounds
+            dx, dy, dz = bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2]
+            diag = (dx * dx + dy * dy + dz * dz) ** 0.5
+            vals = [
+                b.name or "",
+                b.oid or "",
+                b.kind or "",
+                b.material or "",
+                str(b.n_tris),
+                "%.3f" % diag,
+                "Yes" if b.kind == "solid" else "",
+            ]
+            for j, val in enumerate(vals):
+                self.table.setItem(i, j, QTableWidgetItem(val))
+        self.table.resizeColumnsToContents()
 
 
 class ConsolePage(QWidget):

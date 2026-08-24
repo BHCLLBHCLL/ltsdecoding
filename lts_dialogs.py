@@ -188,6 +188,7 @@ class ViewPreferencesDialog(QDialog):
         ("Axis (Global)", "axis_global"),
         ("Origin", "origin"),
         ("Gizmo", "gizmo"),
+        ("Rays", "rays"),
     ]
 
     def __init__(self, layers: dict, mode: str = "Shading", parent=None):
@@ -269,3 +270,105 @@ class InsertGeomDialog(QDialog):
         for k, w in self._spins.items():
             out[k] = float(w.value())
         return out
+
+
+class MaterialsManagerDialog(QDialog):
+    """User Materials: n(λ), Abbe, absorption from the LTS material graph."""
+
+    def __init__(self, rows: list, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("User Materials")
+        self.resize(640, 380)
+        v = QVBoxLayout(self)
+        v.addWidget(QLabel(
+            "Materials bound from the .lts User Material Manager "
+            "(Laurent / Constant / Schott index + absorption)."))
+        table = QTableWidget(self)
+        table.setColumnCount(6)
+        table.setHorizontalHeaderLabels(
+            ["Name", "Class", "n @ 550 nm", "Abbe Vd", "alpha (1/m)", "Family"])
+        table.setRowCount(len(rows))
+        table.horizontalHeader().setStretchLastSection(True)
+        for i, row in enumerate(rows):
+            for j, val in enumerate(row):
+                table.setItem(i, j, QTableWidgetItem(str(val)))
+        table.resizeColumnsToContents()
+        v.addWidget(table, 1)
+        bb = QDialogButtonBox(QDialogButtonBox.Close, self)
+        bb.rejected.connect(self.close)
+        bb.accepted.connect(self.close)
+        v.addWidget(bb)
+
+
+class OpticalPropertiesDialog(QDialog):
+    """Optical Properties for the selected solid's bound material."""
+
+    def __init__(self, title: str, body: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Optical Properties")
+        self.resize(480, 360)
+        v = QVBoxLayout(self)
+        v.addWidget(QLabel(title))
+        te = QPlainTextEdit(self)
+        te.setReadOnly(True)
+        te.setPlainText(body)
+        v.addWidget(te, 1)
+        bb = QDialogButtonBox(QDialogButtonBox.Close, self)
+        bb.rejected.connect(self.close)
+        v.addWidget(bb)
+
+
+class MoveDialog(QDialog):
+    """Translate selected object by ΔX ΔY ΔZ (mm)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Move")
+        form = QFormLayout(self)
+        self._spins = []
+        for lab in ("ΔX", "ΔY", "ΔZ"):
+            w = QDoubleSpinBox(self)
+            w.setRange(-1e6, 1e6)
+            w.setDecimals(4)
+            w.setValue(0.0)
+            form.addRow(lab, w)
+            self._spins.append(w)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        form.addRow(bb)
+
+    def delta(self):
+        return tuple(float(w.value()) for w in self._spins)
+
+
+class MeasureDialog(QDialog):
+    def __init__(self, text: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Measure")
+        v = QVBoxLayout(self)
+        te = QPlainTextEdit(self)
+        te.setReadOnly(True)
+        te.setPlainText(text)
+        v.addWidget(te)
+        bb = QDialogButtonBox(QDialogButtonBox.Close, self)
+        bb.rejected.connect(self.close)
+        v.addWidget(bb)
+
+
+class AnalysisGridDialog(QDialog):
+    """Illuminance / intensity histogram table (LightTools analysis stub)."""
+
+    def __init__(self, title: str, report: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.resize(520, 420)
+        v = QVBoxLayout(self)
+        te = QPlainTextEdit(self)
+        te.setReadOnly(True)
+        te.setPlainText(report)
+        v.addWidget(te, 1)
+        bb = QDialogButtonBox(QDialogButtonBox.Close, self)
+        bb.rejected.connect(self.close)
+        v.addWidget(bb)
+

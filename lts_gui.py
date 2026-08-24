@@ -17,7 +17,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import lts_vtk
-from lts_commands import CommandBus, nyi_text
+from lts_commands import CommandBus, nyi_text, resolve_command
 from lts_model import LTSModel, prop_str
 
 try:
@@ -34,13 +34,14 @@ try:
     except Exception:
         pass
     from lts_dialogs import (
-        InsertGeomDialog, PreferencesDialog, PropertiesDialog,
-        ViewPreferencesDialog, about_box,
+        AnalysisGridDialog, InsertGeomDialog, MaterialsManagerDialog,
+        MeasureDialog, MoveDialog, OpticalPropertiesDialog,
+        PreferencesDialog, PropertiesDialog, ViewPreferencesDialog, about_box,
     )
     from lts_icons import AppIcons
     from lts_panes import (
         ConfigPanel, ConsolePage, OutputWindow, PaneFrame, PreferencesNavigator,
-        SystemNavigator, WindowNavigator, make_left_column,
+        SystemNavigator, TableViewPage, WindowNavigator, make_left_column,
     )
     from lts_view3d import Design3DPage
     _HAS_GUI_DEPS = True
@@ -67,7 +68,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         self._layer_on = {
             "solid": True, "source": True, "receiver": True, "cut": False,
             "bbox": False, "origin": True, "axis_global": True,
-            "edges": True, "gizmo": True,
+            "edges": True, "gizmo": True, "rays": True,
         }
         self._hidden: set[str] = set()
         self._drawing_mode = "Shading"
@@ -89,6 +90,12 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         self._units = "Millimeters"
         self._view3d_seq = 2
         self._props_dlg: Optional[PropertiesDialog] = None
+        self._ray_paths: list = []
+        self._ray_actors: list = []
+        self._last_trace = None
+        self._clipboard = None
+        self._trace_seed = 1
+        self._table_page = None
         self.bus = CommandBus(on_nyi=self._nyi)
         self._bind_commands()
 
@@ -381,12 +388,21 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             self._act(m, t, c)
 
         m = mb.addMenu("&Analysis")
-        for t in ("I&lluminance", "I&ntensity", "&Spatial Luminance",
-                  "&Angular Luminance", "Lum&Viewer", "&Encircled Energy",
-                  "C&IE", "CC&T LumViewer", "Color &Difference Chart",
-                  "Region Analysis", "&Add Intensity Mesh",
-                  "&Automotive Test Point Analyzer"):
-            self._act(m, t, "analysis")
+        for t, c in (
+            ("I&lluminance", "analysis_illum"),
+            ("I&ntensity", "analysis_intensity"),
+            ("&Spatial Luminance", "analysis"),
+            ("&Angular Luminance", "analysis"),
+            ("Lum&Viewer", "analysis"),
+            ("&Encircled Energy", "analysis"),
+            ("C&IE", "analysis"),
+            ("CC&T LumViewer", "analysis"),
+            ("Color &Difference Chart", "analysis"),
+            ("Region Analysis", "analysis"),
+            ("&Add Intensity Mesh", "analysis"),
+            ("&Automotive Test Point Analyzer", "analysis"),
+        ):
+            self._act(m, t, c)
 
         m = mb.addMenu("&Optimization")
         for t in ("&Optimize!", "&Variables…", "&Constraints…",
@@ -580,6 +596,44 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("about", lambda: about_box(self))
         b.bind("preferences", lambda: self._open_prefs("Preferences"))
         b.bind("refresh", self._refresh)
+        b.bind("begin_fwd", lambda: self._begin_forward(preview=True))
+        b.bind("begin_all_sim", lambda: self._begin_forward(preview=True))
+        b.bind("continue_sim", lambda: self._begin_forward(preview=True, extra=True))
+        b.bind("quick_preview", lambda: self._begin_forward(n_per_source=8, preview=True))
+        b.bind("aim_nss", self._aim_nss)
+        b.bind("ray_display", self._toggle_ray_display)
+        b.bind("reset_seeds", self._reset_seeds)
+        b.bind("save_ray_data", self._save_ray_data)
+        b.bind("user_materials", self._user_materials)
+        b.bind("opt_props", self._optical_properties)
+        b.bind("glass_cat", self._glass_catalog)
+        b.bind("analysis_illum", self._analysis_illuminance)
+        b.bind("analysis_intensity", self._analysis_intensity)
+        b.bind("table_view", self._table_view)
+        b.bind("select_all", self._select_all)
+        b.bind("invert_sel", self._invert_selection)
+        b.bind("swap_hidden", self._swap_hidden)
+        b.bind("copy", self._copy_selected)
+        b.bind("copy_geom", self._copy_selected)
+        b.bind("cut", self._cut_selected)
+        b.bind("paste", self._paste_clipboard)
+        b.bind("move", self._move_selected)
+        b.bind("set_current_point", self._set_current_from_sel)
+        b.bind("measure", self._measure)
+        b.bind("import_sat", lambda: self._import_cad("sat"))
+        b.bind("import_stl", lambda: self._import_cad("stl"))
+        b.bind("import_step", lambda: self._import_cad("step"))
+        b.bind("import_iges", lambda: self._import_cad("iges"))
+        b.bind("export_stl", lambda: self._export_cad("stl"))
+        b.bind("export_sat", lambda: self._export_cad("sat"))
+        b.bind("export_step", lambda: self._export_cad("step"))
+        b.bind("mech_block", lambda: self._insert_kind("block"))
+        b.bind("mech_sphere", lambda: self._insert_kind("sphere"))
+        b.bind("mech_cylinder", lambda: self._insert_kind("cylinder"))
+        b.bind("mech_toroid", lambda: self._insert_kind("toroid"))
+        b.bind("dummy_plane", lambda: self._insert_kind("block"))
+        b.bind("src_point", self._insert_point_source)
+        b.bind("show_all_desc", self._show_all)
 
         orig = self.bus.run
 
@@ -631,6 +685,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             QMessageBox.critical(self, "Error", "Load failed:\n%s" % e)
             return False
         self._hidden.clear()
+        self._ray_paths = []
+        self._last_trace = None
         self.sys_nav.populate(self.model, hidden=self._hidden)
         self.config_panel.reset()
         self._remember(os.path.abspath(path))
@@ -661,6 +717,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             return
         self.model = LTSModel()
         self._hidden.clear()
+        self._ray_paths = []
+        self._last_trace = None
         self.sys_nav.populate(self.model, hidden=self._hidden)
         self._rebuild_scene(fit=True)
         self._set_title()
@@ -895,12 +953,12 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         parts = text.replace(",", " ").split()
         if not parts:
             return
-        cmd = parts[0].lower()
-        if cmd in ("fit", "fitall"):
+        cmd = resolve_command(parts[0], self.bus._handlers)
+        if cmd in ("fit", "fit_all"):
             self._fit_view()
         elif cmd in ("exit", "quit"):
             self.close()
-        elif cmd in ("new3ddesign", "3d"):
+        elif cmd in ("new_3d_design", "view_3d", "3d"):
             self._focus_3d()
         elif cmd == "xyz" and len(parts) >= 4:
             try:
@@ -914,14 +972,24 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         elif cmd == "select" and len(parts) >= 2:
             name = " ".join(parts[1:]).strip('"')
             self._select_by_name(name)
-        elif cmd in ("wireframe", "line"):
+        elif cmd in ("wireframe", "render_wireframe", "line"):
             self._set_drawing_mode("Line")
-        elif cmd in ("solid", "shaded"):
+        elif cmd in ("solid", "render_solid", "shaded"):
             self._set_drawing_mode("Shading")
-        elif cmd == "translucent":
+        elif cmd == "translucent" or cmd == "render_translucent":
             self._set_drawing_mode("Translucent")
+        elif cmd in self.bus._handlers:
+            extra = parts[1:]
+            if cmd in ("begin_fwd", "begin_all_sim", "quick_preview") and extra:
+                try:
+                    n = int(float(extra[0]))
+                    self._begin_forward(n_per_source=n, preview=True)
+                    return
+                except ValueError:
+                    pass
+            self.bus.run(cmd)
         else:
-            self._nyi(text)
+            self.bus.run(parts[0])
 
     def _select_by_name(self, name: str) -> None:
         if self.model is None:
@@ -1156,6 +1224,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                 pass
 
         self._set_orientation_marker(self._layer_visible("axis_global"))
+        self._draw_rays()
         if self._selected_oid:
             self._highlight(self._selected_oid)
         if self.view3d._pane4:
@@ -1347,8 +1416,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         self._rebuild_scene(fit=False)
         self.sys_nav.select_oid(oid)
         self._mark_dirty()
-        self.log("Inserted %s (%s) — display only; Save does not persist new solids"
-                 % (kind, oid))
+        self.log("Inserted %s (%s)" % (kind, oid))
 
     def _undo(self) -> None:
         if not self._undo_stack:
@@ -1414,6 +1482,501 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         dlg.layer_toggled.connect(self._on_layer)
         dlg.mode_changed.connect(self._set_drawing_mode)
         dlg.exec_()
+
+    def _draw_rays(self) -> None:
+        self._ray_actors = []
+        if not self._enable_3d or self.renderer is None:
+            return
+        if not self._layer_visible("rays") or not self._ray_paths:
+            return
+        try:
+            actor = lts_vtk.polylines_actor(self._ray_paths)
+        except Exception:
+            return
+        self.renderer.AddActor(actor)
+        self._ray_actors.append(actor)
+
+    def _toggle_ray_display(self) -> None:
+        self._layer_on["rays"] = not self._layer_on.get("rays", True)
+        if self._ray_paths:
+            self._rebuild_scene(fit=False)
+            self.log("Ray Display: %s  (%d paths)" % (
+                "On" if self._layer_on["rays"] else "Off",
+                len(self._ray_paths)))
+        else:
+            self.log("Ray Display: no traced paths — run Aim NS Ray or "
+                     "Begin Forward Simulation first.", "WARN")
+
+    def _reset_seeds(self) -> None:
+        self._trace_seed = 1
+        self.log("Random seeds reset.")
+
+    def _ensure_model(self) -> bool:
+        if self.model is None:
+            self.model = LTSModel()
+        return True
+
+    def _begin_forward(self, n_per_source: int = 40, preview: bool = True,
+                       extra: bool = False) -> None:
+        if self.model is None or not self.model.objects:
+            self.log("Load a model before tracing.", "WARN")
+            return
+        if extra:
+            n_per_source = max(n_per_source, 80)
+            self._trace_seed += 1
+        self.log("Begin Forward Simulation (%d rays/source)…" % n_per_source,
+                 tab="sim")
+        try:
+            from lts.trace.from_model import run_forward, format_trace_report
+            pack = run_forward(
+                self.model, n_per_source=n_per_source,
+                preview=80 if preview else 0, seed=self._trace_seed)
+        except Exception as e:
+            self.log("Forward simulation failed: %s" % e, "ERROR", tab="sim")
+            return
+        self._last_trace = pack
+        if preview:
+            self._ray_paths = pack.get("paths") or []
+            self._layer_on["rays"] = True
+            self._rebuild_scene(fit=False)
+        report = format_trace_report(pack)
+        self.log(report, tab="sim")
+        if hasattr(self, "console"):
+            self.console.append(report)
+
+    def _aim_nss(self) -> None:
+        if self.model is None or not self.model.tess_parts:
+            self.log("Load a model before aiming an NS ray.", "WARN")
+            return
+        try:
+            from lts.trace.from_model import (
+                scene_from_model, aim_ns_ray, trace_preview)
+            scene, meta = scene_from_model(self.model)
+            origin = self._current_point
+            direction = (0.0, 0.0, -1.0)
+            if self._selected_oid and self.model:
+                cx, cy, cz = self.model.position_of(self._selected_oid)
+                boxes = self.model.geo_by_oid.get(self._selected_oid) or []
+                if boxes:
+                    b = boxes[0].bounds
+                    cx = 0.5 * (b[0] + b[3])
+                    cy = 0.5 * (b[1] + b[4])
+                    cz = 0.5 * (b[2] + b[5])
+                dlt = (cx - origin[0], cy - origin[1], cz - origin[2])
+                if abs(dlt[0]) + abs(dlt[1]) + abs(dlt[2]) > 1e-6:
+                    direction = dlt
+            rays = aim_ns_ray(origin, direction, n=5, spread_deg=2.0)
+            paths = trace_preview(scene, rays)
+            self._ray_paths = paths
+            self._layer_on["rays"] = True
+            self._rebuild_scene(fit=False)
+            self.log("Aim NS Ray from (%.3f, %.3f, %.3f)  scene tris=%d  "
+                     "paths=%d" % (origin[0], origin[1], origin[2],
+                                   meta.get("n_tris", 0), len(paths)),
+                     tab="sim")
+        except Exception as e:
+            self.log("Aim NS Ray failed: %s" % e, "ERROR", tab="sim")
+
+    def _save_ray_data(self) -> None:
+        rs = None
+        if self._last_trace:
+            rs = self._last_trace.get("rayspace")
+        if rs is None or rs.n_rays == 0:
+            self.log("No ray data in this session.", "WARN")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save With Ray Data", "rays.ray", "Ray data (*.ray);;All (*)")
+        if not path:
+            return
+        rs.write_ray(path)
+        self.log("Saved %d rays → %s" % (rs.n_rays, path), tab="sim")
+
+    def _user_materials(self) -> None:
+        if self.model is None:
+            return
+        from lts_optics_bind import bind_materials
+        cat = bind_materials(self.model.objects)
+        rows = []
+        for mat in sorted(cat.values(), key=lambda m: m.name.lower()):
+            vd = mat.abbe()
+            rows.append((
+                mat.name, mat.cls, "%.6f" % mat.n_at_nm(550.0),
+                ("%.2f" % vd) if vd is not None else "-",
+                "%.4g" % mat.alpha, mat.family))
+        MaterialsManagerDialog(rows, self).exec_()
+        self.log("User Materials: %d bound" % len(cat))
+
+    def _optical_properties(self) -> None:
+        if self.model is None:
+            return
+        from lts_optics_bind import bind_materials, surface_opt_for_name, summarize_catalog
+        cat = bind_materials(self.model.objects)
+        oid = self._selected_oid
+        name = "—"
+        mat_name = ""
+        if oid:
+            obj = self.model.objects.get(oid)
+            name = prop_str(obj, "setName") or oid
+            mat_name = prop_str(obj, "setMaterialName") or ""
+            boxes = self.model.geo_by_oid.get(oid) or []
+            if boxes and boxes[0].material:
+                mat_name = boxes[0].material
+        opt = surface_opt_for_name(mat_name, cat)
+        body = summarize_catalog(cat) + "\n\nSelected: %s\nMaterial: %s\n" \
+               "SurfaceOpt kind=%s  n_in=%.5f  n_out=%.5f  R=%.3f  T=%.3f\n" % (
+                   name, mat_name or "(none)", opt.kind, opt.n_in, opt.n_out,
+                   opt.reflectivity, opt.transmission)
+        OpticalPropertiesDialog(name, body, self).exec_()
+
+    def _glass_catalog(self) -> None:
+        from ltsoptics.materials import GLASS_CATALOG, glass
+        lines = ["Built-in glass catalog (Sellmeier)"]
+        for name in sorted(GLASS_CATALOG):
+            g = glass(name)
+            vd = g.abbe_dispersion() if g else None
+            lines.append("  %-16s  n_d=%.6f  V_d=%s" % (
+                name, g.n_at(0.5875618) if g else 0.0,
+                ("%.2f" % vd) if vd else "-"))
+        OpticalPropertiesDialog("Glass Catalogs", "\n".join(lines), self).exec_()
+
+    def _require_trace(self) -> bool:
+        if self._last_trace is None:
+            self._begin_forward(n_per_source=24, preview=True)
+        return self._last_trace is not None
+
+    def _analysis_illuminance(self) -> None:
+        if not self._require_trace():
+            return
+        from lts.trace.from_model import illuminance_grid, format_trace_report
+        res = self._last_trace["result"]
+        grid = illuminance_grid(res.hits)
+        x0, x1, y0, y1 = grid["extent"]
+        g = grid["grid"]
+        lines = [format_trace_report(self._last_trace), "",
+                 "Illuminance (hit XY histogram, %dx%d)" % (grid["nx"], grid["ny"]),
+                 "  extent X [%.3f, %.3f]  Y [%.3f, %.3f]" % (x0, x1, y0, y1),
+                 "  peak bin : %.6g" % grid["max"],
+                 "  sum flux : %.6g" % grid["sum"],
+                 "  hits     : %d" % len(res.hits)]
+        if g.size:
+            # ASCII peak row
+            row = g.max(axis=1)
+            peak = int(row.argmax()) if row.size else 0
+            lines.append("  peak row : %d / %d" % (peak, grid["nx"]))
+        AnalysisGridDialog("Illuminance", "\n".join(lines), self).exec_()
+        self.log(lines[2], tab="sim")
+
+    def _analysis_intensity(self) -> None:
+        if not self._require_trace():
+            return
+        from lts.trace.from_model import intensity_grid, format_trace_report
+        res = self._last_trace["result"]
+        grid = intensity_grid(res.escaped_dirs)
+        lines = [format_trace_report(self._last_trace), "",
+                 "Intensity (escaped far-field, %d theta x %d phi)" % (
+                     grid["n_theta"], grid["n_phi"]),
+                 "  peak bin : %.6g" % grid["max"],
+                 "  sum flux : %.6g" % grid["sum"],
+                 "  escaped samples : %d" % len(res.escaped_dirs)]
+        AnalysisGridDialog("Intensity", "\n".join(lines), self).exec_()
+        self.log(lines[2], tab="sim")
+
+    def _table_view(self) -> None:
+        if self.model is None:
+            return
+        if self._table_page is None:
+            self._table_page = TableViewPage(self)
+            self.center_tabs.addTab(
+                self._table_page, AppIcons.get("console", 16), "Table View")
+        self._table_page.populate(self.model)
+        self.center_tabs.setCurrentWidget(self._table_page)
+        self._refresh_window_nav()
+
+    def _select_all(self) -> None:
+        oids = self.sys_nav.checkable_oids()
+        self.sys_nav.select_oids(oids)
+        if oids:
+            self._selected_oid = oids[0]
+            self._highlight(oids[0])
+        self.log("Select All: %d objects" % len(oids))
+
+    def _invert_selection(self) -> None:
+        cur = set(self.sys_nav.selected_oids())
+        all_oids = self.sys_nav.checkable_oids()
+        nxt = [o for o in all_oids if o not in cur]
+        self.sys_nav.select_oids(nxt)
+        if nxt:
+            self._selected_oid = nxt[0]
+            self._highlight(nxt[0])
+        self.log("Invert Selection: %d objects" % len(nxt))
+
+    def _swap_hidden(self) -> None:
+        oids = self.sys_nav.checkable_oids()
+        for oid in oids:
+            self._hide_oid(oid, oid not in self._hidden, record=False)
+        self.log("Swap Hidden/Visible (%d)" % len(oids))
+
+    def _copy_selected(self) -> None:
+        if self.model is None or not self._selected_oid:
+            self.log("Nothing to copy", "WARN")
+            return
+        oid = self._selected_oid
+        parts = [p for p in self.model.tess_parts if p.solid_oid == oid]
+        if not parts:
+            self.log("Selected object has no tessellation to copy", "WARN")
+            return
+        p = parts[0]
+        self._clipboard = {
+            "name": (p.name or "Copy") + "_copy",
+            "points": p.points.copy(),
+            "triangles": p.triangles.copy(),
+            "material": p.material or "AIR",
+            "kind": p.kind,
+            "sat_text": p.sat_text,
+            "color": p.color,
+        }
+        self.log("Copied %s" % oid)
+
+    def _cut_selected(self) -> None:
+        self._copy_selected()
+        if self._selected_oid:
+            self._hide_oid(self._selected_oid, True)
+
+    def _paste_clipboard(self) -> None:
+        if self.model is None or self._clipboard is None:
+            self.log("Clipboard empty", "WARN")
+            return
+        import numpy as np
+        clip = self._clipboard
+        pts = np.asarray(clip["points"], dtype=float) + np.array([10.0, 0.0, 0.0])
+        oid = self.model.insert_mesh(
+            clip["name"], pts, clip["triangles"],
+            material=clip.get("material") or "AIR",
+            kind=clip.get("kind") or "solid",
+            sat_text=clip.get("sat_text"),
+            color=clip.get("color"))
+        self._undo_stack.append(("insert", oid))
+        self.sys_nav.populate(self.model, hidden=self._hidden)
+        self._rebuild_scene(fit=False)
+        self.sys_nav.select_oid(oid)
+        self._mark_dirty()
+        self.log("Pasted %s" % oid)
+
+    def _move_selected(self) -> None:
+        if self.model is None or not self._selected_oid:
+            self.log("Select an object to Move.", "WARN")
+            return
+        dlg = MoveDialog(self)
+        if dlg.exec_() != dlg.Accepted:
+            return
+        dx, dy, dz = dlg.delta()
+        if self.model.move_object(self._selected_oid, (dx, dy, dz)):
+            self._rebuild_scene(fit=False)
+            self._mark_dirty()
+            self.log("Moved %s by (%.3f, %.3f, %.3f)" % (
+                self._selected_oid, dx, dy, dz))
+
+    def _set_current_from_sel(self) -> None:
+        if self.model is None or not self._selected_oid:
+            self.log("Select an object first.", "WARN")
+            return
+        boxes = self.model.geo_by_oid.get(self._selected_oid) or []
+        if boxes:
+            b = boxes[0].bounds
+            x = 0.5 * (b[0] + b[3])
+            y = 0.5 * (b[1] + b[4])
+            z = 0.5 * (b[2] + b[5])
+        else:
+            x, y, z = self.model.position_of(self._selected_oid)
+        self._current_point = (x, y, z)
+        self.view3d.set_current_point(x, y, z)
+        self.log("Current point X: [%.5f  %.4f  %.4f]" % (x, y, z))
+
+    def _measure(self) -> None:
+        if self.model is None:
+            return
+        lines = ["Measure",
+                 "  current point : (%.5f, %.5f, %.5f)" % self._current_point]
+        oids = self.sys_nav.selected_oids() or (
+            [self._selected_oid] if self._selected_oid else [])
+        centers = []
+        for oid in oids:
+            boxes = self.model.geo_by_oid.get(oid) or []
+            obj = self.model.objects.get(oid)
+            name = prop_str(obj, "setName") or oid
+            if boxes:
+                b = boxes[0].bounds
+                c = (0.5 * (b[0] + b[3]), 0.5 * (b[1] + b[4]),
+                     0.5 * (b[2] + b[5]))
+                dx, dy, dz = b[3] - b[0], b[4] - b[1], b[5] - b[2]
+                diag = (dx * dx + dy * dy + dz * dz) ** 0.5
+                lines.append("  %s  center (%.3f, %.3f, %.3f)  size "
+                             "%.3f × %.3f × %.3f  diag %.3f" % (
+                                 name, c[0], c[1], c[2], dx, dy, dz, diag))
+                centers.append(c)
+            else:
+                c = self.model.position_of(oid)
+                lines.append("  %s  position (%.3f, %.3f, %.3f)" % (
+                    name, c[0], c[1], c[2]))
+                centers.append(c)
+        if len(centers) >= 2:
+            a, b = centers[0], centers[1]
+            dist = ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
+                    + (a[2] - b[2]) ** 2) ** 0.5
+            lines.append("  distance (1–2) : %.6f %s" % (dist, self._units))
+        elif centers:
+            a = centers[0]
+            p = self._current_point
+            dist = ((a[0] - p[0]) ** 2 + (a[1] - p[1]) ** 2
+                    + (a[2] - p[2]) ** 2) ** 0.5
+            lines.append("  distance (point–object) : %.6f %s" % (
+                dist, self._units))
+        MeasureDialog("\n".join(lines), self).exec_()
+        self.log(lines[-1] if len(lines) > 1 else "Measure")
+
+    def _insert_point_source(self) -> None:
+        if self.model is None:
+            self.model = LTSModel()
+        import numpy as np
+        import lts_geom
+        pts, tris = lts_geom._marker_sphere(1.2)
+        pts = lts_vtk.apply_rigid(
+            pts, None, np.array(self._current_point, dtype=float))
+        oid = self.model.insert_mesh(
+            "PointSource", pts, tris, kind="source",
+            color=(1.0, 0.72, 0.12))
+        self.sys_nav.populate(self.model, hidden=self._hidden)
+        self._rebuild_scene(fit=False)
+        self._mark_dirty()
+        self.log("Inserted point source %s" % oid)
+
+    def _import_cad(self, kind: str) -> None:
+        if self.model is None:
+            self.model = LTSModel()
+        filters = {
+            "sat": "ACIS SAT (*.sat);;All (*)",
+            "stl": "STL (*.stl);;All (*)",
+            "step": "STEP (*.step *.stp);;All (*)",
+            "iges": "IGES (*.igs *.iges);;All (*)",
+        }
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import %s" % kind.upper(), "", filters[kind])
+        if not path:
+            return
+        try:
+            pts, tris, sat = self._read_cad_file(kind, path)
+        except Exception as e:
+            self.log("Import failed: %s" % e, "ERROR", tab="dx")
+            return
+        if pts is None or len(pts) == 0:
+            self.log("Import produced no triangles: %s" % path, "WARN", tab="dx")
+            return
+        name = os.path.splitext(os.path.basename(path))[0]
+        oid = self.model.insert_mesh(name, pts, tris, sat_text=sat)
+        self.sys_nav.populate(self.model, hidden=self._hidden)
+        self._rebuild_scene(fit=True)
+        self.sys_nav.select_oid(oid)
+        self._mark_dirty()
+        self.log("Imported %s → %s  tris=%d" % (path, oid, len(tris)), tab="dx")
+
+    def _read_cad_file(self, kind, path):
+        import numpy as np
+        if kind == "sat":
+            from sat_tessellator import tessellate_sat
+            text = open(path, "r", encoding="utf-8", errors="replace").read()
+            verts, tris, _meta = tessellate_sat(text)
+            return verts, tris, text
+        if kind == "stl":
+            if not self._enable_3d:
+                raise RuntimeError("VTK required for STL import")
+            reader = vtk.vtkSTLReader()
+            reader.SetFileName(path)
+            reader.Update()
+            pd = reader.GetOutput()
+            n = pd.GetNumberOfPoints()
+            pts = np.array([pd.GetPoint(i) for i in range(n)], dtype=np.float64)
+            cells = pd.GetPolys()
+            cells.InitTraversal()
+            idl = vtk.vtkIdList()
+            tris = []
+            while cells.GetNextCell(idl):
+                if idl.GetNumberOfIds() >= 3:
+                    tris.append([idl.GetId(0), idl.GetId(1), idl.GetId(2)])
+            return pts, np.array(tris, dtype=np.int32), None
+        import lts_occ
+        if kind == "step":
+            shape = lts_occ.step_read(path)
+        else:
+            shape = lts_occ.iges_read(path)
+        if shape is None:
+            raise RuntimeError("OCC %s reader not available or file failed" % kind)
+        pts, tris = lts_occ.tessellate_shape(shape)
+        return pts, tris, None
+
+    def _export_cad(self, kind: str) -> None:
+        if self.model is None:
+            return
+        filters = {
+            "stl": "STL (*.stl)",
+            "sat": "ACIS SAT (*.sat)",
+            "step": "STEP (*.step)",
+        }
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export %s" % kind.upper(), "export.%s" % kind, filters[kind])
+        if not path:
+            return
+        oid = self._selected_oid
+        parts = [p for p in self.model.tess_parts
+                 if (not oid) or p.solid_oid == oid]
+        if not parts:
+            parts = list(self.model.tess_parts)
+        if kind == "sat":
+            sat = next((p.sat_text for p in parts if p.sat_text), None)
+            if not sat:
+                self.log("No SAT payload on the selection.", "WARN", tab="dx")
+                return
+            with open(path, "w", encoding="utf-8", newline="") as f:
+                f.write(sat)
+            self.log("Exported SAT %s" % path, tab="dx")
+            return
+        if kind == "stl":
+            if not self._enable_3d:
+                self.log("VTK required for STL export", "ERROR")
+                return
+            import numpy as np
+            append = vtk.vtkAppendPolyData()
+            for p in parts:
+                pd = lts_vtk.tris_to_polydata(
+                    np.asarray(p.points), np.asarray(p.triangles))
+                append.AddInputData(pd)
+            append.Update()
+            w = vtk.vtkSTLWriter()
+            w.SetFileName(path)
+            w.SetInputConnection(append.GetOutputPort())
+            w.Write()
+            self.log("Exported STL %s" % path, tab="dx")
+            return
+        if kind == "step":
+            import lts_occ
+            import numpy as np
+            # Mesh → OCC is lossy; export selected SAT via OCC if we have a shape.
+            self.log("STEP export uses OCC tessellation of the display mesh.",
+                     "WARN", tab="dx")
+            from lts_occ import concat_meshes
+            pts, tris = concat_meshes(
+                [(p.points, p.triangles) for p in parts])
+            # Fallback: write a simple ASCII STL-in-STEP is not valid.
+            # If OCC sew-from-mesh exists, use it; otherwise refuse.
+            try:
+                shape = lts_occ.mesh_to_shape(pts, tris) if hasattr(
+                    lts_occ, "mesh_to_shape") else None
+            except Exception:
+                shape = None
+            if shape is None or not lts_occ.step_write(shape, path):
+                self.log("STEP export requires OCC mesh→shape; not available.",
+                         "WARN", tab="dx")
+                return
+            self.log("Exported STEP %s" % path, tab="dx")
 
     def _on_layer(self, key: str, on: bool) -> None:
         self._layer_on[key] = on

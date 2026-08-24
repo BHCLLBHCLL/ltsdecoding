@@ -14,8 +14,12 @@ from .raygen import RaySampler, sample_wavelength, RNG
 from .physics import surface_event, fresnel_interface_event, beer_absorption
 from .engine import Engine, TraceResult
 from .rayspace import RaySpace
+from .from_model import (scene_from_model, rays_from_sources, aim_ns_ray,
+                         run_forward, format_trace_report)
 
 __all__ = ["Scene", "TriMesh", "BVH", "intersect_scene", "ray_triangle",
            "RaySampler", "sample_wavelength", "RNG",
            "surface_event", "fresnel_interface_event", "beer_absorption",
-           "Engine", "TraceResult", "RaySpace"]
+           "Engine", "TraceResult", "RaySpace",
+           "scene_from_model", "rays_from_sources", "aim_ns_ray",
+           "run_forward", "format_trace_report"]

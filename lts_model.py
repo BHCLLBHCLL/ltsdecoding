@@ -167,6 +167,8 @@ class LTSModel:
                         break
             if kill:
                 lines = [ln for j, ln in enumerate(lines) if j not in kill]
+        if self.inserted_oids:
+            lines = self._persist_inserted(lines)
         out = self.eol.join(lines)
         if self.trailing_nl:
             out += self.eol
@@ -176,7 +178,54 @@ class LTSModel:
         self.lines = lines
         self.edits = {}
         self.deletions = []
+        self.inserted_oids = []
         return True
+
+    def _persist_inserted(self, lines: List[str]) -> List[str]:
+        """Append create-blocks for session-inserted solids and wire Part DB."""
+        import lts_create
+        from lts_geom import _edge_target
+
+        pdb = None
+        root = self.objects.get(self.root) if self.root else None
+        if root is not None:
+            pdb_oid = _edge_target(root, "getGeometryManager")
+            pdb = self.objects.get(pdb_oid) if pdb_oid else None
+        if pdb is not None and pdb.line is not None:
+            _s, e = self._block_range(lines, pdb.line)
+            inject = []
+            existing = "\n".join(lines[pdb.line:e + 1])
+            for oid in self.inserted_oids:
+                token = "restoreObject: %s" % oid
+                if token not in existing:
+                    inject.append("        restoreObject: %s ;" % oid)
+            if inject:
+                lines = lines[:e] + inject + lines[e:]
+        extra = []
+        written = set()
+        for oid in self.inserted_oids:
+            queue = [oid]
+            while queue:
+                cur = queue.pop(0)
+                if cur in written:
+                    continue
+                obj = self.objects.get(cur)
+                if obj is None or obj.line is not None:
+                    continue
+                written.add(cur)
+                sat = getattr(obj, "raw_sat", None)
+                if sat:
+                    extra.append(lts_create.make_solid_block(
+                        obj.cls, cur, obj.props.get("setName") or cur, sat))
+                else:
+                    extra.append(lts_create.render_object(
+                        obj.cls, cur, obj.props, obj.edges))
+                for _m, ref in obj.edges:
+                    queue.append(ref)
+        if extra:
+            block = "\n".join(x.rstrip("\n") for x in extra)
+            lines = list(lines) + block.splitlines()
+        return lines
 
     @staticmethod
     def _block_range(lines: List[str], start: int) -> Tuple[int, int]:
@@ -240,7 +289,7 @@ class LTSModel:
 
         Geometry is tessellated immediately for the 3D view. The new solid is
         registered on the Part DB so System Navigator lists it. Surgical
-        .lts save does not yet emit create-blocks for inserted solids.
+        .lts save appends create-blocks for inserted solids.
         """
         import lts_create
         from lts_parser import LTSObject
@@ -323,3 +372,115 @@ class LTSModel:
         self.geo_boxes = [b for b in self.geo_boxes if b.oid != oid]
         self.geo_by_oid.pop(oid, None)
         self.tess_parts = [p for p in self.tess_parts if p.solid_oid != oid]
+
+    def _register_part_db(self, solid_oid: str) -> None:
+        root = self.objects.get(self.root) if self.root else None
+        if root is None:
+            return
+        from lts_geom import _edge_target
+        pdb_oid = _edge_target(root, "getGeometryManager")
+        pdb = self.objects.get(pdb_oid) if pdb_oid else None
+        if pdb is not None:
+            pdb.edges.append(("restoreObject", solid_oid))
+
+    def _refresh_geoboxes(self) -> None:
+        self.geo_boxes = lts_vtk.geoboxes_from_tess(self.tess_parts)
+        self.geo_by_oid = {}
+        for box in self.geo_boxes:
+            self.geo_by_oid.setdefault(box.oid, []).append(box)
+
+    def insert_mesh(self, name: str, points, triangles, *,
+                    material: str = "AIR", kind: str = "solid",
+                    sat_text: Optional[str] = None,
+                    color=None) -> str:
+        """Add a tessellated body (SAT/STL/STEP import or Copy)."""
+        import lts_create
+        from lts_parser import LTSObject
+        import numpy as np
+
+        existing = set(self.objects)
+        solid_oid = lts_create.next_oid("ORAGenericSolidObj", existing)
+        prim_oid = lts_create.next_oid(
+            "ORACSGGenericPrimitiveObj", existing | {solid_oid})
+        disp = name or ("Imported_%s" % solid_oid.rsplit("_", 1)[-1])
+        solid = LTSObject(solid_oid)
+        solid.props = {
+            "setName": disp,
+            "setPosition": {"values": [0.0, 0.0, 0.0]},
+            "setOrientation": {
+                "dims": [3, 3], "values": [1, 0, 0, 0, 1, 0, 0, 0, 1]},
+            "setIsRayTraceable": "Yes",
+            "setMaterialName": material,
+            "setColor": "FOREGROUND",
+        }
+        solid.edges = [("restoreRootNode", prim_oid)]
+        prim = LTSObject(prim_oid)
+        prim.props = {
+            "setName": disp + "Primitive",
+            "setPosition": {"values": [0.0, 0.0, 0.0]},
+            "setOrientation": {
+                "dims": [3, 3], "values": [1, 0, 0, 0, 1, 0, 0, 0, 1]},
+        }
+        if sat_text:
+            prim.raw_sat = sat_text
+        self.objects[solid_oid] = solid
+        self.objects[prim_oid] = prim
+        self.inserted_oids.append(solid_oid)
+        self._register_part_db(solid_oid)
+        pts = np.asarray(points, dtype=np.float64)
+        tris = np.asarray(triangles, dtype=np.int32)
+        rgb = color or lts_vtk.palette_color(material or disp)
+        part = TessPart(
+            name=disp, points=pts, triangles=tris, kind=kind,
+            primitive_oid=prim_oid, solid_oid=solid_oid, sat_text=sat_text,
+            material=material, color=rgb)
+        self.tess_parts.append(part)
+        boxes = lts_vtk.geoboxes_from_tess([part])
+        self.geo_boxes.extend(boxes)
+        for box in boxes:
+            self.geo_by_oid.setdefault(box.oid, []).append(box)
+        return solid_oid
+
+    def move_object(self, oid: str, delta) -> bool:
+        """Translate an object (setPosition + tessellation) by Δ mm."""
+        import numpy as np
+        obj = self.objects.get(oid)
+        if obj is None:
+            return False
+        dx, dy, dz = (float(delta[0]), float(delta[1]), float(delta[2]))
+        pos = obj.props.get("setPosition")
+        if isinstance(pos, list):
+            pos = pos[0] if pos else None
+        if isinstance(pos, dict) and "values" in pos:
+            vals = list(pos["values"])
+            while len(vals) < 3:
+                vals.append(0.0)
+            vals[0] += dx
+            vals[1] += dy
+            vals[2] += dz
+            self.set_prop(oid, "setPosition", {"values": vals})
+        else:
+            self.set_prop(oid, "setPosition", {"values": [dx, dy, dz]})
+        dlt = np.array([dx, dy, dz], dtype=np.float64)
+        for part in self.tess_parts:
+            if part.solid_oid == oid:
+                part.points = np.asarray(part.points, dtype=np.float64) + dlt
+        self._refresh_geoboxes()
+        return True
+
+    def position_of(self, oid: str):
+        obj = self.objects.get(oid)
+        if obj is None:
+            return (0.0, 0.0, 0.0)
+        pos = obj.props.get("setPosition")
+        if isinstance(pos, list):
+            pos = pos[0] if pos else None
+        if isinstance(pos, dict) and "values" in pos:
+            v = pos["values"]
+            return (float(v[0]), float(v[1]), float(v[2] if len(v) > 2 else 0))
+        boxes = self.geo_by_oid.get(oid) or []
+        if boxes:
+            b = boxes[0].bounds
+            return (0.5 * (b[0] + b[3]), 0.5 * (b[1] + b[4]),
+                    0.5 * (b[2] + b[5]))
+        return (0.0, 0.0, 0.0)

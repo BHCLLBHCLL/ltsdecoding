@@ -498,6 +498,43 @@ def bounds_diagonal(bounds: Bounds) -> float:
     return float(max((dx * dx + dy * dy + dz * dz) ** 0.5, 1.0))
 
 
+def polylines_actor(paths, color=(1.0, 0.18, 0.12), line_width: float = 1.6):
+    """Ray-display polylines (LightTools NS / illumination rays)."""
+    if not _HAS_VTK:
+        raise RuntimeError("vtk is not installed")
+    pts = vtk.vtkPoints()
+    lines = vtk.vtkCellArray()
+    for path in paths or []:
+        arr = np.asarray(path, dtype=np.float64).reshape(-1, 3)
+        if len(arr) < 2:
+            continue
+        ids = vtk.vtkIdList()
+        for p in arr:
+            ids.InsertNextId(pts.InsertNextPoint(float(p[0]), float(p[1]),
+                                                 float(p[2])))
+        lines.InsertNextCell(ids)
+    pd = vtk.vtkPolyData()
+    pd.SetPoints(pts)
+    pd.SetLines(lines)
+    mapper = vtk.vtkPolyDataMapper()
+    mapper.SetInputData(pd)
+    mapper.ScalarVisibilityOff()
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper)
+    prop = actor.GetProperty()
+    prop.SetColor(*color)
+    prop.SetLineWidth(float(line_width))
+    prop.SetAmbient(1.0)
+    prop.SetDiffuse(0.0)
+    prop.LightingOff()
+    try:
+        prop.SetRepresentationToWireframe()
+    except Exception:
+        pass
+    _no_bounds(actor)
+    return actor
+
+
 def dolly_camera(renderer, factor: float) -> None:
     if renderer is None:
         return

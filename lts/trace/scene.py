@@ -6,11 +6,15 @@
 """
 from __future__ import annotations
 
-import numpy as np
+import sys
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+import numpy as np
+
 from ltsoptics.surface import SurfaceOpt
+
+sys.setrecursionlimit(max(sys.getrecursionlimit(), 5000))
 
 
 @dataclass
