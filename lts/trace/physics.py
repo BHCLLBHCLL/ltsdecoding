@@ -44,7 +44,7 @@ def surface_event(d, n, prop, cur, rng):
     kind = prop.kind
 
     if kind == "mirror":
-        return [(reflect_ray(d, n), 1.0, cur, "reflect")]
+        return [(reflect_ray(d, n), prop.reflectivity or 1.0, cur, "reflect")]
 
     if kind == "transmitting":
         return fresnel_interface_event(d, n, cur, other)
@@ -53,8 +53,45 @@ def surface_event(d, n, prop, cur, rng):
         w = prop.reflectivity
         if w <= 0:
             return []
-        dir_out = sample_hemisphere_cosine(rng.next1(), rng.next2(), n)
+        dir_out = sample_hemisphere_cosine(rng.next1(), rng.next1(), n)
         return [(dir_out, w, cur, "diffuse")]
+
+    if kind == "rt":
+        # ORARTRayAmplitudeObj: 显式 R/T 分成两条镜面子光线.
+        r, t = prop.reflectivity, prop.transmission
+        children = []
+        if prop.refract_mode == "mechanical":
+            # Mechanical: 表面不参与光学分裂, 光线直穿 (权重 1)
+            return [(np.asarray(d, dtype=float), 1.0, other, "transparent")]
+        if prop.refract_mode != "reflect" and t > 0:
+            t_dir, tir = snell_refract(d, n, cur, other)
+            if np.linalg.norm(t_dir) > 1e-9:
+                children.append((t_dir, t, other, "refract"))
+            elif prop.refract_mode == "tir":
+                # TIR 方向: 临界角内反射, 透射分支权重转入反射
+                children.append((reflect_ray(d, n), t, cur, "reflect"))
+        if r > 0 and prop.refract_mode != "mechanical":
+            children.append((reflect_ray(d, n), r, cur, "reflect"))
+        return children
+
+    if kind == "mechanical":
+        return [(np.asarray(d, dtype=float), 1.0, other, "transparent")]
+
+    if kind == "lambert_scatter":
+        # ORALambertianScattererObj: 反射/透射两个朗伯半球, 权重 = R/T.
+        r, t = prop.reflectivity, prop.transmission
+        side = prop.scatter_side
+        children = []
+        if side in ("reflected", "both") and r > 0:
+            d1 = sample_hemisphere_cosine(rng.next1(), rng.next1(), n)
+            children.append((d1, r, cur, "diffuse"))
+        if side in ("transmitted", "both") and t > 0:
+            d2 = sample_hemisphere_cosine(rng.next1(), rng.next1(), -n)
+            children.append((d2, t, other, "diffuse"))
+        return children
+
+    if kind == "absorbing":
+        return []
 
     # opaque 默认
     rho = prop.reflectivity
@@ -62,5 +99,5 @@ def surface_event(d, n, prop, cur, rng):
         return []
     if prop.specular_frac >= 0.5:
         return [(reflect_ray(d, n), rho, cur, "reflect")]
-    dir_out = sample_hemisphere_cosine(rng.next1(), rng.next2(), n)
+    dir_out = sample_hemisphere_cosine(rng.next1(), rng.next1(), n)
     return [(dir_out, rho, cur, "diffuse")]

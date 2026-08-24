@@ -16,6 +16,44 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
+
+def _ascii_num_grid(grid, peak, max_chars: int = 48) -> str:
+    """2D 数值网格 -> ASCII 密度图 ('. ', 1-9 分位)."""
+    import numpy as np
+    g = np.asarray(grid, dtype=float)
+    if g.ndim != 2 or g.size == 0 or peak <= 0:
+        return "(empty grid)"
+    g = g / peak
+    nrows, ncols = g.shape
+    step_r = max(1, nrows // 20)
+    step_c = max(1, ncols // max_chars)
+    rows = []
+    for i in range(0, nrows, step_r):
+        row = "".join(
+            "0" if g[i, j] < 0.05 else
+            ("1" if g[i, j] < 0.15 else
+             ("2" if g[i, j] < 0.3 else
+              ("3" if g[i, j] < 0.5 else
+               ("4" if g[i, j] < 0.7 else
+                ("5" if g[i, j] < 0.9 else "6")))))
+            for j in range(0, ncols, step_c))
+        rows.append(row)
+    return "\n".join(rows)
+
+
+def _ascii_intensity_map(intensity, max_chars: int = 56) -> str:
+    """接收器远场强度 (θ×φ) -> ASCII 图 + 峰位标注."""
+    import numpy as np
+    g = np.asarray(intensity, dtype=float)
+    if g.ndim != 2 or g.size == 0:
+        return "(empty intensity grid)"
+    lines = ["Intensity map  (rows: θ  top→bottom, cols: φ  left→right)"]
+    lines.append("  legend: 0<5%%, 1<15%%, 2<30%%, 3<50%%, 4<70%%, "
+                 "5<90%%, 6=peak")
+    lines.append(_ascii_num_grid(g, float(g.max()), max_chars))
+    return "\n".join(lines)
+
+
 import lts_vtk
 from lts_commands import CommandBus, nyi_text, resolve_command
 from lts_model import LTSModel, prop_str
@@ -1609,7 +1647,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
     def _optical_properties(self) -> None:
         if self.model is None:
             return
-        from lts_optics_bind import bind_materials, surface_opt_for_name, summarize_catalog
+        from lts_optics_bind import (bind_materials, surface_opt_for_name,
+                                     summarize_catalog, zones_for_solid)
         cat = bind_materials(self.model.objects)
         oid = self._selected_oid
         name = "—"
@@ -1626,6 +1665,23 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                "SurfaceOpt kind=%s  n_in=%.5f  n_out=%.5f  R=%.3f  T=%.3f\n" % (
                    name, mat_name or "(none)", opt.kind, opt.n_in, opt.n_out,
                    opt.reflectivity, opt.transmission)
+        if oid and oid in self.model.objects:
+            zc = zones_for_solid(self.model.objects, oid)
+            if zc:
+                body += "\n=== PropertyZone chain (%d surfaces) ===\n" % len(
+                    {s.oid for _l, s, _z in zc})
+                seen = set()
+                for _leaf, rec, zp in zc:
+                    key = (rec.surface_name, zp.oid)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    body += "  %-24s (%d)  %s\n" % (
+                        rec.surface_name or "-", rec.surface_number,
+                        zp.summary())
+                body += "\n(逐面区: 追迹场景按三角几何距离指派)"
+            else:
+                body += "\n(无 PropertyZone 链)"
         OpticalPropertiesDialog(name, body, self).exec_()
 
     def _glass_catalog(self) -> None:
@@ -1649,20 +1705,47 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             return
         from lts.trace.from_model import illuminance_grid, format_trace_report
         res = self._last_trace["result"]
-        grid = illuminance_grid(res.hits)
-        x0, x1, y0, y1 = grid["extent"]
-        g = grid["grid"]
-        lines = [format_trace_report(self._last_trace), "",
-                 "Illuminance (hit XY histogram, %dx%d)" % (grid["nx"], grid["ny"]),
-                 "  extent X [%.3f, %.3f]  Y [%.3f, %.3f]" % (x0, x1, y0, y1),
-                 "  peak bin : %.6g" % grid["max"],
-                 "  sum flux : %.6g" % grid["sum"],
-                 "  hits     : %d" % len(res.hits)]
-        if g.size:
-            # ASCII peak row
-            row = g.max(axis=1)
-            peak = int(row.argmax()) if row.size else 0
-            lines.append("  peak row : %d / %d" % (peak, grid["nx"]))
+        planes = [r for r in (self._last_trace.get("receivers") or [])
+                  if r.get("grid") is not None
+                  and r["grid"].get("illuminance") is not None]
+        lines = [format_trace_report(self._last_trace), ""]
+        if planes:
+            # 平面接收器网格: 照度 (Lux) 图
+            for rr in planes:
+                spec = rr.get("spec")
+                grid = rr["grid"]
+                x0, x1, y0, y1 = grid["bounds"]
+                lines.append("Illuminance  %s  (%dx%d)" % (
+                    spec.name, grid["rows"], grid["cols"]))
+                lines.append("  extent X [%.3f, %.3f]  Y [%.3f, %.3f]" % (
+                    x0, x1, y0, y1))
+                lines.append("  peak : %.6g %s  (cell area %.6f)" % (
+                    float(grid["illuminance"].max()),
+                    getattr(spec, "illuminance_units", "Lux"),
+                    grid["cell_area"]))
+                lines.append("  sum flux : %.6g" % grid["total_flux"])
+                lines.append("  hits     : %d" % grid["n_samples"])
+                lines.append("")
+                lines.append(_ascii_num_grid(grid["illuminance"],
+                                             float(grid["illuminance"].max())))
+                lines.append("")
+        else:
+            grid = illuminance_grid(res.hits)
+            x0, x1, y0, y1 = grid["extent"]
+            g = grid["grid"]
+            lines.append("Illuminance (hit XY histogram, %dx%d)" % (
+                grid["nx"], grid["ny"]))
+            lines.append("  extent X [%.3f, %.3f]  Y [%.3f, %.3f]" % (
+                x0, x1, y0, y1))
+            lines.append("  peak bin : %.6g" % grid["max"])
+            lines.append("  sum flux : %.6g" % grid["sum"])
+            lines.append("  hits     : %d" % len(res.hits))
+            if g.size:
+                row = g.max(axis=1)
+                peak = int(row.argmax()) if row.size else 0
+                lines.append("  peak row : %d / %d" % (peak, grid["nx"]))
+                lines.append("")
+                lines.append(_ascii_num_grid(g, grid["max"]))
         AnalysisGridDialog("Illuminance", "\n".join(lines), self).exec_()
         self.log(lines[2], tab="sim")
 
@@ -1671,13 +1754,44 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             return
         from lts.trace.from_model import intensity_grid, format_trace_report
         res = self._last_trace["result"]
-        grid = intensity_grid(res.escaped_dirs)
-        lines = [format_trace_report(self._last_trace), "",
-                 "Intensity (escaped far-field, %d theta x %d phi)" % (
-                     grid["n_theta"], grid["n_phi"]),
-                 "  peak bin : %.6g" % grid["max"],
-                 "  sum flux : %.6g" % grid["sum"],
-                 "  escaped samples : %d" % len(res.escaped_dirs)]
+        receivers = [r for r in (self._last_trace.get("receivers") or [])
+                     if r.get("grid") is not None]
+        lines = [format_trace_report(self._last_trace), ""]
+        if receivers:
+            # LightTools 接收器网格 (ORAIntensityDataMeshObj 帧 + LT 参考对照)
+            for k, rr in enumerate(receivers):
+                spec = rr.get("spec")
+                grid = rr["grid"]
+                rows, cols = grid["rows"], grid["cols"]
+                p0, p1, t0, t1 = grid["bounds"]
+                pk = grid["peak"]
+                lines.append("Intensity mesh  %s  (%dx%d)" % (
+                    spec.name, rows, cols))
+                lines.append("  full sphere  : phi [%.0f, %.0f]  "
+                             "theta [%.0f, %.0f]" % (p0, p1, t0, t1))
+                lines.append("  peak         : %.6g %s @ (theta=%.1f°, "
+                             "phi=%.1f°)" % (
+                                 pk[0], spec.responsivity, pk[1], pk[2]))
+                lines.append("  total        : %.6g" % grid["total_intensity"])
+                lines.append("  bin flux     : %.6g (collected in window)" % (
+                    grid["total_flux"]))
+                if grid.get("reference") is not None:
+                    lines.append("  LT reference : ratio=%.4f  rms=%.3f "
+                                 "(traced vs LightTools mesh)" % (
+                                     grid.get("ref_ratio", float("nan")),
+                                     grid.get("ref_rms", float("nan"))))
+                lines.append("")
+                lines.append(_ascii_intensity_map(grid["intensity"]))
+                lines.append("")
+        else:
+            grid = intensity_grid(res.escaped_dirs)
+            lines.append("Intensity (escaped far-field, %d theta x %d phi)" % (
+                grid["n_theta"], grid["n_phi"]))
+            lines.append("  peak bin : %.6g" % grid["max"])
+            lines.append("  sum flux : %.6g" % grid["sum"])
+            lines.append("  escaped samples : %d" % len(res.escaped_dirs))
+            lines.append("")
+            lines.append(_ascii_num_grid(grid["grid"], grid["max"]))
         AnalysisGridDialog("Intensity", "\n".join(lines), self).exec_()
         self.log(lines[2], tab="sim")
 

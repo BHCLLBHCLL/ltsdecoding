@@ -44,6 +44,7 @@ SOURCE_CLASSES = {
 
 RECEIVER_CLASSES = {
     "ORAFarFieldReceiverObj",
+    "ORASurfaceReceiverObj",
 }
 
 LEAF_CLASSES = {
@@ -406,6 +407,55 @@ def _csg_root(objects, solid):
         if r2 is not None:
             return r2
     return None
+
+
+def leaf_frames(objects, node, r_world=None, t_world=None, seen=None,
+                out=None) -> list:
+    """Walk a CSG tree collecting every leaf with its composed world frame.
+
+    Returns [(primitive_oid, R_world 3x3, T_world (3,), depth)] in no
+    particular order (same composition rule as _eval_csg, so a leaf's
+    frame matches the tessellated geometry of that primitive).
+    """
+    if node is None:
+        return []
+    r_world = np.eye(3) if r_world is None else r_world
+    t_world = np.zeros(3) if t_world is None else np.asarray(t_world, float)
+    seen = set() if seen is None else seen
+    out = [] if out is None else out
+    if node.oid in seen:
+        return out
+    seen.add(node.oid)
+    r_n, t_n = node_frame(node)
+    r_w, t_w = compose_rigid(r_world, t_world, r_n, t_n)
+    cls = node.cls
+    if cls in (OP_UNION, OP_DIFF, OP_INTERSECT):
+        for m in ("setLeftChild", "setRightChild"):
+            c = _child(objects, node, m)
+            if c is not None:
+                leaf_frames(objects, c, r_w, t_w, seen, out)
+        return out
+    if cls not in LEAF_CLASSES:
+        root = _child(objects, node, "restoreRootNode")
+        if root is not None:
+            return leaf_frames(objects, root, r_w, t_w, seen, out)
+        return out
+    out.append((node.oid, r_w, t_w))
+    return out
+
+
+def primitive_kind(obj) -> str:
+    """Primitive class -> geometric shape key for zone classification."""
+    cls = obj.cls if obj is not None else ""
+    if cls == "ORACSGSpherePrimitiveObj":
+        return "sphere"
+    if cls == "ORACSGCylinderPrimitiveObj":
+        return "cylinder"
+    if cls == "ORACSGCuboidPrimitiveObj":
+        return "cuboid"
+    if cls == "ORACSGToroidPrimitiveObj":
+        return "toroid"
+    return "generic"
 
 
 def tessellate_solids(objects: dict) -> list[TessPart]:

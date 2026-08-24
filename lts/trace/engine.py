@@ -15,7 +15,8 @@ from .physics import beer_absorption, surface_event
 
 class TraceResult:
     __slots__ = ("absorbed", "escaped", "launched", "face_flux",
-                 "n_rays", "n_bounces", "hits", "escaped_dirs")
+                 "n_rays", "n_bounces", "hits", "escaped_dirs",
+                 "plane_hits")
 
     def __init__(self, n_faces):
         self.absorbed = 0.0
@@ -26,6 +27,7 @@ class TraceResult:
         self.face_flux = np.zeros(n_faces, dtype=float)
         self.hits = []          # (x, y, z, weight)
         self.escaped_dirs = []  # (dx, dy, dz, weight)
+        self.plane_hits = []    # (receiver_index, x_local, y_local, weight)
 
 
 class Engine:
@@ -39,9 +41,33 @@ class Engine:
         self.max_rays = max_rays
         self.rng = _RNG(seed)
         self.medium_alpha = {}          # {medium_index: absorption coeff 1/m}
+        self.plane_receivers = []       # [{pos, rot, bounds, rows, cols}]
 
     def set_medium_absorption(self, alpha_by_index: dict):
         self.medium_alpha.update(alpha_by_index)
+
+    def set_plane_receivers(self, receivers: list):
+        self.plane_receivers = list(receivers or [])
+
+    @staticmethod
+    def _plane_cross(p, d, tri_t, rv):
+        """射线 p+t·d 与接收器平面 (局部 XY, 法线局部 +Z) 的交点. 返回
+        (x_local, y_local) 或 None。tri_t 为最近实体命中距离 (无则无穷)。"""
+        pos = np.asarray(rv["pos"], dtype=float)
+        rot = np.asarray(rv["rot"], dtype=float)
+        n = rot[:, 2]
+        denom = float(np.dot(d, n))
+        if abs(denom) < 1e-12:
+            return None
+        t = float(np.dot(pos - p, n)) / denom
+        if t <= 1e-6 or t >= tri_t:
+            return None
+        hit = p + t * np.asarray(d, dtype=float)
+        q = rot.T @ (hit - pos)
+        x0, x1, y0, y1 = rv["bounds"]
+        if not (x0 <= q[0] <= x1 and y0 <= q[1] <= y1):
+            return None
+        return float(q[0]), float(q[1])
 
     def trace(self, initial_rays, record_hits=False, record_escaped=False,
               max_hits=50000):
@@ -61,6 +87,12 @@ class Engine:
                 res.absorbed += w
                 continue
             tri, t, hit, n = intersect_scene(self.scene, p, d)
+            if self.plane_receivers:
+                tri_t = t if tri is not None else float("inf")
+                for ri, rv in enumerate(self.plane_receivers):
+                    c = self._plane_cross(p, d, tri_t, rv)
+                    if c is not None:
+                        res.plane_hits.append((ri, c[0], c[1], float(w)))
             if tri is None:
                 res.escaped += w
                 if record_escaped:
@@ -70,7 +102,10 @@ class Engine:
                 continue
             alpha = self.medium_alpha.get(med, 0.0)
             if alpha > 0:
-                w *= beer_absorption(alpha, max(t, 0.0))
+                tt = max(t, 0.0)
+                trans = beer_absorption(alpha, tt)
+                res.absorbed += w * (1.0 - trans)   # Beer 吸收计入吸收
+                w *= trans
                 if w <= 0:
                     continue
             res.n_bounces += 1

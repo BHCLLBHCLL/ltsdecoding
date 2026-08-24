@@ -110,6 +110,16 @@ GLASS_CATALOG: Dict[str, dict] = {
         "coeff": [0.6961663, 0.00467914825849, 0.4079426, 0.013512063074,
                   0.8974794, 97.934002537921],
     },
+    "SILICA_SPECIAL": {                    # LightTools 内置硅 (≈FusedSilica)
+        "kind": "sellarive", "density": 2.201, "name_en": "Silica (LT)",
+        "coeff": [0.6961663, 0.00467914825849, 0.4079426, 0.013512063074,
+                  0.8974794, 97.934002537921],
+    },
+    "SILICA": {                            # LightTools 内置硅
+        "kind": "sellarive", "density": 2.201, "name_en": "Silica (LT)",
+        "coeff": [0.6961663, 0.00467914825849, 0.4079426, 0.013512063074,
+                  0.8974794, 97.934002537921],
+    },
     "BK7": {                               # n_d ≈ 1.51680
         "kind": "sellarive", "density": 2.51, "name_en": "Borosilicate Crown",
         "coeff": [1.03961212, 0.00600069867, 0.231792344, 0.0200179144,

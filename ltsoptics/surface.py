@@ -120,12 +120,25 @@ def apodizer_pdf(kind, cos_theta):
 
 
 def sample_apodizer(kind, u1, u2):
-    """apodizer 出射角度采样 -> (theta, phi, cos_theta)。"""
-    m = 0.0
+    """apodizer 出射角度采样 -> (theta, phi, cos_theta)。
+
+    LightTools 方向 apodizer 语义 (半球):
+      uniform   : pdf = 1/(2π), 均匀立体角        -> ct = u1
+      lambert   : pdf = cos(θ)/π (朗伯亮体)      -> ct = sqrt(u1)
+      power:m   : pdf = (m+1)cos^m/(2π)          -> ct = u1^(1/(m+1))
+    """
+    m = None
     if kind.startswith("power"):
-        m = max(float(kind.split(":")[1]), 0.0)
-    if kind == "uniform" or m == 0.0:
+        try:
+            m = max(float(kind.split(":")[1]), 0.0)
+        except Exception:
+            m = 0.0
+    if kind == "uniform":
         ct = u1
+    elif m is not None and m == 0.0:
+        ct = u1                      # power:0 = uniform
+    elif m is None:
+        ct = math.sqrt(u1)           # lambert (cos 加权)
     else:
         ct = u1 ** (1.0 / (m + 1.0))
     ct = min(max(ct, 0.0), 1.0)
@@ -141,7 +154,19 @@ def dominant_refract(d, n_, n1, n2):
 
 @dataclass
 class SurfaceOpt:
-    """单一面片光学属性 (逐面/逐区域指派, 对标 LightTools)."""
+    """单一面片光学属性 (逐面/逐区域指派, 对标 LightTools PropertyZone).
+
+    kind 语义 (对应 ORAAmplDirOpticalPropertiesObj 三种振幅 + 方向):
+      opaque           不透明默认 (反射率 reflectivity, specular_frac 镜面占比)
+      mirror           理想镜面反射 (反射率 reflectivity, 向量反射)
+      transmitting     透明界面 (Fresnel 分裂, n_in/n_out)
+      rt               RT 振幅 (explicit reflectivity/transmission 镜面分裂;
+                       refract_mode: "refract" | "mechanical" | "reflect")
+      mechanical       RefractMode=Mechanical: 光线直穿, 权重 1
+      lambert_scatter  ORALambertianScattererObj (反射率/透射率, 朗伯分布,
+                       scatter_side: reflected | transmitted | both)
+      absorbing        R=T=0 吸收体
+    """
     name: str = "default"
     kind: str = "opaque"
     reflectivity: float = 0.0
@@ -152,6 +177,9 @@ class SurfaceOpt:
     pfrac: float = 0.5
     zone: str = ""
     apodizer: str = "lambert"
+    scatter_side: str = "reflected"   # lambert_scatter: reflected|transmitted|both
+    refract_mode: str = "refract"     # rt: refract|mechanical|reflect
+    is_emitter: bool = False          # surface 同时是光源发射面
 
     def fresnel(self, theta1):
         return fresnel(theta1, self.n_in, self.n_out)
