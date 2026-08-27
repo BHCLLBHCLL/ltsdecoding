@@ -133,3 +133,75 @@ def test_palette_menu_highlight_locates():
     assert locate("aim_nss") == ("nsrays", "aim")
     assert locate("view_front") == ("viewing", "views")
     assert locate("mech_block") == ("mechanical", "mech")
+
+
+# ---------------------------------------------------------------------------
+# M-UI2b: Insert 创建向导 (lts_insert 创建层)
+# ---------------------------------------------------------------------------
+
+def test_insert_solid_with_zones():
+    from lts_model import LTSModel
+    import lts_insert
+    import lts_optics_bind as ob
+    m = LTSModel()
+    oid = lts_insert.create_solid(m, "cylinder", name="L1", radius=8.0, length=20.0)
+    assert oid in m.objects
+    zs = [z for _l, _r, z in ob.zones_for_solid(m.objects, oid)]
+    assert len(zs) >= 3
+    assert all(z.amplitude == "fresnel" for z in zs)
+    assert m.objects[oid].props.get("setMaterialName") == "BK7"
+
+
+def test_insert_source_binds():
+    from lts_model import LTSModel
+    import lts_insert
+    import lts_optics_bind as ob
+    m = LTSModel()
+    src = lts_insert.create_source(m, "cylinder", name="S1", lamp_power=12.0,
+                                   emit_surface="CylinderSurface")
+    srcs = ob.bind_sources(m.objects)
+    assert len(srcs) == 1
+    s = srcs[0]
+    assert abs(s.lamp_power - 12.0) < 1e-9
+    assert s.solid_oid
+    emitters = [e for e in s.emitters if e.emitting]
+    assert len(emitters) == 1
+
+
+def test_insert_receiver_binds():
+    from lts_model import LTSModel
+    import lts_insert
+    import lts_optics_bind as ob
+    m = LTSModel()
+    rcv = lts_insert.create_receiver(m, "farfield", name="R1", phi0=120.0,
+                                     phi1=240.0, theta0=60.0, theta1=120.0,
+                                     n_rows=20, n_cols=40)
+    rcvs = ob.bind_receivers(m.objects)
+    assert len(rcvs) == 1
+    r = rcvs[0]
+    assert (r.mesh_rows, r.mesh_cols) == (20, 40)
+    assert abs(r.angular_bounds[0] - 120.0) < 1e-9
+    assert abs(r.angular_bounds[3] - 120.0) < 1e-9
+    assert r.kind == "farfield"
+def test_insert_writeback_roundtrip():
+    """创建 -> 写回 .lts -> 重解析 -> 区/光源/接收器仍可绑定 (M-UI2b)."""
+    import os, tempfile
+    import lts_parser
+    from lts_model import LTSModel
+    import lts_insert
+    import lts_optics_bind as ob
+    m = LTSModel()
+    lts_insert.create_solid(m, "cylinder", name="L1", radius=8.0, length=20.0)
+    lts_insert.create_source(m, "cylinder", name="S1", lamp_power=12.0)
+    lts_insert.create_receiver(m, "farfield", name="R1", phi0=120.0, phi1=240.0,
+                                theta0=60.0, theta1=120.0, n_rows=20, n_cols=40)
+    d = tempfile.mkdtemp(prefix="ltsins_")
+    f = os.path.join(d, "out.lts")
+    assert m.save(f)
+    p = lts_parser.LTSParser(open(f, encoding="utf-8").read()).parse()
+    o = p.objects
+    assert not p.warnings
+    assert len(ob.bind_sources(o)) == 1
+    assert len(ob.bind_receivers(o)) == 1
+    zs = ob.zones_for_solid(o, "$ORACylinderObj_1")
+    assert len(zs) >= 3 and all(z.amplitude == "fresnel" for _l, _r, z in zs)

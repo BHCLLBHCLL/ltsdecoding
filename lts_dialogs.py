@@ -6,7 +6,7 @@ from typing import Optional
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (
-    QCheckBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout,
+    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout,
     QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
     QPlainTextEdit, QPushButton, QTableWidget, QTableWidgetItem, QTabWidget,
     QVBoxLayout, QWidget,
@@ -269,6 +269,63 @@ class InsertGeomDialog(QDialog):
         out = {"name": self.name.text().strip() or self.kind.title()}
         for k, w in self._spins.items():
             out[k] = float(w.value())
+        return out
+
+
+class InsertWizardDialog(QDialog):
+    """通用 Insert 向导: 按字段规格生成表单 (M-UI2b).
+
+    fields: list[(key, label, default, kind)]  kind in {"float","combo","text"}.
+    combo: default 为 (label, options_choices) 或 str options 文本.
+    """
+
+    def __init__(self, title: str, fields: list, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.resize(360, 200 if len(fields) < 6 else 340)
+        v = QVBoxLayout(self)
+        form = QFormLayout()
+        self._w: dict[str, QWidget] = {}
+        self._kind: dict[str, str] = {}
+        for key, label, default, kind in fields:
+            self._kind[key] = kind
+            if kind == "float":
+                w = QDoubleSpinBox(self)
+                w.setRange(-1e6, 1e6)
+                w.setDecimals(4)
+                w.setValue(float(default))
+            elif kind == "combo":
+                w = QComboBox(self)
+                if isinstance(default, tuple):
+                    opts = list(default[1])
+                    w.addItems(opts)
+                    i = opts.index(default[0]) if default[0] in opts else 0
+                    w.setCurrentIndex(i)
+                else:
+                    w.addItems(list(default))
+            else:
+                w = QLineEdit(str(default), self)
+            form.addRow(label, w)
+            self._w[key] = w
+        v.addLayout(form)
+        self.write_back = QCheckBox("Write .lts on apply", self)
+        self.write_back.setChecked(True)
+        v.addWidget(self.write_back)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        v.addWidget(bb)
+
+    def values(self) -> dict:
+        out = {}
+        for key, w in self._w.items():
+            kind = self._kind[key]
+            if kind == "float":
+                out[key] = float(w.value())
+            elif kind == "combo":
+                out[key] = w.currentText()
+            else:
+                out[key] = w.text().strip()
         return out
 
 

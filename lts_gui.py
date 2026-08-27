@@ -427,12 +427,19 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("export_stl", lambda: self._export_cad("stl"))
         b.bind("export_sat", lambda: self._export_cad("sat"))
         b.bind("export_step", lambda: self._export_cad("step"))
-        b.bind("mech_block", lambda: self._insert_kind("block"))
-        b.bind("mech_sphere", lambda: self._insert_kind("sphere"))
-        b.bind("mech_cylinder", lambda: self._insert_kind("cylinder"))
-        b.bind("mech_toroid", lambda: self._insert_kind("toroid"))
+        b.bind("mech_block", lambda: self._insert_kind("mech_block"))
+        b.bind("mech_sphere", lambda: self._insert_kind("mech_sphere"))
+        b.bind("mech_cylinder", lambda: self._insert_kind("mech_cylinder"))
+        b.bind("mech_toroid", lambda: self._insert_kind("mech_toroid"))
         b.bind("dummy_plane", lambda: self._insert_kind("block"))
         b.bind("src_point", self._insert_point_source)
+        b.bind("src_cyl_surf", lambda: self._insert_source("cylinder"))
+        b.bind("src_sph_surf", lambda: self._insert_source("sphere"))
+        b.bind("src_blk_surf", lambda: self._insert_source("block"))
+        b.bind("rcv_farfield", lambda: self._insert_receiver("farfield"))
+        b.bind("rcv_surface", lambda: self._insert_receiver("plane"))
+        b.bind("rcv_primitive", lambda: self._insert_receiver("plane"))
+        b.bind("rcv_solid", lambda: self._insert_receiver("plane"))
         b.bind("show_all_desc", self._show_all)
 
         orig = self.bus.run
@@ -1199,28 +1206,160 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         self.renderer.GetRenderWindow().Render()
 
     def _insert_kind(self, kind: str) -> None:
+        """Insert 光学/机械实体: 参数向导 -> create_solid(逐面区) -> 写回+重算."""
         if self.model is None:
             self.model = LTSModel()
+        import lts_insert
+        geom = kind.replace("mech_", "")
+        optical = not kind.startswith("mech")
         params = {}
         if self.isVisible():
-            dlg = InsertGeomDialog(kind, self)
+            dlg = InsertGeomDialog(geom, self)
             if dlg.exec_() != dlg.Accepted:
                 return
             params = dlg.values()
         name = params.pop("name", None)
         try:
-            oid = self.model.insert_primitive(
-                kind, name=name, position=self._current_point, **params)
+            oid = lts_insert.create_solid(
+                self.model, geom, name=name,
+                position=self._current_point, optical=optical, **params)
         except Exception as e:
             self.log("Insert failed: %s" % e, "ERROR")
             return
         self._undo_stack.append(("insert", oid))
         self._redo_stack.clear()
+        self._after_insert(oid, kind)
+
+    def _insert_source(self, kind: str) -> None:
+        """Insert 表面光源: 灯功率/apodizer/发射面 -> create_source -> 写回+重算."""
+        if self.model is None:
+            self.model = LTSModel()
+        from lts_dialogs import InsertWizardDialog
+        import lts_insert
+        kinds = {"cylinder": ("CylinderSurface", ["FrontSurface",
+                                                  "RearSurface",
+                                                  "CylinderSurface"]),
+                 "sphere": ("SphereSurface", ["SphereSurface"]),
+                 "block": ("FrontSurface", ["LeftSurface", "BackSurface",
+                                            "TopSurface", "FrontSurface",
+                                            "BottomSurface", "RightSurface"])}
+        default_surf, surf_opts = kinds.get(kind, ("FrontSurface", ["FrontSurface"]))
+        fields = [
+            ("name", "Name", "%sSource" % kind.title(), "text"),
+            ("lamp_power", "Lamp power (lm)", 25.0, "float"),
+            ("apodizer", "Direction apodizer",
+             ("Lambertian", ["Lambertian", "Uniform", "Power"]), "combo"),
+            ("emit_surface", "Emitting surface",
+             (default_surf, surf_opts), "combo"),
+        ]
+        if self.isVisible():
+            dlg = InsertWizardDialog("Insert %s Surface Source" % kind.title(),
+                                     fields, self)
+            if dlg.exec_() != dlg.Accepted:
+                return
+            p = dlg.values()
+            write_back = dlg.write_back.isChecked()
+        else:
+            p = {"name": "%sSource" % kind.title(), "lamp_power": 25.0,
+                 "apodizer": "Lambertian", "emit_surface": default_surf}
+            write_back = False
+        try:
+            oid = lts_insert.create_source(
+                self.model, kind, name=p.get("name"),
+                position=self._current_point,
+                lamp_power=float(p.get("lamp_power", 25.0)),
+                apodizer=p.get("apodizer", "Lambertian"),
+                emit_surface=p.get("emit_surface", default_surf))
+        except Exception as e:
+            self.log("Insert source failed: %s" % e, "ERROR")
+            return
+        if write_back:
+            self._write_back()
+        self._after_insert(oid, kind + "source")
+
+    def _insert_receiver(self, kind: str) -> None:
+        """Insert 远场/平面接收器: 角界/网格 -> create_receiver -> 写回+重算."""
+        if self.model is None:
+            self.model = LTSModel()
+        from lts_dialogs import InsertWizardDialog
+        import lts_insert
+        if kind == "farfield":
+            fields = [
+                ("name", "Name", "FarFieldReceiver", "text"),
+                ("phi0", "Phi min (deg)", 0.0, "float"),
+                ("phi1", "Phi max (deg)", 360.0, "float"),
+                ("theta0", "Theta min (deg)", 0.0, "float"),
+                ("theta1", "Theta max (deg)", 180.0, "float"),
+                ("n_rows", "Mesh rows", 30, "float"),
+                ("n_cols", "Mesh cols", 60, "float"),
+            ]
+            if self.isVisible():
+                dlg = InsertWizardDialog("Insert Far Field Receiver", fields, self)
+                if dlg.exec_() != dlg.Accepted:
+                    return
+                p = dlg.values()
+                write_back = dlg.write_back.isChecked()
+            else:
+                p = {"name": "FarFieldReceiver", "phi0": 0.0, "phi1": 360.0,
+                     "theta0": 0.0, "theta1": 180.0, "n_rows": 30, "n_cols": 60}
+                write_back = False
+            oid = lts_insert.create_receiver(
+                self.model, "farfield", name=p.get("name"),
+                position=self._current_point,
+                phi0=float(p.get("phi0", 0.0)), phi1=float(p.get("phi1", 360.0)),
+                theta0=float(p.get("theta0", 0.0)),
+                theta1=float(p.get("theta1", 180.0)),
+                n_rows=int(float(p.get("n_rows", 30))) or 30,
+                n_cols=int(float(p.get("n_cols", 60))) or 60)
+        else:
+            fields = [
+                ("name", "Name", "SurfaceReceiver", "text"),
+                ("x0", "X min", 0.0, "float"),
+                ("x1", "X max", 20.0, "float"),
+                ("y0", "Y min", 0.0, "float"),
+                ("y1", "Y max", 20.0, "float"),
+                ("n_rows", "Mesh rows", 16, "float"),
+                ("n_cols", "Mesh cols", 16, "float"),
+            ]
+            if self.isVisible():
+                dlg = InsertWizardDialog("Insert Surface Receiver", fields, self)
+                if dlg.exec_() != dlg.Accepted:
+                    return
+                p = dlg.values()
+                write_back = dlg.write_back.isChecked()
+            else:
+                p = {"name": "SurfaceReceiver", "x0": 0.0, "x1": 20.0,
+                     "y0": 0.0, "y1": 20.0, "n_rows": 16, "n_cols": 16}
+                write_back = False
+            oid = lts_insert.create_receiver(
+                self.model, "plane", name=p.get("name"),
+                position=self._current_point,
+                plane_bounds=(float(p.get("x0", 0.0)),
+                              float(p.get("x1", 20.0)),
+                              float(p.get("y0", 0.0)),
+                              float(p.get("y1", 20.0))),
+                n_rows=int(float(p.get("n_rows", 16))) or 16,
+                n_cols=int(float(p.get("n_cols", 16))) or 16)
+        if write_back:
+            self._write_back()
+        self._after_insert(oid, kind + "receiver")
+
+    def _write_back(self) -> None:
+        """把新建对象写回 .lts (surgical append create-blocks)."""
+        if self.model is None or not self.model.path:
+            return
+        try:
+            self.model.save()
+            self.log("Write-back saved: %s" % self.model.path)
+        except Exception as e:
+            self.log("Write-back failed: %s" % e, "ERROR")
+
+    def _after_insert(self, oid, label) -> None:
         self.sys_nav.populate(self.model, hidden=self._hidden)
         self._rebuild_scene(fit=False)
         self.sys_nav.select_oid(oid)
         self._mark_dirty()
-        self.log("Inserted %s (%s)" % (kind, oid))
+        self.log("Inserted %s (%s)" % (label, oid))
 
     def _undo(self) -> None:
         if not self._undo_stack:
@@ -1824,10 +1963,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         oid = self.model.insert_mesh(
             "PointSource", pts, tris, kind="source",
             color=(1.0, 0.72, 0.12))
-        self.sys_nav.populate(self.model, hidden=self._hidden)
-        self._rebuild_scene(fit=False)
-        self._mark_dirty()
-        self.log("Inserted point source %s" % oid)
+        self._write_back()
+        self._after_insert(oid, "point source")
 
     def _import_cad(self, kind: str) -> None:
         if self.model is None:

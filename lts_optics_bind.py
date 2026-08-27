@@ -428,7 +428,15 @@ class SurfaceInfoRec:
 def _all_edges(obj, method: str) -> list:
     if obj is None:
         return []
-    return [t for m, t in obj.edges if m == method]
+    out = [t for m, t in obj.edges if m == method]
+    v = obj.props.get(method)
+    if isinstance(v, list):
+        for item in v:
+            if isinstance(item, dict) and "$ref" in item:
+                out.append(item["$ref"])
+    elif isinstance(v, dict) and "$ref" in v:
+        out.append(v["$ref"])
+    return out
 
 
 def _yes(v) -> bool:

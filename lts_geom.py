@@ -111,9 +111,15 @@ def node_frame(obj) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _edge_target(obj, method: str) -> Optional[str]:
+    """边引用; 前向引用会被解析器存为 props {"$ref": oid}, 一并兜底."""
     for m, t in obj.edges:
         if m == method:
             return t
+    v = obj.props.get(method)
+    if isinstance(v, list):
+        v = v[0] if v else None
+    if isinstance(v, dict) and "$ref" in v:
+        return v["$ref"]
     return None
 
 

@@ -223,7 +223,7 @@ LT 3D 视图工具栏（从上到下按图示分区）：**Save｜（Editing）D
 1. 新增 `lts_menus.py` 声明式菜单注册表（**13 菜单 / 198 菜单项**，每项：label / cmd / lt(官方 9.1 命令名) / 快捷键 / 状态）；`lts_gui._build_menus` 重构为从注册表构建。
 2. 自动生成 `ui_command_map.json`（菜单项 ↔ 命令 ↔ handler 三列，随构建刷新）；**136 个官方命令名**经 `official_aliases()` 合并进 `LT_ALIASES`，命令行可直接输入官方名（如 `MeshIllum`、`UnhideAll`）。
 3. 当前覆盖：**82 implemented / 116 NYI**（93 个已注册 handler）；NYI 项保持现有“命令输入→Output 提示”机制。
-4. Insert 三族创建向导仍按计划在 M-UI2b 细化（对话框→`lts_create` 写回）。
+4. Insert 三族创建向导（M-UI2b）：已落地 —— `lts_insert.py` 创建层（光学/机械实体含逐面 PropertyZone、表面光源含灯功率/apodizer/发射面、远场/平面接收器含网格），`InsertWizardDialog` 参数向导，创建后 `model.save()` 做 .lts 写回 + `_rebuild_scene` 重算；写回→重解析→区/光源/接收器绑定端到端验证通过。
 **验收**：198 菜单项 100% 有入口与提示；45% 命令有真实 handler —— 已达成（82/198 = 41%，向导族完成后过 45%）。
 
 ### M-UI3 · 命令调色板对齐 —— ✅ 完成（2026-08-25）
