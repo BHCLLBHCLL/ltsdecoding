@@ -3,6 +3,7 @@
 > 目标：功能完整度与深度均达成与 **LightTools 9.1.0** 100% 对齐
 > 差距基线：见 [function_gap_analysis.md](function_gap_analysis.md)（当前综合覆盖度约 25–30%）
 > 功能清单基准：[`feature_checklist.json`](feature_checklist.json)（9.1：710 命令 + 290 API + 84 宏 + 378 类）
+> **UI 100% 对标规划**：见 [UI_PARITY_PLAN.md](UI_PARITY_PLAN.md)（依据 lt_en_US.dll 资源字符串 / CoreUG 第 3-5 章 / CommandReferenceGuide 命令→调色板路径 / CHM 逆向）
 > 制定日期：2026-08-23（8.7 基准）→ **2026-08-24 升级 9.1 基准；M0/M2 已达成**
 
 ---
