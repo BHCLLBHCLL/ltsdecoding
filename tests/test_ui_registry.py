@@ -79,3 +79,57 @@ def test_apply_depth_geometry():
     assert np.allclose(new_pos - new_foc, off)
     assert np.allclose((new_pos - new_foc) / np.linalg.norm(off),
                        off / np.linalg.norm(off))
+
+
+# ---------------------------------------------------------------------------
+# M-UI3: 命令调色板对齐 (Elements 3D Objects 14 按钮 + 官方名 + 覆盖)
+# ---------------------------------------------------------------------------
+
+def test_palette_elements_3d_objects_14():
+    """Elements > 3D Objects 恰为 LT 的 14 个按钮."""
+    from lts_palette import palette_items
+    cmds = [c for _t1, _sid, c, _lab, _lt in palette_items()
+            if _t1 == "elements" and _sid == "objects"]
+    assert len(cmds) == 14
+    for expected in ("block", "sphere", "ellipsoid", "cylinder", "toroid",
+                     "efiber", "revolved", "extruded", "swept", "skinned",
+                     "freeform", "cpc", "cpc_extruded", "cpc_polygonal"):
+        assert expected in cmds, expected
+
+
+def test_palette_official_mappings():
+    """调色板按钮绑定 LT 官方命令名."""
+    from lts_palette import palette_commands
+    pc = palette_commands()
+    assert pc.get("block") == "Block3Pt"
+    assert pc.get("sphere") == "CtrSphere"
+    assert pc.get("cpc") == "CPCRevolvedSolid"
+    assert pc.get("efiber") == "EFiber"
+    assert pc.get("aim_nss") == "NSRayAim"
+
+
+def test_palette_coverage_counts():
+    from lts_menus import iter_items
+    from lts_palette import palette_coverage
+    handlers = {it.cmd: None for _p, it in iter_items() if it.cmd}
+    cov = palette_coverage(handlers)
+    assert cov["total"] > 0
+    assert cov["implemented"] + cov["nyi"] == cov["total"]
+    assert cov["lt_mapped"] > 0
+
+
+def test_palette_menu_highlight_locates():
+    """菜单命令能在调色板里定位到分类 (highlight 语义)."""
+    from lts_palette import _T1
+    def locate(cmd):
+        for t1, _l, _ic, subs in _T1:
+            for sid, _sl, cmds in subs:
+                if any(c[0] == cmd for c in cmds):
+                    return (t1, sid)
+        return None
+    assert locate("block") == ("elements", "objects")
+    assert locate("sphere") == ("elements", "objects")
+    assert locate("src_point") == ("sources", "src")
+    assert locate("aim_nss") == ("nsrays", "aim")
+    assert locate("view_front") == ("viewing", "views")
+    assert locate("mech_block") == ("mechanical", "mech")

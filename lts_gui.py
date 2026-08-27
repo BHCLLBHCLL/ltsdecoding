@@ -441,7 +441,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             if name.startswith("nyi:"):
                 self._nyi(name[4:])
                 return False
-            if hasattr(self, "view3d") and name not in self.bus._handlers:
+            # 菜单项激活 -> 命令调色板对应按钮高亮 (LT 行为)
+            if hasattr(self, "view3d"):
                 self.view3d.palette.highlight(name)
             return orig(name, *args)
 

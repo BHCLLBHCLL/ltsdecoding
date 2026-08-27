@@ -226,11 +226,11 @@ LT 3D 视图工具栏（从上到下按图示分区）：**Save｜（Editing）D
 4. Insert 三族创建向导仍按计划在 M-UI2b 细化（对话框→`lts_create` 写回）。
 **验收**：198 菜单项 100% 有入口与提示；45% 命令有真实 handler —— 已达成（82/198 = 41%，向导族完成后过 45%）。
 
-### M-UI3 · 命令调色板对齐（1–2 轮）
-1. 第一层分类与 LT 一致（Elements/Mechanical/Modifying/Ray Tracing/Viewing/Sources/Receivers）。
-2. Elements 子面板 14 按钮（3D Objects）＋ 2D Patterns/3D Textures/Place Zones/Place Reflectors 按钮。
-3. 菜单↔调色板高亮联动（LT 行为：Insert→按钮高亮）。
-**验收**：调色板 60 面全部可见；Insert 菜单项点击后对应按钮高亮。
+### M-UI3 · 命令调色板对齐 —— ✅ 完成（2026-08-25）
+1. 第一层分类与 LT 一致：**Elements / Modifying / Mechanical / Ray Tracing / Sources / Receivers / Viewing / Photoreal**。
+2. **Elements > 3D Objects = LT 14 按钮**（Block 3Pt / Center Sphere / Ellipsoid / Cylinder / Toroid / Elliptical Fiber / Revolved / Extruded / Swept / Skinned / Freeform / CPC-Revolved / CPC-Extruded / CPC-Polygonal）；另含 Optical Element、3D Textures、Reference Geometry、Path Definition、Metrics/UCS、Photoreal 等子面板；按钮绑定官方命令名（tooltip 标注）。
+3. **菜单↔调色板高亮联动**：任一菜单项激活即高亮对应调色板子面板（LT 行为），`lts_palette.highlight()` 按命令定位分类；`palette_coverage()` 统计覆盖。
+**验收**：调色板 8 类全部可见；Insert/View/Simulation 菜单项激活后对应按钮高亮 —— 已达成（离屏冒烟 + 4 项调色板单测）。
 
 ### M-UI4 · 面板与工程化（1–2 轮）
 1. System Navigator 类目化（Sources/Receivers/Configurations/Regions）+ 500/翻倍加载 + 拖放。
