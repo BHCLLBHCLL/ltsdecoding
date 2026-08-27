@@ -135,6 +135,19 @@ LT_ALIASES = {
 }
 
 
+def _extend_aliases_from_menus() -> None:
+    """把菜单注册表声明的 官方命令名 -> handler 映射并入别名表."""
+    try:
+        from lts_menus import official_aliases
+        for k, v in official_aliases().items():
+            LT_ALIASES.setdefault(k, v)
+    except Exception:
+        pass
+
+
+_extend_aliases_from_menus()
+
+
 def load_lt_command_names() -> list[str]:
     here = os.path.dirname(os.path.abspath(__file__))
     path = os.path.join(here, "feature_checklist.json")

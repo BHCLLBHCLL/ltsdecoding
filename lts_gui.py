@@ -125,6 +125,9 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         self._selected_oid: Optional[str] = None
         self._orig_prop: dict = {}
         self._current_point = (0.0, 0.0, 0.0)
+        self._depth_point: Optional[tuple] = None
+        self._ucs_point: Optional[tuple] = None
+        self._depth_mode = False
         self._units = "Millimeters"
         self._view3d_seq = 2
         self._props_dlg: Optional[PropertiesDialog] = None
@@ -246,258 +249,15 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                          shortcut=shortcut)
 
     def _build_menus(self) -> None:
-        mb = self.menuBar()
-
-        m = mb.addMenu("&File")
-        self._act(m, "&New Model", "new_model", "Ctrl+N")
-        self._act(m, "&Open…", "open", "Ctrl+O")
-        self._recent_menu = m.addMenu("&Recent Models")
-        self._rebuild_recent_menu()
-        self._act(m, "&Close Model", "close_model")
-        self._act(m, "Close &View", "close_view")
-        m.addSeparator()
-        self._act(m, "&Save", "save", "Ctrl+S")
-        self._act(m, "Save &As…", "save_as")
-        self._act(m, "Save With Ray &Data…", "save_ray_data")
-        self._act(m, "Save L&ibrary…", "save_library")
-        self._act(m, "Load &Library Element…", "load_library")
-        self._act(m, "Load Library Element with Options…", "load_library_opts")
-        m.addSeparator()
-        imp = m.addMenu("I&mport")
-        for label, cmd in (
-            ("&CODE V…", "import_codev"), ("&IGES…", "import_iges"),
-            ("&STEP…", "import_step"), ("&Plain SAT…", "import_sat"),
-            ("&Parasolid…", "import_x_t"), ("&STL…", "import_stl"),
-            ("D&XF…", "import_dxf"), ("CATIA &V4…", "import_catia4"),
-            ("CATIA V&5…", "import_catia5"),
-        ):
-            self._act(imp, label, cmd)
-        exp = m.addMenu("E&xport")
-        for label, cmd in (
-            ("&LightTools…", "export_lts"), ("&CODE V…", "export_codev"),
-            ("&STEP…", "export_step"), ("Plain &SAT…", "export_sat"),
-            ("&Parasolid…", "export_x_t"), ("ST&L…", "export_stl"),
-        ):
-            self._act(exp, label, cmd)
-        m.addSeparator()
-        self._act(m, "&Print…", "print")
-        self._act(m, "Print Set&up…", "print_setup")
-        self._act(m, "&Run…", "run_ext")
-        self._act(m, "Restore En&vironment", "restore_env")
-        self._act(m, "Save &Environment", "save_env")
-        m.addSeparator()
-        self._act(m, "E&xit", "exit")
-
-        m = mb.addMenu("&Edit")
-        self._act(m, "&Undo", "undo", "Ctrl+Z")
-        self._act(m, "&Redo", "redo", "Ctrl+Y")
-        m.addSeparator()
-        self._act(m, "Cu&t", "cut")
-        self._act(m, "&Copy", "copy")
-        self._act(m, "&Paste", "paste")
-        self._act(m, "Copy &Geometry", "copy_geom")
-        self._act(m, "Copy to Clip&board", "copy_clip")
-        m.addSeparator()
-        self._act(m, "&Delete", "delete", "Del")
-        self._act(m, "&Undelete", "undelete")
-        self._act(m, "Select &All", "select_all")
-        self._act(m, "In&vert Selection", "invert_sel")
-        m.addSeparator()
-        self._act(m, "&Properties…", "properties")
-        self._act(m, "Edit All Selected", "edit_all_sel")
-        self._act(m, "Edit All Descendants", "edit_all_desc")
-        m.addSeparator()
-        self._act(m, "&Hide", "hide")
-        self._act(m, "Sho&w", "show")
-        self._act(m, "Show All", "show_all")
-        self._act(m, "Show All Descendants", "show_all_desc")
-        self._act(m, "Swap Hidden/Visible", "swap_hidden")
-        m.addSeparator()
-        self._act(m, "Pre&ferences…", "preferences")
-        self._act(m, "&Immersion Manager…", "immersion")
-        self._act(m, "User &Materials…", "user_materials")
-        self._act(m, "User Coating&s…", "user_coatings")
-        self._act(m, "Optical Prop&erties…", "opt_props")
-
-        m = mb.addMenu("&View")
-        self._act(m, "&2D Design", "view_2d")
-        self._act(m, "&3D Design", "view_3d")
-        self._act(m, "Ima&ging Path", "view_imaging")
-        self._act(m, "&Table View", "table_view")
-        pane = m.addMenu("Pane &Layout")
-        self._act(pane, "&1 Pane", "pane1")
-        self._act(pane, "&4 Pane", "pane4")
-        m.addSeparator()
-        self._act(m, "&Fit", "fit", "F")
-        self._act(m, "Fit &All", "fit_all")
-        self._act(m, "F&it All Same", "fit_all_same")
-        self._act(m, "Fit View to Selected Object", "fit_sel_obj")
-        self._act(m, "Fit View to Selected Surface", "fit_sel_surf")
-        self._act(m, "Zoom &In", "zoom_in")
-        self._act(m, "Zoom &Out", "zoom_out")
-        self._act(m, "Zoom &Window", "zoom_window")
-        m.addSeparator()
-        self._act(m, "&Front", "view_front")
-        self._act(m, "&Side", "view_side")
-        self._act(m, "&Top", "view_top")
-        self._act(m, "&Back", "view_back")
-        self._act(m, "Botto&m", "view_bottom")
-        self._act(m, "&Other Side", "view_other")
-        self._act(m, "&Isometric", "view_iso")
-        self._act(m, "View &UCS", "view_ucs")
-        self._act(m, "&Normal To", "normal_to")
-        self._act(m, "Set &Current Point", "set_current_point")
-        rend = m.addMenu("Render &Mode")
-        self._act(rend, "&Wireframe", "render_wireframe")
-        self._act(rend, "&Solid", "render_solid")
-        self._act(rend, "&Translucent", "render_translucent")
-        self._act(rend, "&Hidden Line", "render_hidden")
-        self._act(m, "&Automatic Rendering", "auto_render")
-        self._act(m, "Show &Through Objects", "show_through")
-        m.addSeparator()
-        self._act(m, "&View Preferences…", "view_prefs")
-        self._act(m, "&UCS Preferences…", "ucs_prefs")
-        m.addSeparator()
-        self._act_nav_sys = self._act(m, "S&ystem Navigator", "nav_system",
-                                      checkable=True)
-        self._act_nav_pref = self._act(m, "&Preferences Navigator", "nav_prefs",
-                                       checkable=True)
-        self._act_nav_win = self._act(m, "&Window Navigator", "nav_window",
-                                      checkable=True)
-        self._act_nav_cfg = self._act(m, "&Configuration Control Panel",
-                                      "nav_config", checkable=True)
-        self._act_nav_out = self._act(m, "&Output", "nav_output", checkable=True)
-
-        m = mb.addMenu("&Imaging")
-        for t in ("&Imaging Paths", "&Field Specification…",
-                  "&Ray Aberration Plot…", "&Spot Diagram…",
-                  "&Pupil Specification", "Set &Entrance Pupil Diameter",
-                  "Set &Object Space NA", "Set &Vignetting"):
-            self._act(m, t, "imaging")
-
-        m = mb.addMenu("&Insert")
-        opt = m.addMenu("&Optical Element")
-        for label, cmd in (
-            ("&Block…", "block"), ("&Sphere…", "sphere"),
-            ("Cy&linder…", "cylinder"), ("&Toroid…", "toroid"),
-            ("&Quick Lens…", "quick_lens"), ("Li&brary Element…", "library_element"),
-            ("&CPC", "cpc"), ("&Freeform…", "freeform"),
-            ("&Revolved…", "revolved"), ("E&xtruded…", "extruded"),
-        ):
-            self._act(opt, label, cmd)
-        mech = m.addMenu("&Mechanical Element")
-        for label, cmd in (
-            ("&Block…", "mech_block"), ("Cy&linder…", "mech_cylinder"),
-            ("&Sphere…", "mech_sphere"), ("&Toroid…", "mech_toroid"),
-        ):
-            self._act(mech, label, cmd)
-        src = m.addMenu("&Source")
-        for label, cmd in (
-            ("&Point", "src_point"), ("Cylinder Surface", "src_cyl_surf"),
-            ("Sphere Surface", "src_sph_surf"), ("Block Surface", "src_blk_surf"),
-            ("Ray Data", "src_raydata"),
-        ):
-            self._act(src, label, cmd)
-        rcv = m.addMenu("&Receiver")
-        for label, cmd in (
-            ("&Surface", "rcv_surface"), ("&Primitive", "rcv_primitive"),
-            ("S&olid", "rcv_solid"), ("&Far Field", "rcv_farfield"),
-        ):
-            self._act(rcv, label, cmd)
-        self._act(m, "&Dummy Surface", "dummy_plane")
-        self._act(m, "&Reference Geometry", "ref_cs")
-        self._act(m, "Text Annotation", "text_annot")
-
-        m = mb.addMenu("&Ray Trace")
-        for t, c in (
-            ("Aim NS Ray", "aim_nss"), ("Aim Fan", "aim_fan"),
-            ("Aim Grid", "aim_grid"), ("Aim Point Grid", "aim_point_grid"),
-            ("Aim Virtual Grid", "aim_virtual_grid"),
-            ("Begin &Forward Simulation", "begin_fwd"),
-            ("Begin &Backward Simulation", "begin_bwd"),
-            ("Begin &All Simulations", "begin_all_sim"),
-            ("&Continue Simulation", "continue_sim"),
-            ("Quick Ray Preview", "quick_preview"),
-            ("Ray Display", "ray_display"),
-            ("Rese&t All Random Seeds", "reset_seeds"),
-            ("&Precision Ray Trace", "rt_precision"),
-            ("&Accelerated Ray Trace", "rt_accel"),
-        ):
-            self._act(m, t, c)
-
-        m = mb.addMenu("&Analysis")
-        for t, c in (
-            ("I&lluminance", "analysis_illum"),
-            ("I&ntensity", "analysis_intensity"),
-            ("&Spatial Luminance", "analysis"),
-            ("&Angular Luminance", "analysis"),
-            ("Lum&Viewer", "analysis"),
-            ("&Encircled Energy", "analysis"),
-            ("C&IE", "analysis"),
-            ("CC&T LumViewer", "analysis"),
-            ("Color &Difference Chart", "analysis"),
-            ("Region Analysis", "analysis"),
-            ("&Add Intensity Mesh", "analysis"),
-            ("&Automotive Test Point Analyzer", "analysis"),
-        ):
-            self._act(m, t, c)
-
-        m = mb.addMenu("&Optimization")
-        for t in ("&Optimize!", "&Variables…", "&Constraints…",
-                  "&Merit Function…", "&Results…", "&Clear Results",
-                  "&Backlight Pattern Optimization"):
-            self._act(m, t, "optimization")
-
-        m = mb.addMenu("&Tolerancing")
-        for t in ("Tolerancing &Manager…", "Tolerance &Sensitivities…",
-                  "Add User Defined &Tolerance Group…"):
-            self._act(m, t, "tolerancing")
-
-        m = mb.addMenu("&Photoreal")
-        for t, c in (
-            ("&New Photoreal View", "pr_view"),
-            ("Place Ca&mera…", "pr_camera"),
-            ("Place &Point Light…", "pr_point"),
-            ("Place &Spot Light…", "pr_spot"),
-            ("S&tart Lit Simulation", "begin_lit"),
-            ("Render &After Lit Simulation", "render_after_lit"),
-        ):
-            self._act(m, t, c)
-
-        m = mb.addMenu("&Tools")
-        for t, c in (
-            ("&Options…", "options"), ("&Run Macro…", "run_macro"),
-            ("&Addins…", "addins"), ("&Glass Catalogs…", "glass_cat"),
-            ("Display Film Library", "film_lib"),
-            ("Example Model Library", "example_lib"),
-            ("LE&D Library", "led_lib"), ("&Source Library", "src_lib"),
-            ("&Utility Library…", "util_lib"),
-            ("SOLIDWORKS Link", "sw_link"),
-            ("&Parameter Analyzer", "param_analyzer"),
-        ):
-            self._act(m, t, c)
-
-        m = mb.addMenu("&Window")
-        self._act(m, "&Tabbed Views", "tabbed_views")
-        self._act(m, "&Floating Views", "floating_views")
-        m.addSeparator()
-        self._act(m, "&Cascade", "cascade")
-        self._act(m, "Tile &Horizontally", "tile_h")
-        self._act(m, "Tile &Vertically", "tile_v")
-        self._act(m, "&Arrange Icons", "arrange")
-        m.addSeparator()
-        self._act(m, "Save View Layout", "save_layout")
-        self._act(m, "Restore View Layout", "restore_layout")
-        self._act(m, "Clear View Layout", "clear_layout")
-
-        m = mb.addMenu("&Help")
-        for t in ("&Contents and Index", "&What's This?",
-                  "Document &Library", "&Release Notes",
-                  "Comman&d Reference Guide", "&API Reference Guide",
-                  "&Macro Reference Guide", "Introductory &Tutorial"):
-            self._act(m, t, "help")
-        m.addSeparator()
-        self._act(m, "&About LightTools", "about")
+        """菜单栏: 由 lts_menus 注册表构建 (菜单项 <=> 命令 <=> handler)."""
+        from lts_menus import build_menu_bar
+        dyn = build_menu_bar(self.menuBar(), self.run_command)
+        self._recent_menu = dyn.get("recent_menu")
+        self._act_nav_sys = dyn.get("nav_system")
+        self._act_nav_pref = dyn.get("nav_prefs")
+        self._act_nav_win = dyn.get("nav_window")
+        self._act_nav_cfg = dyn.get("nav_config")
+        self._act_nav_out = dyn.get("nav_output")
 
     def _tb_action(self, tb, name, text, cmd, tip=None):
         act = QAction(AppIcons.get(name, 20), text, self)
@@ -640,6 +400,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("quick_preview", lambda: self._begin_forward(n_per_source=8, preview=True))
         b.bind("aim_nss", self._aim_nss)
         b.bind("ray_display", self._toggle_ray_display)
+        b.bind("set_depth", self._begin_set_depth)
+        b.bind("ucs_place", self._place_ucs)
         b.bind("reset_seeds", self._reset_seeds)
         b.bind("save_ray_data", self._save_ray_data)
         b.bind("user_materials", self._user_materials)
@@ -1158,6 +920,9 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             pos = self._cell_picker.GetPickPosition()
         except Exception:
             return
+        if self._depth_mode and pos:
+            self._finish_set_depth(pos)
+            return
         if pos:
             self._current_point = tuple(pos)
             h = self.vtk_widget.height() if self.vtk_widget else 0
@@ -1614,6 +1379,56 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                      tab="sim")
         except Exception as e:
             self.log("Aim NS Ray failed: %s" % e, "ERROR", tab="sim")
+
+    def _begin_set_depth(self) -> None:
+        """LT SetDepth: 进入深度点模式, 下一次点击设定视图深度点."""
+        if not self._enable_3d or self.renderer is None:
+            self._nyi("Set Depth")
+            return
+        self._ensure_interactor()
+        self._depth_mode = True
+        self.view3d.set_prompt("Indicate position for depth point.")
+        self.view3d.set_default_command("SetDepth")
+        self.log("Set Depth: click a position for the depth point.", tab="sim")
+
+    def _finish_set_depth(self, pos) -> None:
+        self._depth_mode = False
+        p = (float(pos[0]), float(pos[1]), float(pos[2]))
+        self._depth_point = p
+        try:
+            from lts_view3d import Design3DPage
+            Design3DPage.apply_depth(self.renderer, p)
+        except Exception:
+            pass
+        self.view3d.set_prompt("Indicate entity to select.")
+        self.view3d.set_default_command("Select")
+        self.view3d.set_current_point(p[0], p[1], p[2])
+        self.log("Set Depth: (%.4f, %.4f, %.4f)" % p, tab="sim")
+
+    def _place_ucs(self) -> None:
+        """Place UCS at the current point (坐标轴标架)."""
+        p = self._current_point
+        self._ucs_point = tuple(p)
+        if self._enable_3d and self.renderer is not None:
+            try:
+                import lts_vtk
+                ax = lts_vtk.gizmo_actor(
+                    (p[0], p[1], p[2]),
+                    max(0.02, self._view_scale() * 0.06))
+                self._ucs_actor = ax  # type: ignore[attr-defined]
+                self.renderer.AddActor(ax)
+                self.renderer.GetRenderWindow().Render()
+            except Exception:
+                self._ucs_actor = None
+        self.log("UCS placed at (%.4f, %.4f, %.4f)" % tuple(p), tab="sim")
+
+    def _view_scale(self) -> float:
+        try:
+            b = self.model.geo_boxes[0].bounds if self.model.geo_boxes else (0, 0, 0, 1, 1, 1)
+            import lts_vtk
+            return lts_vtk.bounds_diagonal(b) or 1.0
+        except Exception:
+            return 1.0
 
     def _save_ray_data(self) -> None:
         rs = None

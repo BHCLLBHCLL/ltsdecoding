@@ -1,0 +1,1608 @@
+{
+ "baseline": "Synopsys LightTools 9.1.0",
+ "generated": "2026-08-28T00:18:15",
+ "menus": [
+  "&File",
+  "&Edit",
+  "&View",
+  "&Imaging",
+  "&Insert",
+  "&Ray Trace",
+  "&Analysis",
+  "&Optimization",
+  "&Tolerancing",
+  "&Photoreal",
+  "&Tools",
+  "&Window",
+  "&Help"
+ ],
+ "total": 198,
+ "implemented": 82,
+ "nyi": 116,
+ "entries": [
+  {
+   "path": "&File",
+   "label": "&New Model",
+   "cmd": "new_model",
+   "lt": "",
+   "short": "Ctrl+N",
+   "status": "implemented"
+  },
+  {
+   "path": "&File",
+   "label": "&Open…",
+   "cmd": "open",
+   "lt": "Open",
+   "short": "Ctrl+O",
+   "status": "implemented"
+  },
+  {
+   "path": "&File",
+   "label": "Recent Models",
+   "cmd": "recent_models",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File",
+   "label": "&Close Model",
+   "cmd": "close_model",
+   "lt": "Close",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File",
+   "label": "Close &View",
+   "cmd": "close_view",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File",
+   "label": "&Save",
+   "cmd": "save",
+   "lt": "Save",
+   "short": "Ctrl+S",
+   "status": "implemented"
+  },
+  {
+   "path": "&File",
+   "label": "Save &As…",
+   "cmd": "save_as",
+   "lt": "SaveAs",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File",
+   "label": "Save With Ray &Data…",
+   "cmd": "save_ray_data",
+   "lt": "SaveWithRayData",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File",
+   "label": "Save L&ibrary…",
+   "cmd": "save_library",
+   "lt": "SaveLibrary",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File",
+   "label": "Load &Library Element…",
+   "cmd": "load_library",
+   "lt": "LoadElement",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File",
+   "label": "Load Library Element with Options…",
+   "cmd": "load_library_opts",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File/I&mport",
+   "label": "&CODE V…",
+   "cmd": "import_codev",
+   "lt": "ImportCV",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File/I&mport",
+   "label": "&IGES…",
+   "cmd": "import_iges",
+   "lt": "ImportIGESFile",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File/I&mport",
+   "label": "&STEP…",
+   "cmd": "import_step",
+   "lt": "ImportSTEPFile",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File/I&mport",
+   "label": "&Plain SAT…",
+   "cmd": "import_sat",
+   "lt": "ImportPlainSAT",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File/I&mport",
+   "label": "&Parasolid…",
+   "cmd": "import_x_t",
+   "lt": "ImportParasolidFile",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File/I&mport",
+   "label": "&STL…",
+   "cmd": "import_stl",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File/I&mport",
+   "label": "D&XF…",
+   "cmd": "import_dxf",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File/I&mport",
+   "label": "CATIA &V4…",
+   "cmd": "import_catia4",
+   "lt": "ImportCATIA",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File/I&mport",
+   "label": "CATIA V&5…",
+   "cmd": "import_catia5",
+   "lt": "ImportCATIAv5File",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File/E&xport",
+   "label": "&LightTools…",
+   "cmd": "export_lts",
+   "lt": "Export",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File/E&xport",
+   "label": "&CODE V…",
+   "cmd": "export_codev",
+   "lt": "ExportCV",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File/E&xport",
+   "label": "&STEP…",
+   "cmd": "export_step",
+   "lt": "ExportSTEPFile4",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File/E&xport",
+   "label": "Plain &SAT…",
+   "cmd": "export_sat",
+   "lt": "ExportPlainSAT3",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File/E&xport",
+   "label": "&Parasolid…",
+   "cmd": "export_x_t",
+   "lt": "ExportParasolid3",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File/E&xport",
+   "label": "ST&L…",
+   "cmd": "export_stl",
+   "lt": "ExportSTL2",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File",
+   "label": "&Print…",
+   "cmd": "print",
+   "lt": "Print",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&File",
+   "label": "Print Set&up…",
+   "cmd": "print_setup",
+   "lt": "PrintSetup",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File",
+   "label": "&Run…",
+   "cmd": "run_ext",
+   "lt": "Run",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File",
+   "label": "Restore En&vironment",
+   "cmd": "restore_env",
+   "lt": "RestoreEnv",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File",
+   "label": "Save &Environment",
+   "cmd": "save_env",
+   "lt": "SaveEnv",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&File",
+   "label": "E&xit",
+   "cmd": "exit",
+   "lt": "Exit",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "&Undo",
+   "cmd": "undo",
+   "lt": "Undo",
+   "short": "Ctrl+Z",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "&Redo",
+   "cmd": "redo",
+   "lt": "Redo",
+   "short": "Ctrl+Y",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "Cu&t",
+   "cmd": "cut",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "&Copy",
+   "cmd": "copy",
+   "lt": "Copy",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "&Paste",
+   "cmd": "paste",
+   "lt": "PasteGeometry",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "Copy &Geometry",
+   "cmd": "copy_geom",
+   "lt": "CopyGeometry",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "Copy to Clip&board",
+   "cmd": "copy_clip",
+   "lt": "CopyToClipboard",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Edit",
+   "label": "&Delete",
+   "cmd": "delete",
+   "lt": "Delete",
+   "short": "Del",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "&Undelete",
+   "cmd": "undelete",
+   "lt": "Undelete",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Edit",
+   "label": "Select &All",
+   "cmd": "select_all",
+   "lt": "SelectAll",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "In&vert Selection",
+   "cmd": "invert_sel",
+   "lt": "InvertSelection",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "&Properties…",
+   "cmd": "properties",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "Edit All Selected",
+   "cmd": "edit_all_sel",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Edit",
+   "label": "Edit All Descendants",
+   "cmd": "edit_all_desc",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Edit",
+   "label": "&Hide",
+   "cmd": "hide",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "Sho&w",
+   "cmd": "show",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "Show All",
+   "cmd": "show_all",
+   "lt": "UnhideAll",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "Show All Descendants",
+   "cmd": "show_all_desc",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "Swap Hidden/Visible",
+   "cmd": "swap_hidden",
+   "lt": "SwapHidden",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "Pre&ferences…",
+   "cmd": "preferences",
+   "lt": "UserPreferences",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "&Immersion Manager…",
+   "cmd": "immersion",
+   "lt": "Immersion",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Edit",
+   "label": "User &Materials…",
+   "cmd": "user_materials",
+   "lt": "UserMaterials",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Edit",
+   "label": "User Coating&s…",
+   "cmd": "user_coatings",
+   "lt": "UserCoatings",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Edit",
+   "label": "Optical Prop&erties…",
+   "cmd": "opt_props",
+   "lt": "OpticalProperties",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&2D Design",
+   "cmd": "view_2d",
+   "lt": "New2DDesign",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&View",
+   "label": "&3D Design",
+   "cmd": "view_3d",
+   "lt": "New3DDesign",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "Ima&ging Path",
+   "cmd": "view_imaging",
+   "lt": "ImagPathView",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&View",
+   "label": "&Table View",
+   "cmd": "table_view",
+   "lt": "TableView",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View/Pane &Layout",
+   "label": "&1 Pane",
+   "cmd": "pane1",
+   "lt": "OnePane",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View/Pane &Layout",
+   "label": "&4 Pane",
+   "cmd": "pane4",
+   "lt": "FourPane",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&Fit",
+   "cmd": "fit",
+   "lt": "Fit",
+   "short": "F",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "Fit &All",
+   "cmd": "fit_all",
+   "lt": "FitAll",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "F&it All Same",
+   "cmd": "fit_all_same",
+   "lt": "FitSame",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&View",
+   "label": "Fit View to Selected Object",
+   "cmd": "fit_sel_obj",
+   "lt": "FitSelObject",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "Fit View to Selected Surface",
+   "cmd": "fit_sel_surf",
+   "lt": "FitSelSurf",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&View",
+   "label": "Zoom &In",
+   "cmd": "zoom_in",
+   "lt": "Zoom",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "Zoom &Out",
+   "cmd": "zoom_out",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "Zoom &Window",
+   "cmd": "zoom_window",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&Front",
+   "cmd": "view_front",
+   "lt": "FrontView",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&Side",
+   "cmd": "view_side",
+   "lt": "SideView",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&Top",
+   "cmd": "view_top",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&Back",
+   "cmd": "view_back",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "Botto&m",
+   "cmd": "view_bottom",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&Other Side",
+   "cmd": "view_other",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&View",
+   "label": "&Isometric",
+   "cmd": "view_iso",
+   "lt": "Ziso",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "View &UCS",
+   "cmd": "view_ucs",
+   "lt": "UCSOnCoordSys",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&View",
+   "label": "&Normal To",
+   "cmd": "normal_to",
+   "lt": "NormalToView",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&View",
+   "label": "Set &Current Point",
+   "cmd": "set_current_point",
+   "lt": "SetCurrentPoint",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View/Render &Mode",
+   "label": "&Wireframe",
+   "cmd": "render_wireframe",
+   "lt": "Wireframe",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View/Render &Mode",
+   "label": "&Solid",
+   "cmd": "render_solid",
+   "lt": "Solid",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View/Render &Mode",
+   "label": "&Translucent",
+   "cmd": "render_translucent",
+   "lt": "Translucent",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View/Render &Mode",
+   "label": "&Hidden Line",
+   "cmd": "render_hidden",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&Automatic Rendering",
+   "cmd": "auto_render",
+   "lt": "AutoRenderOn",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&View",
+   "label": "Show &Through Objects",
+   "cmd": "show_through",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&View",
+   "label": "&View Preferences…",
+   "cmd": "view_prefs",
+   "lt": "ViewPreferences",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&UCS Preferences…",
+   "cmd": "ucs_prefs",
+   "lt": "UCSPreferences",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&View",
+   "label": "S&ystem Navigator",
+   "cmd": "nav_system",
+   "lt": "SystemNavigator",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&Preferences Navigator",
+   "cmd": "nav_prefs",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&Window Navigator",
+   "cmd": "nav_window",
+   "lt": "WindowNavigator",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&Configuration Control Panel",
+   "cmd": "nav_config",
+   "lt": "ConfigControlPanel",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "&Output",
+   "cmd": "nav_output",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Imaging",
+   "label": "&Imaging Paths",
+   "cmd": "imaging",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Imaging",
+   "label": "&Field Specification…",
+   "cmd": "imaging",
+   "lt": "FieldSpecification",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Imaging",
+   "label": "&Ray Aberration Plot…",
+   "cmd": "imaging",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Imaging",
+   "label": "&Spot Diagram…",
+   "cmd": "imaging",
+   "lt": "SpotDiagram",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Imaging",
+   "label": "&Pupil Specification",
+   "cmd": "imaging",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Imaging",
+   "label": "Set &Entrance Pupil Diameter",
+   "cmd": "imaging",
+   "lt": "SetEPD",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Imaging",
+   "label": "Set &Object Space NA",
+   "cmd": "imaging",
+   "lt": "SetNAO",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Imaging",
+   "label": "Set &Vignetting",
+   "cmd": "imaging",
+   "lt": "SetVignetting",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Optical Element",
+   "label": "&Block…",
+   "cmd": "block",
+   "lt": "Block3Pt",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Insert/&Optical Element",
+   "label": "&Sphere…",
+   "cmd": "sphere",
+   "lt": "CtrSphere",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Insert/&Optical Element",
+   "label": "Cy&linder…",
+   "cmd": "cylinder",
+   "lt": "Cylinder",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Insert/&Optical Element",
+   "label": "&Toroid…",
+   "cmd": "toroid",
+   "lt": "Toroid",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Insert/&Optical Element",
+   "label": "&Quick Lens…",
+   "cmd": "quick_lens",
+   "lt": "QuickLens",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Optical Element",
+   "label": "Li&brary Element…",
+   "cmd": "library_element",
+   "lt": "LibraryElement",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Optical Element",
+   "label": "&CPC",
+   "cmd": "cpc",
+   "lt": "CPCRevolvedSolid",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Optical Element",
+   "label": "&Freeform…",
+   "cmd": "freeform",
+   "lt": "FreeformSolid",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Optical Element",
+   "label": "&Revolved…",
+   "cmd": "revolved",
+   "lt": "RevolvedSolid",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Optical Element",
+   "label": "E&xtruded…",
+   "cmd": "extruded",
+   "lt": "ExtrudedSolid",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Mechanical Element",
+   "label": "&Block…",
+   "cmd": "mech_block",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Insert/&Mechanical Element",
+   "label": "Cy&linder…",
+   "cmd": "mech_cylinder",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Insert/&Mechanical Element",
+   "label": "&Sphere…",
+   "cmd": "mech_sphere",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Insert/&Mechanical Element",
+   "label": "&Toroid…",
+   "cmd": "mech_toroid",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Insert/&Source",
+   "label": "&Point",
+   "cmd": "src_point",
+   "lt": "PlacePointLight",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Insert/&Source",
+   "label": "Cylinder Surface",
+   "cmd": "src_cyl_surf",
+   "lt": "CylSource",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Source",
+   "label": "Sphere Surface",
+   "cmd": "src_sph_surf",
+   "lt": "SphSource",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Source",
+   "label": "Block Surface",
+   "cmd": "src_blk_surf",
+   "lt": "RectSource",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Source",
+   "label": "Ray Data",
+   "cmd": "src_raydata",
+   "lt": "RaySource",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Receiver",
+   "label": "&Surface",
+   "cmd": "rcv_surface",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Receiver",
+   "label": "&Primitive",
+   "cmd": "rcv_primitive",
+   "lt": "AddPrimitiveReceiver",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Receiver",
+   "label": "S&olid",
+   "cmd": "rcv_solid",
+   "lt": "AddSolidReceiver",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert/&Receiver",
+   "label": "&Far Field",
+   "cmd": "rcv_farfield",
+   "lt": "AddFarFieldReceiver",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert",
+   "label": "&Dummy Surface",
+   "cmd": "dummy_plane",
+   "lt": "DummyPlane",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Insert",
+   "label": "&Reference Geometry",
+   "cmd": "ref_cs",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Insert",
+   "label": "Text Annotation",
+   "cmd": "text_annot",
+   "lt": "Text",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Aim NS Ray",
+   "cmd": "aim_nss",
+   "lt": "NSRayAim",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Aim Fan",
+   "cmd": "aim_fan",
+   "lt": "NSFanAim",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Aim Grid",
+   "cmd": "aim_grid",
+   "lt": "NSGridAim",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Aim Point Grid",
+   "cmd": "aim_point_grid",
+   "lt": "NSGridFromPoint",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Aim Virtual Grid",
+   "cmd": "aim_virtual_grid",
+   "lt": "NSGridFromVirtualPoint",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Begin &Forward Simulation",
+   "cmd": "begin_fwd",
+   "lt": "ForwardSim",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Begin &Backward Simulation",
+   "cmd": "begin_bwd",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Begin &All Simulations",
+   "cmd": "begin_all_sim",
+   "lt": "BeginAllSimulations",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "&Continue Simulation",
+   "cmd": "continue_sim",
+   "lt": "ContinueAllSimulations",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Quick Ray Preview",
+   "cmd": "quick_preview",
+   "lt": "RayPreviewOn",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Ray Display",
+   "cmd": "ray_display",
+   "lt": "RayPath",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Rese&t All Random Seeds",
+   "cmd": "reset_seeds",
+   "lt": "ResetRandomSeed",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "&Precision Ray Trace",
+   "cmd": "rt_precision",
+   "lt": "SetupRTMode",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "&Accelerated Ray Trace",
+   "cmd": "rt_accel",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Analysis",
+   "label": "I&lluminance",
+   "cmd": "analysis_illum",
+   "lt": "MeshIllum",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Analysis",
+   "label": "I&ntensity",
+   "cmd": "analysis_intensity",
+   "lt": "MeshAng",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Analysis",
+   "label": "&Spatial Luminance",
+   "cmd": "analysis",
+   "lt": "LumSpatial",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Analysis",
+   "label": "&Angular Luminance",
+   "cmd": "analysis",
+   "lt": "LumAngular",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Analysis",
+   "label": "Lum&Viewer",
+   "cmd": "analysis",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Analysis",
+   "label": "&Encircled Energy",
+   "cmd": "analysis",
+   "lt": "EncircledEnergyIllum",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Analysis",
+   "label": "C&IE",
+   "cmd": "analysis",
+   "lt": "CIEColorDiffIllumChart",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Analysis",
+   "label": "CC&T LumViewer",
+   "cmd": "analysis",
+   "lt": "CCTLineIllum",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Analysis",
+   "label": "Color &Difference Chart",
+   "cmd": "analysis",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Analysis",
+   "label": "Region Analysis",
+   "cmd": "analysis",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Analysis",
+   "label": "&Add Intensity Mesh",
+   "cmd": "analysis",
+   "lt": "MeshIntensity",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Analysis",
+   "label": "&Automotive Test Point Analyzer",
+   "cmd": "analysis",
+   "lt": "AutomotiveTestPoints",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Optimization",
+   "label": "&Optimize!",
+   "cmd": "optimization",
+   "lt": "Optimize",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Optimization",
+   "label": "&Variables…",
+   "cmd": "optimization",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Optimization",
+   "label": "&Constraints…",
+   "cmd": "optimization",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Optimization",
+   "label": "&Merit Function…",
+   "cmd": "optimization",
+   "lt": "AddMeshMeritFunction",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Optimization",
+   "label": "&Results…",
+   "cmd": "optimization",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Optimization",
+   "label": "&Clear Results",
+   "cmd": "optimization",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Optimization",
+   "label": "&Backlight Pattern Optimization",
+   "cmd": "optimization",
+   "lt": "BacklightPatternOptimization",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tolerancing",
+   "label": "Tolerancing &Manager…",
+   "cmd": "tolerancing",
+   "lt": "TolerancingInput",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tolerancing",
+   "label": "Tolerance &Sensitivities…",
+   "cmd": "tolerancing",
+   "lt": "ToleranceSensitivities",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tolerancing",
+   "label": "Add User Defined &Tolerance Group…",
+   "cmd": "tolerancing",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Photoreal",
+   "label": "&New Photoreal View",
+   "cmd": "pr_view",
+   "lt": "PhotorealView",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Photoreal",
+   "label": "Place Ca&mera…",
+   "cmd": "pr_camera",
+   "lt": "PlaceCamera",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Photoreal",
+   "label": "Place &Point Light…",
+   "cmd": "pr_point",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Photoreal",
+   "label": "Place &Spot Light…",
+   "cmd": "pr_spot",
+   "lt": "PlaceSpotLight",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Photoreal",
+   "label": "S&tart Lit Simulation",
+   "cmd": "begin_lit",
+   "lt": "StartLitSim",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Photoreal",
+   "label": "Render &After Lit Simulation",
+   "cmd": "render_after_lit",
+   "lt": "RerunLitSim",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tools",
+   "label": "&Options…",
+   "cmd": "options",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tools",
+   "label": "&Run Macro…",
+   "cmd": "run_macro",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tools",
+   "label": "&Addins…",
+   "cmd": "addins",
+   "lt": "AddIns",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tools",
+   "label": "&Glass Catalogs…",
+   "cmd": "glass_cat",
+   "lt": "GlassCatalogs",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Tools",
+   "label": "Display Film Library",
+   "cmd": "film_lib",
+   "lt": "DisplayFilmLib",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tools",
+   "label": "Example Model Library",
+   "cmd": "example_lib",
+   "lt": "ExampleModelLib",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tools",
+   "label": "LE&D Library",
+   "cmd": "led_lib",
+   "lt": "LEDLib",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tools",
+   "label": "&Source Library",
+   "cmd": "src_lib",
+   "lt": "SourceLib",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tools",
+   "label": "&Utility Library…",
+   "cmd": "util_lib",
+   "lt": "LTUtilLib",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tools",
+   "label": "SOLIDWORKS Link",
+   "cmd": "sw_link",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Tools",
+   "label": "&Parameter Analyzer",
+   "cmd": "param_analyzer",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Window",
+   "label": "&Tabbed Views",
+   "cmd": "tabbed_views",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Window",
+   "label": "&Floating Views",
+   "cmd": "floating_views",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Window",
+   "label": "&Cascade",
+   "cmd": "cascade",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Window",
+   "label": "Tile &Horizontally",
+   "cmd": "tile_h",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Window",
+   "label": "Tile &Vertically",
+   "cmd": "tile_v",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Window",
+   "label": "&Arrange Icons",
+   "cmd": "arrange",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Window",
+   "label": "Save View Layout",
+   "cmd": "save_layout",
+   "lt": "SaveViewLayout",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Window",
+   "label": "Restore View Layout",
+   "cmd": "restore_layout",
+   "lt": "RestoreViewLayout",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Window",
+   "label": "Clear View Layout",
+   "cmd": "clear_layout",
+   "lt": "ClearViewLayout",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Help",
+   "label": "&Contents and Index",
+   "cmd": "help",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Help",
+   "label": "&What's This?",
+   "cmd": "help",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Help",
+   "label": "Document &Library",
+   "cmd": "help",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Help",
+   "label": "&Release Notes",
+   "cmd": "help",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Help",
+   "label": "Comman&d Reference Guide",
+   "cmd": "help",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Help",
+   "label": "&API Reference Guide",
+   "cmd": "help",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Help",
+   "label": "&Macro Reference Guide",
+   "cmd": "help",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Help",
+   "label": "Introductory &Tutorial",
+   "cmd": "help",
+   "lt": "",
+   "short": "",
+   "status": "nyi"
+  },
+  {
+   "path": "&Help",
+   "label": "&About LightTools",
+   "cmd": "about",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  }
+ ]
+}

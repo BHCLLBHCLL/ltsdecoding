@@ -46,6 +46,41 @@ class AppIcons:
         return pen
 
     @classmethod
+    def _draw_depth(cls, p, r, _s=0):
+        p.setPen(cls._pen("#7a3f00", 1.4))
+        p.setBrush(QBrush(QColor("#f4b183")))
+        rect = QRectF(r.center().x() - r.width() * 0.16,
+                      r.center().y() - r.height() * 0.16,
+                      r.width() * 0.32, r.height() * 0.32)
+        p.drawEllipse(rect)
+        p.drawLine(int(r.center().x()), int(r.center().y()),
+                   int(r.right()), int(r.center().y() - r.height() * 0.2))
+
+    @classmethod
+    def _draw_ucs(cls, p, r, _s=0):
+        c = r.center()
+        p.setPen(cls._pen("#c00000", 1.8))
+        p.drawLine(int(c.x()), int(c.y()), int(r.right()), int(c.y()))
+        p.setPen(cls._pen("#2e7d32", 1.8))
+        p.drawLine(int(c.x()), int(c.y()), int(c.x()), int(r.bottom()))
+        p.setPen(cls._pen("#2e75b6", 1.8))
+        p.drawLine(int(c.x()), int(c.y()),
+                   int(c.x() + r.width() * 0.32),
+                   int(c.y() - r.height() * 0.32))
+        p.setPen(cls._pen("#555", 1.2))
+        p.drawText(QRectF(r.left(), r.top() - 4, r.width(), r.height()),
+                   Qt.AlignLeft | Qt.AlignTop, "UCS")
+
+    @classmethod
+    def _draw_rays(cls, p, r, _s=0):
+        c = r.center()
+        p.setPen(cls._pen("#c00000", 1.5))
+        for dx, dy in ((1.0, 0.0), (0.0, 1.0), (-0.8, 0.6), (0.8, 0.6)):
+            p.drawLine(int(c.x()), int(c.y()),
+                       int(c.x() + dx * r.width() * 0.42),
+                       int(c.y() - dy * r.height() * 0.42))
+
+    @classmethod
     def _draw_generic(cls, p, r, _s=0):
         p.setPen(cls._pen("#555"))
         p.setBrush(QBrush(QColor("#dde3ea")))

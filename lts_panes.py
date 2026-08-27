@@ -245,8 +245,10 @@ class PromptBar(QWidget):
 
     def set_coords(self, x: float, y: float, z: float,
                    units: str = "Millimeters") -> None:
+        """Cursor Location (LT 布局图): 光标位置坐标实时显示."""
         self.coords.setText(
-            "(%s) X: %.6f  Y: %.6f  Z: %.6f" % (units, x, y, z))
+            "Cursor Location  (%s) X: %.6f  Y: %.6f  Z: %.6f" % (
+                units, x, y, z))
 
 
 class CommandLine(QWidget):

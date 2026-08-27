@@ -32,7 +32,8 @@ except Exception:  # pragma: no cover
 _TB = [
     ("select", "Select", "select"),
     ("move", "Move", "move"),
-    ("set_depth", "Set Depth", "measure"),
+    ("set_depth", "Set Depth", "depth"),
+    ("ucs_place", "Place UCS", "ucs"),
     ("properties", "Properties", "properties"),
     ("delete", "Delete", "delete"),
     None,
@@ -56,6 +57,7 @@ _TB = [
     ("aim_nss", "Aim NS Ray", "nsray"),
     ("begin_all_sim", "Begin all simulations", "lightning"),
     ("continue_sim", "Continue simulation", "lightning"),
+    ("ray_display", "Ray Display options", "rays"),
     ("begin_lit", "Begin lit simulation", "photoreal"),
 ]
 
@@ -203,6 +205,7 @@ class Design3DPage(QWidget):
             return
         import lts_vtk
         planes = ("yz", "xy", "xz")
+        labels = {"yz": "Side (YZ)", "xy": "Front (XY)", "xz": "Top (XZ)"}
         for r, plane in zip(self.extra_renderers, planes):
             pos, up = lts_vtk.plane_view_camera(plane)
             cam = r.GetActiveCamera()
@@ -218,3 +221,40 @@ class Design3DPage(QWidget):
                 r.ResetCameraClippingRange()
             except Exception:
                 pass
+            self._pane_label(r, labels.get(plane, plane))
+
+    @staticmethod
+    def _pane_label(renderer, text: str) -> None:
+        """在每个窗格角落显示视图名 (LT 风格)."""
+        if renderer is None or vtk is None:
+            return
+        try:
+            ta = vtk.vtkTextActor()
+            ta.SetInput(text)
+            ta.GetTextProperty().SetFontSize(14)
+            ta.GetTextProperty().SetColor(0.35, 0.35, 0.38)
+            ta.GetPositionCoordinate().SetCoordinateSystemToNormalizedViewport()
+            ta.GetPositionCoordinate().SetValue(0.02, 0.955)
+            renderer.AddActor2D(ta)
+        except Exception:
+            pass
+
+    @staticmethod
+    def apply_depth(renderer, point) -> tuple:
+        """LT SetDepth: 指定深度点作为相机焦点/平移参考, 保持观察距离. 
+        返回 (focal, pos)。点 None 时返回当前状态。"""
+        cam = renderer.GetActiveCamera()
+        if point is None:
+            return cam.GetFocalPoint(), cam.GetPosition()
+        pos = list(cam.GetPosition())
+        foc = list(cam.GetFocalPoint())
+        off = [pos[i] - foc[i] for i in range(3)]
+        cam.SetFocalPoint(point[0], point[1], point[2])
+        cam.SetPosition(point[0] + off[0], point[1] + off[1],
+                        point[2] + off[2])
+        try:
+            renderer.ResetCameraClippingRange()
+        except Exception:
+            pass
+        renderer.GetRenderWindow().Render()
+        return cam.GetFocalPoint(), cam.GetPosition()

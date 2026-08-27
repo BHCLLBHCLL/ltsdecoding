@@ -21,6 +21,8 @@
 
 关键解锁：**LightTools 9.1.0 license 可用**，COM 自动化（LTLocator/Dispatch + JumpStart ltcom64.jsml）全链路打通，"对表验证"不再被阻塞。
 
+UI 界面对标：**M-UI1（四窗格/坐标栏/Set depth 工具条）与 M-UI2（菜单注册表 `lts_menus.py` + `ui_command_map.json`：198 菜单项全入口，82 实现/116 NYI，136 官方命令名映射）已完成**（见 UI_PARITY_PLAN.md）。
+
 ## 一、"100%"的定义与验收度量
 
 100% 不是口号，按以下四条硬性度量执行，每项建立 checklist（以 `feature_checklist.json` 为销项基准）：

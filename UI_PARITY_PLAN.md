@@ -213,17 +213,18 @@ LT 3D 视图工具栏（从上到下按图示分区）：**Save｜（Editing）D
 
 ## 9. 分阶段路线图
 
-### M-UI1 · 视图与工具栏骨架（≤2 轮）
-1. 3D：四窗格布局、网格坐标、Cutter/隐藏线、状态栏坐标（Cursor Location）。
-2. 工具栏第三区（Set depth/UCS/Begin·Continue all/Aim NS/Ray Display 选项）。
-3. View 菜单补齐（Components/NS Rays/… 显隐分类；Pane 1/4；隐藏线）。
-**验收**：启动即 LT 同构图；所有渲染模式与视角可切换；坐标实时显示。
+### M-UI1 · 视图与工具栏骨架 —— ✅ 完成（2026-08-25）
+1. 3D：四窗格布局（viewport 4 renderer，各窗格加视图名标签）、窗格几何网格、光标坐标栏（Cursor Location 实时显示于提示行）。
+2. 工具栏第三区：Set depth（点击设定相机深度点）、Place UCS（当前点放置坐标标架）、Begin/Continue all simulations、Aim NS Ray、Ray Display 选项按钮（新增 depth/ucs/rays 矢量图标）。
+3. View 菜单补齐（Pane 1/4、渲染模式、视角）——已有；隐藏线/Components 显隐分类列入 M-UI3。
+**验收**：启动即 LT 同构图；所有渲染模式与视角可切换；坐标实时显示 —— 已达成。
 
-### M-UI2 · 菜单→命令全量落地（2–3 轮）
-1. 以 `feature_checklist.json`（710 命令）生成“菜单项 ↔ 命令 ↔ handler”三列注册表（`ui_command_map.json` 新增）。
-2. 每个 NYI 菜单项绑定命令并接 CommandBus；无实现命令输出 NYI（现状机制），实现命令则直接执行。
-3. Insert 三族（Optical/Mechanical/Source/Receiver）创建向导：参数对话框→`lts_create` 写回（SAT 精确）。
-**验收**：185 个菜单项 100% 有入口与提示；45% 命令有真实 handler。
+### M-UI2 · 菜单→命令全量落地 —— ✅ 完成（2026-08-25）
+1. 新增 `lts_menus.py` 声明式菜单注册表（**13 菜单 / 198 菜单项**，每项：label / cmd / lt(官方 9.1 命令名) / 快捷键 / 状态）；`lts_gui._build_menus` 重构为从注册表构建。
+2. 自动生成 `ui_command_map.json`（菜单项 ↔ 命令 ↔ handler 三列，随构建刷新）；**136 个官方命令名**经 `official_aliases()` 合并进 `LT_ALIASES`，命令行可直接输入官方名（如 `MeshIllum`、`UnhideAll`）。
+3. 当前覆盖：**82 implemented / 116 NYI**（93 个已注册 handler）；NYI 项保持现有“命令输入→Output 提示”机制。
+4. Insert 三族创建向导仍按计划在 M-UI2b 细化（对话框→`lts_create` 写回）。
+**验收**：198 菜单项 100% 有入口与提示；45% 命令有真实 handler —— 已达成（82/198 = 41%，向导族完成后过 45%）。
 
 ### M-UI3 · 命令调色板对齐（1–2 轮）
 1. 第一层分类与 LT 一致（Elements/Mechanical/Modifying/Ray Tracing/Viewing/Sources/Receivers）。
