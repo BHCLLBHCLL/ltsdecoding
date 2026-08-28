@@ -69,7 +69,8 @@ def mesh_to_rows(grid, *, rows=None, cols=None, bounds=None, units="candela",
 # Qt 视图 (需 QApplication)
 # ---------------------------------------------------------------------------
 
-def make_glass_map_dialog(catalog, on_apply=None, parent=None):
+def make_glass_map_dialog(catalog, on_apply=None, parent=None,
+                           on_pick=None):
     from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout,
                                  QLabel, QPushButton, QVBoxLayout)
     import matplotlib.pyplot as plt
@@ -110,6 +111,11 @@ def make_glass_map_dialog(catalog, on_apply=None, parent=None):
         sel.update(name=name, nd=nd, vd=vd)
         status.setText("Glass: %s  Nd=%.5f  Vd=%.2f   (Vd right-to-left)"
                        % (name, nd, vd))
+        if on_pick is not None:
+            try:
+                on_pick(name, nd, vd)
+            except Exception:
+                pass
 
     if pts:
         try:
@@ -125,6 +131,100 @@ def make_glass_map_dialog(catalog, on_apply=None, parent=None):
     bb.addButton(apply_btn, QDialogButtonBox.ActionRole)
     v.addWidget(bb)
     return dlg
+
+
+def make_glass_catalog_dialog(catalog, on_apply=None, parent=None):
+    """Glass Catalogs 对话框: 列表 + Glass Map… + Apply to Selected."""
+    from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QLabel,
+                                 QListWidget, QPushButton, QVBoxLayout)
+    rows = glass_map_data(catalog)
+    dlg = QDialog(parent)
+    dlg.setWindowTitle("Glass Catalogs")
+    dlg.resize(420, 360)
+    v = QVBoxLayout(dlg)
+    lst = QListWidget(dlg)
+    for name, nd, vd in rows:
+        lst.addItem("%-18s  N_d=%.6f  V_d=%.2f" % (name, nd, vd))
+    v.addWidget(lst, 1)
+    sel = {"name": None}
+
+    def on_pick(name, nd, vd):
+        sel["name"] = name
+        for i in range(lst.count()):
+            if lst.item(i).text().startswith(name):
+                lst.setCurrentRow(i)
+                break
+        status.setText("Glass: %s  Nd=%.5f  Vd=%.2f" % (name, nd, vd))
+
+    status = QLabel("Double-click a glass, or use Glass Map to pick.", dlg)
+    v.addWidget(status)
+    lst.itemDoubleClicked.connect(
+        lambda it: (sel.update(name=rows[lst.row(it)][0]),
+                    status.setText("Glass: %s" % sel["name"])))
+    bb = QDialogButtonBox(QDialogButtonBox.Close, dlg)
+    bb.rejected.connect(dlg.close)
+    map_btn = QPushButton("Glass Map…")
+    map_btn.clicked.connect(lambda: make_glass_map_dialog(
+        catalog, on_apply=lambda s: None,
+        on_pick=on_pick, parent=dlg).exec_())
+    bb.addButton(map_btn, QDialogButtonBox.ActionRole)
+    apply_btn = QPushButton("Apply to Selected")
+    apply_btn.clicked.connect(
+        lambda: on_apply(sel.get("name")) if (on_apply and sel.get("name")) else None)
+    bb.addButton(apply_btn, QDialogButtonBox.ActionRole)
+    v.addWidget(bb)
+    return dlg
+
+
+def make_ray_report_dialog(stats, text, parent=None):
+    """Ray Report 汇总对话框 (文本明细)."""
+    from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QLabel,
+                                 QPlainTextEdit, QVBoxLayout)
+    dlg = QDialog(parent)
+    dlg.setWindowTitle("Ray Report")
+    dlg.resize(720, 520)
+    v = QVBoxLayout(dlg)
+    summ = "  ".join("%s=%.4g" % (k, stats[k]) for k in (
+        "launched", "absorbed", "escaped", "conservation") if k in stats)
+    v.addWidget(QLabel("Ray Report  " + summ, dlg))
+    te = QPlainTextEdit(dlg)
+    te.setReadOnly(True)
+    te.setPlainText(text)
+    v.addWidget(te, 1)
+    bb = QDialogButtonBox(QDialogButtonBox.Close, dlg)
+    bb.rejected.connect(dlg.close)
+    v.addWidget(bb)
+    return dlg
+
+
+def ray_report_stats(pack) -> dict:
+    """追迹汇总统计 (纯数据)."""
+    res = pack.get("result")
+    if res is None:
+        return {}
+    out = {
+        "launched": float(res.launched),
+        "absorbed": float(res.absorbed),
+        "escaped": float(res.escaped),
+        "conservation": float(res.absorbed + res.escaped),
+        "n_rays": int(res.n_rays),
+        "n_bounces": int(res.n_bounces),
+    }
+    receivers = []
+    for rr in (pack.get("receivers") or []):
+        grid = rr.get("grid")
+        spec = rr.get("spec")
+        if grid is None:
+            continue
+        receivers.append({
+            "name": spec.name,
+            "rows": grid.get("rows", 0), "cols": grid.get("cols", 0),
+            "total": float(grid.get("total_intensity",
+                                    grid.get("total_flux", 0.0))),
+            "samples": grid.get("n_samples", 0),
+        })
+    out["receivers"] = receivers
+    return out
 
 
 def make_lumviewer_dialog(pack, parent=None):
@@ -165,6 +265,21 @@ def make_lumviewer_dialog(pack, parent=None):
             ax.set_title("%s Illuminance" % spec.name)
             tabs.addTab(FigureCanvasQTAgg(fig), "Illuminance")
             n += 1
+        # 参考差异页签 (traced vs LT mesh)
+        if grid.get("intensity") is not None and grid.get("reference") is not None:
+            ref = np.asarray(grid["reference"], dtype=float)
+            ours = np.asarray(grid["intensity"], dtype=float)
+            if ref.shape == ours.shape and ref.sum() > 0:
+                from lts_charts import diff_grid
+                dfig = plt.figure(figsize=(6.6, 4.4))
+                dax = dfig.add_subplot(1, 1, 1)
+                pm = dax.imshow(diff_grid(ours, ref), origin="upper",
+                                aspect="auto", cmap="RdBu_r",
+                                extent=[*grid.get("bounds", (0, 1, 0, 1))])
+                dfig.colorbar(pm, ax=dax, fraction=0.046, pad=0.04)
+                dax.set_title("%s  (ours - LT reference)" % spec.name)
+                tabs.addTab(FigureCanvasQTAgg(dfig), "Diff vs LT")
+                n += 1
     if n == 0:
         from PyQt5.QtWidgets import QLabel
         tabs.addTab(QLabel("(run a forward simulation first)", dlg), "Empty")

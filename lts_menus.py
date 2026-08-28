@@ -239,6 +239,8 @@ MENUS: List[Menu] = [
         _mi('Ray Display', cmd='ray_display', lt='RayPath'),
         _mi('Rese&t All Random Seeds', cmd='reset_seeds', lt='ResetRandomSeed'),
         None,
+        _mi('Ray Re&port', cmd='ray_report', lt='RayReportOn'),
+        None,
         _mi('&Precision Ray Trace', cmd='rt_precision', lt='SetupRTMode'),
         _mi('&Accelerated Ray Trace', cmd='rt_accel'),
     ]),

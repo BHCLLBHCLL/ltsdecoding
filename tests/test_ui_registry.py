@@ -381,3 +381,39 @@ def test_mui5_commands_bound_and_registry_rises():
                                     '..', 'ui_command_map.json'), encoding='utf-8'))
     imp = sum(1 for e in d['entries'] if e['status'] == 'implemented')
     assert imp >= 134
+
+# ---------------------------------------------------------------------------
+# M-UI5 收尾: Ray Report / 玻璃目录交互 / LumViewer 参考差异
+# ---------------------------------------------------------------------------
+
+def test_ray_report_stats():
+    from lts_views import ray_report_stats
+    class R:
+        launched = 100.0; absorbed = 40.0; escaped = 60.0
+        n_rays = 80; n_bounces = 300
+        face_flux = None
+    pack = {'result': R(), 'receivers': [
+        {'spec': type('S', (), {'name': 'R1'})(),
+         'grid': {'rows': 30, 'cols': 60, 'total_intensity': 8.0, 'n_samples': 54}}]}
+    s = ray_report_stats(pack)
+    assert abs(s['launched'] - 100.0) < 1e-9
+    assert abs(s['conservation'] - 100.0) < 1e-9
+    assert s['n_bounces'] == 300
+    assert len(s['receivers']) == 1 and s['receivers'][0]['rows'] == 30
+
+
+def test_glass_catalog_rows():
+    from lts_views import glass_map_data
+    rows = glass_map_data({})
+    assert rows and len(rows) >= 2
+    assert any(p[0] == 'BK7' for p in rows)
+
+
+def test_mui5_finalize_commands_bound():
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(['t'])
+    from lts_gui import LTSViewer
+    v = LTSViewer(enable_3d=False)
+    for c in ('glass_cat', 'glass_map', 'lumviewer', 'mesh_table', 'ray_report'):
+        assert c in v.bus._handlers, c

@@ -244,8 +244,11 @@ LT 3D 视图工具栏（从上到下按图示分区）：**Save｜（Editing）D
 - **Glass Map**（`lts_views.glass_map_data` + matplotlib 玻璃图）：Vd-Nd 图、Vd 右向左（LT 约定）、点选玻璃→`Apply to Selected` 赋给选中实体并重算场景；菜单 View > Glass Map…。
 - **LumViewer**（`make_lumviewer_dialog`）：接收器结果图多页签（Intensity / Illuminance / 参考差异）。
 - **Mesh Results Table**（`make_mesh_result_dialog` + `mesh_to_rows`）：计数网格转表格 + 导出 CSV；菜单 View > Mesh Results Table。
-- 备注：Ray Report 汇总、Color Viewer（CIE 三角）仍随 P6 色度学接入；绘图底座 `lts_charts.py`（热图/极坐标/CSV）已复用。
-**验收**：玻璃图/结果表/结果视图可见——已达成（3 项数据层单测 + 离屏构造冒烟；实现数 137/201）。
+- **Ray Report 汇总**（`ray_report_stats` + `make_ray_report_dialog`）：launched/absorbed/escaped/conservation/n_rays/bounces + 逐接收器 + 逐面命中峰值；菜单 Ray Trace > Ray Report。
+- **Glass Map ↔ Glass Catalogs 交互**：`make_glass_catalog_dialog`（列表 N_d/V_d）＋ **Glass Map…** 按钮（点选玻璃→列表定位选中），Apply to Selected 赋材质并重算；替代纯文本目录对话框。
+- **LumViewer 参考差异页签**：接收器含 LT 参考网格时输出 “Diff vs LT”（`lts_charts.diff_grid`，RdBu 色标）。
+- 备注：Color Viewer（CIE 三角）仍随 P6 色度学接入；绘图底座 `lts_charts.py` 已复用。
+**验收**：玻璃图/结果表/结果视图/Ray Report 可见——已达成（6 项数据层+绑定单测 + 离屏构造冒烟；实现数 138/202）。
 
 ## 10. 工程与校验机制
 

@@ -457,6 +457,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("glass_map", self._glass_map)
         b.bind("lumviewer", self._lumviewer)
         b.bind("mesh_table", self._mesh_table)
+        b.bind("ray_report", self._ray_report)
         b.bind("table_view", self._table_view)
         b.bind("select_all", self._select_all)
         b.bind("invert_sel", self._invert_selection)
@@ -1262,6 +1263,23 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         dlg = make_mesh_result_dialog(grid, title="Mesh Results", parent=self)
         dlg.exec_()
         self.log("Mesh Results table")
+
+    def _ray_report(self) -> None:
+        """Ray Report: 追迹汇总 (通量守恒/逐面命中/逐接收器)."""
+        if not self._require_trace():
+            return
+        from lts_views import make_ray_report_dialog, ray_report_stats
+        from lts.trace.from_model import format_trace_report
+        stats = ray_report_stats(self._last_trace)
+        text = format_trace_report(self._last_trace)
+        res = self._last_trace["result"]
+        if getattr(res, "face_flux", None) is not None:
+            nz = int((res.face_flux > 0).sum())
+            text += "\n  faces hit   : %d  (peak %.6g)\n" % (
+                nz, float(res.face_flux.max()) if res.face_flux.size else 0.0)
+        dlg = make_ray_report_dialog(stats, text, self)
+        dlg.exec_()
+        self.log("Ray Report")
 
     def _focus_3d(self) -> None:
         self.center_tabs.setCurrentWidget(self.view3d)
@@ -2184,15 +2202,19 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         OpticalPropertiesDialog(name, body, self).exec_()
 
     def _glass_catalog(self) -> None:
-        from ltsoptics.materials import GLASS_CATALOG, glass
-        lines = ["Built-in glass catalog (Sellmeier)"]
-        for name in sorted(GLASS_CATALOG):
-            g = glass(name)
-            vd = g.abbe_dispersion() if g else None
-            lines.append("  %-16s  n_d=%.6f  V_d=%s" % (
-                name, g.n_at(0.5875618) if g else 0.0,
-                ("%.2f" % vd) if vd else "-"))
-        OpticalPropertiesDialog("Glass Catalogs", "\n".join(lines), self).exec_()
+        """Glass Catalogs: 列表 + Glass Map… (点选选玻璃) + Apply to Selected."""
+        from lts_views import make_glass_catalog_dialog
+        from lts_optics_bind import bind_materials
+        catalog = bind_materials(self.model.objects) if self.model else {}
+        dlg = make_glass_catalog_dialog(catalog, on_apply=self._assign_glass,
+                                        parent=self)
+        dlg.exec_()
+        self.log("Glass Catalogs shown (%d glasses)" %
+                 len(self._glass_rows(catalog)))
+
+    def _glass_rows(self, catalog) -> list:
+        from lts_views import glass_map_data
+        return glass_map_data(catalog)
 
     def _require_trace(self) -> bool:
         if self._last_trace is None:

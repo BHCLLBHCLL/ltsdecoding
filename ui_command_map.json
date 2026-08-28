@@ -1,6 +1,6 @@
 {
  "baseline": "Synopsys LightTools 9.1.0",
- "generated": "2026-08-29T00:05:58",
+ "generated": "2026-08-29T00:12:12",
  "menus": [
   "&File",
   "&Edit",
@@ -16,8 +16,8 @@
   "&Window",
   "&Help"
  ],
- "total": 201,
- "implemented": 137,
+ "total": 202,
+ "implemented": 138,
  "nyi": 64,
  "entries": [
   {
@@ -1153,6 +1153,14 @@
    "label": "Rese&t All Random Seeds",
    "cmd": "reset_seeds",
    "lt": "ResetRandomSeed",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&Ray Trace",
+   "label": "Ray Re&port",
+   "cmd": "ray_report",
+   "lt": "RayReportOn",
    "short": "",
    "status": "implemented"
   },
