@@ -240,8 +240,12 @@ LT 3D 视图工具栏（从上到下按图示分区）：**Save｜（Editing）D
 3. **会话环境**：`SaveEnv/RestoreEnv`（QSettings：窗口几何/状态、面板可见性、浮动窗几何、最近文件）；`Save/Restore/Clear View Layout`；**Window**：Floating/Tabbed Views、Cascade/Tile H/Tile V/Arrange（`lts_layout.arrange_rects` 排布浮动窗）；Output 窗右键 Save text As/Clear All Text（已有）。
 **验收**：导航/配置与 LT 分类对表；重启恢复环境 —— 已达成（配置引擎、排布、布局序列化、Navigator 分批 4 项单测 + 离屏冒烟）。
 
-### M-UI5 · 专用视图与结果展示（随 P5/P6 并行）
-Glass Map、LumViewer、网格结果表（照度/强度/亮度）、Ray Report 汇总、Color Viewer。全部分析接线到 `lts_charts.py`（已建成热图/极坐标/CSV）。
+### M-UI5 · 专用视图与结果展示 —— ✅ 部分完成（2026-08-25）
+- **Glass Map**（`lts_views.glass_map_data` + matplotlib 玻璃图）：Vd-Nd 图、Vd 右向左（LT 约定）、点选玻璃→`Apply to Selected` 赋给选中实体并重算场景；菜单 View > Glass Map…。
+- **LumViewer**（`make_lumviewer_dialog`）：接收器结果图多页签（Intensity / Illuminance / 参考差异）。
+- **Mesh Results Table**（`make_mesh_result_dialog` + `mesh_to_rows`）：计数网格转表格 + 导出 CSV；菜单 View > Mesh Results Table。
+- 备注：Ray Report 汇总、Color Viewer（CIE 三角）仍随 P6 色度学接入；绘图底座 `lts_charts.py`（热图/极坐标/CSV）已复用。
+**验收**：玻璃图/结果表/结果视图可见——已达成（3 项数据层单测 + 离屏构造冒烟；实现数 137/201）。
 
 ## 10. 工程与校验机制
 

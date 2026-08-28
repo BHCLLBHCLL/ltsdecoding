@@ -1,6 +1,6 @@
 {
  "baseline": "Synopsys LightTools 9.1.0",
- "generated": "2026-08-28T23:43:46",
+ "generated": "2026-08-29T00:05:58",
  "menus": [
   "&File",
   "&Edit",
@@ -16,8 +16,8 @@
   "&Window",
   "&Help"
  ],
- "total": 198,
- "implemented": 134,
+ "total": 201,
+ "implemented": 137,
  "nyi": 64,
  "entries": [
   {
@@ -704,6 +704,30 @@
    "path": "&View",
    "label": "Show &Through Objects",
    "cmd": "show_through",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "Glass Ma&p…",
+   "cmd": "glass_map",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "Lum&Viewer",
+   "cmd": "lumviewer",
+   "lt": "",
+   "short": "",
+   "status": "implemented"
+  },
+  {
+   "path": "&View",
+   "label": "Mesh Resul&ts Table",
+   "cmd": "mesh_table",
    "lt": "",
    "short": "",
    "status": "implemented"

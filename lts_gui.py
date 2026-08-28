@@ -454,6 +454,9 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("led_lib", self._led_lib)
         b.bind("src_lib", self._src_lib)
         b.bind("util_lib", self._util_lib)
+        b.bind("glass_map", self._glass_map)
+        b.bind("lumviewer", self._lumviewer)
+        b.bind("mesh_table", self._mesh_table)
         b.bind("table_view", self._table_view)
         b.bind("select_all", self._select_all)
         b.bind("invert_sel", self._invert_selection)
@@ -1199,6 +1202,66 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
 
     def _analysis_atp(self) -> None:
         self.log("Automotive Test Point Analyzer (utility in P7)", "WARN")
+
+    # ------------------------------------------------------ M-UI5 专用视图
+    def _glass_map(self) -> None:
+        """Glass Map: Vd-Nd 玻璃图, 点击选玻璃 -> Apply 赋给选中实体."""
+        from lts_views import make_glass_map_dialog
+        from lts_optics_bind import bind_materials
+        catalog = bind_materials(self.model.objects) if self.model else {}
+        dlg = make_glass_map_dialog(catalog, on_apply=self._assign_glass, parent=self)
+        dlg.exec_()
+        self.log("Glass Map view")
+
+    def _assign_glass(self, sel) -> None:
+        name = (sel or {}).get("name")
+        if not name or not self.model or not self._selected_oid:
+            self.log("Apply glass: select a solid first.", "WARN")
+            return
+        oid = self._selected_oid
+        obj = self.model.objects.get(oid)
+        if obj is None:
+            self.log("Selected object is not a solid.", "WARN")
+            return
+        try:
+            self.model.set_prop(oid, "setMaterialName", name)
+            for p in self.model.tess_parts:
+                if p.solid_oid == oid:
+                    p.material = name
+            for b in self.model.geo_boxes:
+                if b.oid == oid:
+                    b.material = name
+            self._rebuild_scene(fit=False)
+            self._mark_dirty()
+            self.log("Assigned glass %s -> %s" % (name, oid))
+        except Exception as e:
+            self.log("Assign glass failed: %s" % e, "ERROR")
+
+    def _lumviewer(self) -> None:
+        """LumViewer: 接收器结果图多页签."""
+        if not self._require_trace():
+            return
+        from lts_views import make_lumviewer_dialog
+        dlg = make_lumviewer_dialog(self._last_trace, self)
+        dlg.exec_()
+        self.log("LumViewer view")
+
+    def _mesh_table(self) -> None:
+        """Mesh Results: 接收器网格结果表 + CSV 导出."""
+        if not self._require_trace():
+            return
+        from lts_views import make_mesh_result_dialog
+        data = self._receiver_chart_data()
+        if data is None:
+            self.log("No receiver mesh in this trace.", "WARN")
+            return
+        grid = {
+            "values": data["values"], "rows": data["rows"], "cols": data["cols"],
+            "bounds": data["bounds"], "units": data["units"],
+        }
+        dlg = make_mesh_result_dialog(grid, title="Mesh Results", parent=self)
+        dlg.exec_()
+        self.log("Mesh Results table")
 
     def _focus_3d(self) -> None:
         self.center_tabs.setCurrentWidget(self.view3d)

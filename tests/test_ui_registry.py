@@ -339,3 +339,45 @@ def test_view_analysis_commands_bound():
               'example_lib', 'film_lib', 'led_lib', 'src_lib', 'util_lib',
               'user_coatings'):
         assert c in v.bus._handlers, c
+
+# ---------------------------------------------------------------------------
+# M-UI5: 专用视图 (Glass Map / LumViewer / Mesh Results) 数据层
+# ---------------------------------------------------------------------------
+
+def test_glass_map_data():
+    from lts_views import glass_map_data
+    pts = glass_map_data({})
+    names = [p[0] for p in pts]
+    assert 'BK7' in names
+    bk = next(p for p in pts if p[0] == 'BK7')
+    assert abs(bk[1] - 1.5168) < 0.02, bk       # Nd
+    assert 55 < bk[2] < 70, bk                  # Vd
+    # 无 Abbe 数的条目被跳过 (恒定玻璃) 且去重
+    assert all(p[2] is not None for p in pts)
+
+
+def test_mesh_to_rows():
+    import numpy as np
+    from lts_views import mesh_to_rows
+    g = np.array([[1.0, 2.0], [3.0, 4.0]])
+    header, data = mesh_to_rows(g, rows=2, cols=2, bounds=(0.0, 360.0, 0.0, 180.0))
+    assert len(header) == 3
+    assert len(data) == 2 and len(data[0]) == 3
+    assert data[0][1] == '1' or abs(float(data[0][1]) - 1.0) < 1e-9
+    # 首列为轴刻度
+    assert data[1][0] != data[0][0]
+
+
+def test_mui5_commands_bound_and_registry_rises():
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(['t'])
+    from lts_gui import LTSViewer
+    v = LTSViewer(enable_3d=False)
+    for c in ('glass_map', 'lumviewer', 'mesh_table'):
+        assert c in v.bus._handlers, c
+    import json
+    d = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    '..', 'ui_command_map.json'), encoding='utf-8'))
+    imp = sum(1 for e in d['entries'] if e['status'] == 'implemented')
+    assert imp >= 134
