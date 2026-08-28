@@ -417,3 +417,48 @@ def test_mui5_finalize_commands_bound():
     v = LTSViewer(enable_3d=False)
     for c in ('glass_cat', 'glass_map', 'lumviewer', 'mesh_table', 'ray_report'):
         assert c in v.bus._handlers, c
+
+# ---------------------------------------------------------------------------
+# 命令实现化: 剖面实体 / 光源瞄准 / 帮助 (第二批量)
+# ---------------------------------------------------------------------------
+
+def test_profile_solid_meshes():
+    """revolve/extrude/swept/skinned/quick_lens 均生成可细化实体."""
+    from lts_model import LTSModel
+    import lts_insert
+    m = LTSModel()
+    for k in ('revolve', 'extruded', 'swept', 'skinned', 'quick_lens'):
+        oid = lts_insert.create_profile_solid(m, k, name='P_' + k)
+        assert oid in m.objects, k
+        part = next((p for p in m.tess_parts if p.solid_oid == oid), None)
+        assert part is not None and len(part.triangles) > 0, k
+    assert len(m.tess_parts) >= 5
+
+
+def test_commands_batch2_bound():
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(['t'])
+    from lts_gui import LTSViewer
+    v = LTSViewer(enable_3d=False)
+    for c in ('revolved', 'extruded', 'swept', 'skinned', 'quick_lens',
+              'freeform', 'library_element', 'ref_cs', 'text_annot',
+              'aim_fan', 'aim_grid', 'aim_point_grid', 'aim_virtual_grid',
+              'src_raydata', 'help'):
+        assert c in v.bus._handlers, c
+    import json
+    d = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    '..', 'ui_command_map.json'), encoding='utf-8'))
+    imp = sum(1 for e in d['entries'] if e['status'] == 'implemented')
+    assert imp >= 150
+
+
+def test_ref_cs_and_text_marker():
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(['t'])
+    from lts_gui import LTSViewer
+    v = LTSViewer(enable_3d=False)
+    v._current_point = (1.0, 2.0, 3.0)
+    v._insert_ref_cs()
+    assert v._ucs_point == (1.0, 2.0, 3.0)

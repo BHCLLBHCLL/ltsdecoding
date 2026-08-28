@@ -458,6 +458,21 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("lumviewer", self._lumviewer)
         b.bind("mesh_table", self._mesh_table)
         b.bind("ray_report", self._ray_report)
+        b.bind("revolved", lambda: self._insert_profile("revolve", "Revolved"))
+        b.bind("extruded", lambda: self._insert_profile("extruded", "Extruded"))
+        b.bind("swept", lambda: self._insert_profile("swept", "Swept"))
+        b.bind("skinned", lambda: self._insert_profile("skinned", "Skinned"))
+        b.bind("quick_lens", lambda: self._insert_profile("quick_lens", "Quick Lens"))
+        b.bind("freeform", self._freeform_import)
+        b.bind("library_element", self._insert_library_element)
+        b.bind("ref_cs", self._insert_ref_cs)
+        b.bind("text_annot", self._insert_text_annot)
+        b.bind("aim_fan", lambda: self._aim_rays("fan"))
+        b.bind("aim_grid", lambda: self._aim_rays("grid"))
+        b.bind("aim_point_grid", lambda: self._aim_rays("grid"))
+        b.bind("aim_virtual_grid", lambda: self._aim_rays("grid"))
+        b.bind("src_raydata", self._insert_ray_data_source)
+        b.bind("help", self._help_docs)
         b.bind("table_view", self._table_view)
         b.bind("select_all", self._select_all)
         b.bind("invert_sel", self._invert_selection)
@@ -1280,6 +1295,157 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         dlg = make_ray_report_dialog(stats, text, self)
         dlg.exec_()
         self.log("Ray Report")
+
+    # ----------------------------------------------- 命令实现化: 图元族/光源/帮助
+    def _insert_profile(self, kind: str, title: str) -> None:
+        """Insert swept/revolve/extrude/skin/quick_lens (剖面实体)."""
+        if self.model is None:
+            self.model = LTSModel()
+        import lts_insert
+        from lts_dialogs import InsertWizardDialog
+        params = {"name": title.lower().replace(" ", "_")}
+        if self.isVisible():
+            dlg = InsertWizardDialog("Insert %s" % title, [
+                ("name", "Name", params["name"], "text"),
+                ("r0", "R0 (mm)", 5.0, "float"),
+                ("r1", "R1 (mm)", 5.0, "float"),
+                ("length", "Length (mm)", 20.0, "float"),
+                ("width", "Width (mm)", 20.0, "float"),
+                ("radius", "Radius (mm)", 15.0, "float"),
+            ], self)
+            if dlg.exec_() != dlg.Accepted:
+                return
+            params = dlg.values()
+        try:
+            oid = lts_insert.create_profile_solid(
+                self.model, kind, name=params.get("name"),
+                position=self._current_point,
+                r0=float(params.get("r0", 5.0)), r1=float(params.get("r1", 5.0)),
+                length=float(params.get("length", 20.0)),
+                width=float(params.get("width", 20.0)),
+                radius=float(params.get("radius", 15.0)),
+                cap=float(params.get("cap", 30.0)))
+        except Exception as e:
+            self.log("Insert %s failed: %s" % (title, e), "ERROR")
+            return
+        if self.isVisible() and getattr(dlg, "write_back", None) and dlg.write_back.isChecked():
+            self._write_back()
+        self._after_insert(oid, "%sSolid" % kind)
+
+    def _freeform_import(self) -> None:
+        """Freeform: 导入 CAD (STL/SAT/STEP/IGES) 作为自由曲面实体."""
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import Freeform", "",
+            "CAD (*.stl *.sat *.step *.stp *.igs *.iges);;All (*)")
+        if not path:
+            return
+        ext = os.path.splitext(path)[1].lower().lstrip(".")
+        kind = {"sat": "sat", "stl": "stl", "step": "step", "stp": "step",
+                "igs": "iges", "iges": "iges"}.get(ext, "stl")
+        try:
+            pts, tris, sat = self._read_cad_file(kind, path)
+        except Exception as e:
+            self.log("Freeform import failed: %s" % e, "ERROR", tab="dx")
+            return
+        if pts is None or len(pts) == 0:
+            self.log("Freeform import produced no triangles.", "WARN", tab="dx")
+            return
+        name = os.path.splitext(os.path.basename(path))[0]
+        oid = self.model.insert_mesh(name, pts, tris, sat_text=sat)
+        self._write_back()
+        self._after_insert(oid, "freeform %s" % name)
+
+    def _insert_library_element(self) -> None:
+        """Library Element: 打开 .lts/.ent 库元素."""
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load Library Element", "",
+            "Library (*.lts *.ent);;All (*)")
+        if path:
+            self.load(path)
+            self.log("Loaded library element: %s" % path)
+
+    def _insert_ref_cs(self) -> None:
+        self._place_ucs()
+        self.log("Reference coordinate system placed at current point")
+
+    def _insert_text_annot(self) -> None:
+        """Text Annotation: 当前点放置文本标注 (标记)."""
+        if self.model is None:
+            self.model = LTSModel()
+        import numpy as np
+        import lts_geom
+        pts, tris = lts_geom._marker_sphere(0.8)
+        pts = lts_vtk.apply_rigid(pts, None, np.array(self._current_point, float))
+        oid = self.model.insert_mesh("TextAnnotation", pts, tris, kind="source",
+                                     color=(0.2, 0.2, 0.9))
+        self._write_back()
+        self._after_insert(oid, "text annotation")
+        self.log("Text annotation at current point")
+
+    def _aim_rays(self, kind: str) -> None:
+        """Aim Fan / Grid: 从当前点沿当前方向发射扇形/网格 NS 射线并显示."""
+        if self.model is None or not self.model.tess_parts:
+            self.log("Load a model before aiming rays.", "WARN")
+            return
+        try:
+            from lts.trace.from_model import scene_from_model, aim_ns_ray, trace_preview
+            scene, meta = scene_from_model(self.model)
+            origin = self._current_point
+            direction = (0.0, 0.0, 1.0)
+            box = self.model.geo_boxes[0].bounds if self.model.geo_boxes else None
+            if box:
+                cx = 0.5 * (box[0] + box[3]); cy = 0.5 * (box[1] + box[4])
+                cz = 0.5 * (box[2] + box[5])
+                d = (cx - origin[0], cy - origin[1], cz - origin[2])
+                if abs(d[0]) + abs(d[1]) + abs(d[2]) > 1e-6:
+                    direction = d
+            if kind == "fan":
+                rays = aim_ns_ray(origin, direction, n=7, spread_deg=9.0)
+            else:
+                rays = []
+                for gx in (-2, -1, 0, 1, 2):
+                    for gy in (-2, -1, 0, 1, 2):
+                        rays.extend(aim_ns_ray(origin, direction, n=1))
+                rays = rays[:49]
+            paths = trace_preview(scene, rays)
+            self._ray_paths = paths
+            self._layer_on["rays"] = True
+            self._rebuild_scene(fit=False)
+            self.log("Aim %s: %d rays -> %d paths" % (kind, len(rays), len(paths)),
+                     tab="sim")
+        except Exception as e:
+            self.log("Aim %s failed: %s" % (kind, e), "ERROR", tab="sim")
+
+    def _insert_ray_data_source(self) -> None:
+        """Ray Data source: 选择 .ray 文件作为射线数据源."""
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select ray data file", "", "Ray data (*.ray);;All (*)")
+        if not path:
+            return
+        if self.model is None:
+            self.model = LTSModel()
+        import numpy as np
+        import lts_geom
+        pts, tris = lts_geom._marker_sphere(1.0)
+        pts = lts_vtk.apply_rigid(pts, None, np.array(self._current_point, float))
+        oid = self.model.insert_mesh("RayDataSource", pts, tris, kind="source",
+                                     color=(0.9, 0.5, 0.2))
+        self._write_back()
+        self._after_insert(oid, "ray data source %s" % os.path.basename(path))
+        self.log("Ray Data source: %s" % path, tab="sim")
+
+    def _help_docs(self) -> None:
+        """Help: 打开 LT 文档库 (Document Library mainmenu PDF)."""
+        p = (r"C:Program FilesOptical Research AssociatesLightTools 9.1.0Doc"
+             r"mainmenu.pdf")
+        if os.path.exists(p):
+            os.startfile(p) if hasattr(os, "startfile") else None
+        else:
+            self.log("LightTools documentation not found.", "WARN")
+        self.log("Help: Document Library")
 
     def _focus_3d(self) -> None:
         self.center_tabs.setCurrentWidget(self.view3d)

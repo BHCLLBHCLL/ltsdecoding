@@ -280,6 +280,128 @@ def create_receiver(model, kind: str, *, name: Optional[str] = None,
     return rcv_oid
 
 
+def create_profile_solid(model, kind: str, *, name: Optional[str] = None,
+                            position=(0.0, 0.0, 0.0), material: str = "BK7",
+                            n_steps: int = 48, **profile) -> str:
+    """由 2D 剖面生成扫掠类实体 (revolve/extrude/skin/swept/quick_lens).
+
+    剖面以 (r,z) (回转) 或 (x,y) (挤出) 多边形表示:
+      revolve     绕 +Z 回转 (支持角度闭合全周)
+      extruded    沿 +Z 挤出
+      swept       沿当前 +Z 直线扫掠 (近似挤出, 先占位)
+      quick_lens  双凸透镜 (r,z 圆弧剖面回转)
+      skinned     两圆环蒙皮 (frustum)
+    网格用 numpy 生成, 经 insert_mesh 挂为通用实体 (可追迹/进出 SAT)。
+    """
+    import numpy as np
+
+    pts, tris = _profile_mesh(kind, n_steps=n_steps, **(profile or {}))
+    if len(pts) == 0 or len(tris) == 0:
+        raise ValueError("profile %s produced no mesh" % kind)
+    oid = model.insert_mesh(name or ("%sSolid" % kind.title()), pts, tris,
+                            material=material, kind="solid")
+    return oid
+
+
+def _profile_mesh(kind: str, *, n_steps: int = 48, r0: float = 5.0,
+                  r1: float = 5.0, length: float = 20.0, width: float = 20.0,
+                  radius: float = 15.0, cap: float = 30.0, _z0: float = 0.0):
+    import numpy as np
+
+    def rings(poly, steps):
+        """poly: [(r,z)] -> 全周回转网格 (verts, tris)."""
+        verts = []
+        n = len(poly)
+        for si in range(steps):
+            th = 2.0 * math.pi * si / steps
+            c, s = math.cos(th), math.sin(th)
+            for (rr, zz) in poly:
+                verts.append((rr * c, rr * s, zz))
+        verts = np.array(verts, dtype=float)
+        tris = []
+        for si in range(steps):
+            nxt = (si + 1) % steps
+            for i in range(n - 1):
+                a = si * n + i
+                b = si * n + i + 1
+                c2 = nxt * n + i + 1
+                d = nxt * n + i
+                tris.append((a, b, c2))
+                tris.append((a, c2, d))
+        return verts, np.array(tris, dtype=np.int32)
+
+    if kind in ("revolve", "swept"):
+        # 默认锥台剖面子集 (r from r0 -> r1 over length)
+        poly = [(r0, _z0), (r1, _z0 + length)]
+        # 加端点封口点 (r=0) 形成实体
+        if r0 > 0:
+            poly.insert(0, (0.0, _z0))
+        if r1 > 0:
+            poly.append((0.0, _z0 + length))
+        return rings(poly, n_steps)
+
+    if kind == "extruded":
+        hw = 0.5 * width
+        quad = [(-hw, -hw), (hw, -hw), (hw, hw), (-hw, hw)]
+        return _extrude(quad, length)
+
+    if kind == "quick_lens":
+        # 双凸 (r,z) 圆弧剖面: 两段弧
+        R = radius
+        half = 0.5 * cap
+        arc_top = [(R * math.sin(t), cap - R * math.cos(t))
+                   for t in [i * (math.pi / 2) / (n_steps // 4)
+                             for i in range(n_steps // 4 + 1)]]
+        arc_top = [p for p in arc_top if p[0] <= r1][:50]
+        arc_bot = [(p[0], 2.0 * cap - p[1]) for p in reversed(arc_top)]
+        # 简化为圆弧 + 边缘
+        poly = arc_top + arc_bot[:-1]
+        return rings(poly, n_steps)
+
+    if kind == "skinned":
+        # 两圆环蒙皮 (frustum r0 -> r1 over length)
+        ringA = [(r0 * math.cos(2 * math.pi * i / 24),
+                  r0 * math.sin(2 * math.pi * i / 24), _z0)
+                 for i in range(24)]
+        ringB = [(r1 * math.cos(2 * math.pi * i / 24),
+                  r1 * math.sin(2 * math.pi * i / 24), _z0 + length)
+                 for i in range(24)]
+        a_c = len(ringA)
+        b_c = len(ringA) + 1
+        verts = ringA + ringB + [(0.0, 0.0, _z0), (0.0, 0.0, _z0 + length)]
+        tris = []
+        n = 24
+        for i in range(n):
+            j = (i + 1) % n
+            tris.append((i, j, n + j))
+            tris.append((i, n + j, n + i))
+            tris.append((i, a_c, j))
+            tris.append((n + i, n + j, b_c))
+        return np.array(verts, dtype=float), np.array(tris, dtype=np.int32)
+
+    return np.zeros((0, 3)), np.zeros((0, 3), np.int32)
+
+
+def _extrude(quad, depth):
+    import numpy as np
+    lo = [(x, y, 0.0) for (x, y) in quad]
+    hi = [(x, y, depth) for (x, y) in quad]
+    n = len(quad)
+    cx = sum(x for x, _y in quad) / n
+    cy = sum(y for _x, y in quad) / n
+    lo_c = len(lo)          # 底盖中心 (lo[n])
+    hi_c = len(lo) + 1      # 顶盖中心
+    verts = lo + hi + [(cx, cy, 0.0), (cx, cy, depth)]
+    tris = []
+    for i in range(n):
+        j = (i + 1) % n
+        tris.append((i, j, n + j))
+        tris.append((i, n + j, n + i))
+        tris.append((i, lo_c, j))            # 底盖 (fan)
+        tris.append((n + i, n + j, hi_c))    # 顶盖 (fan)
+    return np.array(verts, dtype=float), np.array(tris, dtype=np.int32)
+
+
 def insert_roots(model, *oids) -> None:
     """把新建根对象注册到模型写回队列 (子对象经 _persist_inserted 传递)."""
     for oid in oids:

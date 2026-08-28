@@ -1,6 +1,6 @@
 {
  "baseline": "Synopsys LightTools 9.1.0",
- "generated": "2026-08-29T00:12:12",
+ "generated": "2026-08-29T00:18:20",
  "menus": [
   "&File",
   "&Edit",
@@ -17,8 +17,8 @@
   "&Help"
  ],
  "total": 202,
- "implemented": 138,
- "nyi": 64,
+ "implemented": 158,
+ "nyi": 44,
  "entries": [
   {
    "path": "&File",
@@ -890,7 +890,7 @@
    "cmd": "quick_lens",
    "lt": "QuickLens",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Optical Element",
@@ -898,7 +898,7 @@
    "cmd": "library_element",
    "lt": "LibraryElement",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Optical Element",
@@ -914,7 +914,7 @@
    "cmd": "freeform",
    "lt": "FreeformSolid",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Optical Element",
@@ -922,7 +922,7 @@
    "cmd": "revolved",
    "lt": "RevolvedSolid",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Optical Element",
@@ -930,7 +930,7 @@
    "cmd": "extruded",
    "lt": "ExtrudedSolid",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Mechanical Element",
@@ -1002,7 +1002,7 @@
    "cmd": "src_raydata",
    "lt": "RaySource",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Receiver",
@@ -1050,7 +1050,7 @@
    "cmd": "ref_cs",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert",
@@ -1058,7 +1058,7 @@
    "cmd": "text_annot",
    "lt": "Text",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Ray Trace",
@@ -1074,7 +1074,7 @@
    "cmd": "aim_fan",
    "lt": "NSFanAim",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Ray Trace",
@@ -1082,7 +1082,7 @@
    "cmd": "aim_grid",
    "lt": "NSGridAim",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Ray Trace",
@@ -1090,7 +1090,7 @@
    "cmd": "aim_point_grid",
    "lt": "NSGridFromPoint",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Ray Trace",
@@ -1098,7 +1098,7 @@
    "cmd": "aim_virtual_grid",
    "lt": "NSGridFromVirtualPoint",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Ray Trace",
@@ -1570,7 +1570,7 @@
    "cmd": "help",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Help",
@@ -1578,7 +1578,7 @@
    "cmd": "help",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Help",
@@ -1586,7 +1586,7 @@
    "cmd": "help",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Help",
@@ -1594,7 +1594,7 @@
    "cmd": "help",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Help",
@@ -1602,7 +1602,7 @@
    "cmd": "help",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Help",
@@ -1610,7 +1610,7 @@
    "cmd": "help",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Help",
@@ -1618,7 +1618,7 @@
    "cmd": "help",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Help",
@@ -1626,7 +1626,7 @@
    "cmd": "help",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Help",
