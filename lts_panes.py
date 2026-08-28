@@ -320,6 +320,12 @@ class SystemNavigator(QWidget):
         self._tree_click_pos = None
         self._last_check_change = None
         self._hidden_oids: set[str] = set()
+        self.EXPAND_LIMIT = 500
+        self.tree.setDragDropMode(QAbstractItemView.InternalMove)
+        try:
+            self.tree.setDefaultDropAction(Qt.MoveAction)
+        except Exception:
+            pass
 
     def eventFilter(self, obj, event):  # noqa: N802
         if obj is self.tree.viewport() and event.type() in (
@@ -365,8 +371,8 @@ class SystemNavigator(QWidget):
         root = objects.get(model.root) if model.root else None
         if root is None:
             components = self._folder("Components", "cube")
-            for oid in getattr(model, "inserted_oids", []) or []:
-                self._add_solid(components, objects, oid)
+            self._add_capped(components, objects,
+                             list(getattr(model, "inserted_oids", []) or []))
             self._folder("Materials", "material")
             self._folder("Spectral Regions", "folder")
             self._folder("NS Rays", "nsray")
@@ -378,12 +384,14 @@ class SystemNavigator(QWidget):
         components = self._folder("Components", "cube")
         part_db = objects.get(_edge(root, "getGeometryManager") or "")
         seen = set()
+        oids = []
         for oid in _edges(part_db, "restoreObject"):
-            self._add_solid(components, objects, oid)
+            oids.append(oid)
             seen.add(oid)
         for oid in getattr(model, "inserted_oids", []) or []:
             if oid not in seen:
-                self._add_solid(components, objects, oid)
+                oids.append(oid)
+        self._add_capped(components, objects, oids)
         components.setExpanded(True)
 
         mats = self._folder("Materials", "material")
@@ -462,6 +470,55 @@ class SystemNavigator(QWidget):
             self._apply_check(it, oid)
         if prop_str(o, "setIsRayTraceable") == "No":
             it.setForeground(0, QBrush(QColor("#a33")))
+
+    def _add_capped(self, parent: QTreeWidgetItem, objects, oids) -> None:
+        """按 EXPAND_LIMIT 分批显示 + 双击翻倍加载 (LT 行为)."""
+        limit = self.EXPAND_LIMIT
+        shown = oids[:limit]
+        for oid in shown:
+            self._add_solid(parent, objects, oid)
+        if len(oids) > limit:
+            more = QTreeWidgetItem(["… %d more (double-click to load)"
+                                    % (len(oids) - len(shown))])
+            more.setIcon(0, AppIcons.get("folder", 16))
+            more.setForeground(0, QBrush(QColor("#888888")))
+            more.setData(0, Qt.UserRole, ("loadmore", list(oids), len(shown)))
+            parent.addChild(more)
+            self._loadmore_item = more
+
+    def _load_more(self, item, objects) -> None:
+        role = item.data(0, Qt.UserRole)
+        if not (isinstance(role, tuple) and role and role[0] == "loadmore"):
+            return
+        _kind, oids, start = role
+        block = self._block
+        self._block = True
+        parent = item.parent()
+        idx = parent.indexOfChild(item) if parent is not None else -1
+        extra = oids[start:start + self.EXPAND_LIMIT]
+        for oid in extra:
+            o = objects.get(oid)
+            it = QTreeWidgetItem([_name_of(o, oid) if o else oid])
+            it.setIcon(0, AppIcons.get(_icon_for_cls(o.cls) if o else "cube", 16))
+            it.setToolTip(0, "%s\n%s" % (o.cls if o else "", oid))
+            it.setData(0, Qt.UserRole, ("solid", oid, oid))
+            self._items_by_oid[oid] = it
+            self._apply_check(it, oid)
+            if parent is not None:
+                if idx >= 0:
+                    parent.insertChild(idx, it)
+                    idx += 1
+                else:
+                    parent.addChild(it)
+        remaining = len(oids) - (start + len(extra))
+        if remaining > 0:
+            item.setText(0, "… %d more (double-click to load)" % remaining)
+            item.setData(0, Qt.UserRole, ("loadmore", list(oids),
+                                          start + len(extra)))
+        else:
+            if parent is not None:
+                parent.removeChild(item)
+        self._block = block
 
     def _add_solid(self, parent: QTreeWidgetItem, objects, oid: str) -> None:
         o = objects.get(oid)
@@ -630,6 +687,13 @@ class SystemNavigator(QWidget):
             self.item_selected.emit(kind, oid, solid)
 
     def _on_dbl(self, item, _col) -> None:
+        role = item.data(0, Qt.UserRole)
+        if isinstance(role, tuple) and role and role[0] == "loadmore":
+            try:
+                self._load_more(item, self.model.objects)
+            except Exception:
+                pass
+            return
         kind, oid, solid = self._role(item)
         if not oid:
             return
@@ -666,27 +730,95 @@ class SystemNavigator(QWidget):
                 lambda: self.action_requested.emit("delete", solid or oid))
         menu.addSeparator()
         menu.addAction("Sort Alphabetically").triggered.connect(
-            lambda: self.action_requested.emit("sort", None))
+            lambda: self._sort_children(item))
         menu.exec_(self.tree.viewport().mapToGlobal(pos))
+
+    def _sort_children(self, item) -> None:
+        if item is None:
+            item = self.tree.topLevelItem(0) if self.tree.topLevelItemCount() else None
+        if item is None:
+            return
+        children = [item.child(i) for i in range(item.childCount())]
+        children.sort(key=lambda c: c.text(0).lower())
+        for i, c in enumerate(children):
+            item.takeChild(item.indexOfChild(c))
+        for c in children:
+            item.addChild(c)
 
 
 class ConfigPanel(QWidget):
-    """Configuration Control Panel."""
+    """Configuration Control Panel (配置引擎驱动)."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         v = QVBoxLayout(self)
         v.setContentsMargins(4, 4, 4, 4)
-        v.addWidget(QLabel("Current Configuration", self))
+        self.engine = None
+        self._label = QLabel("Current Configuration", self)
+        v.addWidget(self._label)
         self.list = QListWidget(self)
-        self.list.addItem(QListWidgetItem("1: Configuration 1"))
-        self.list.setCurrentRow(0)
+        self.list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.list.customContextMenuRequested.connect(self._ctx)
+        self.list.itemDoubleClicked.connect(self._activate)
         v.addWidget(self.list)
 
-    def reset(self) -> None:
+    def set_engine(self, engine) -> None:
+        self.engine = engine
+        self.refresh()
+
+    def refresh(self) -> None:
         self.list.clear()
-        self.list.addItem(QListWidgetItem("1: Configuration 1"))
-        self.list.setCurrentRow(0)
+        if self.engine is None:
+            self._label.setText("Current Configuration: (none)")
+            return
+        cur = self.engine.current()
+        last = self.engine.last_sim()
+        for name, tag in self.engine.list_configs():
+            suffix = {"current": "  [current]", "last_sim": "  [last simulation]"}.get(tag, "")
+            self.list.addItem(QListWidgetItem("%s%s" % (name, suffix)))
+        self._label.setText("Configuration: %s | last sim: %s" % (
+            cur or "(none)", last or "—"))
+
+    def _activate(self, item, _col) -> None:
+        name = item.text(0).split("  [")[0]
+        if self.engine is not None and self.engine.activate(name):
+            self.refresh()
+
+    def _ctx(self, pos) -> None:
+        menu = QMenu(self)
+        act_new = menu.addAction("New Configuration…")
+        act_del = menu.addAction("Delete Configuration")
+        act_cur = menu.addAction("Mark current")
+        chosen = menu.exec_(self.list.mapToGlobal(pos))
+        if chosen is None or self.engine is None:
+            return
+        if chosen is act_new:
+            self._create()
+        elif chosen is act_del:
+            item = self.list.currentItem()
+            if item is not None:
+                self.engine.delete(item.text(0).split("  [")[0])
+                self.refresh()
+        elif chosen is act_cur:
+            item = self.list.currentItem()
+            if item is not None:
+                self.engine.activate(item.text(0).split("  [")[0])
+                self.refresh()
+
+    def _create(self) -> None:
+        from PyQt5.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, "New Configuration", "Name:")
+        if ok and self.engine is not None:
+            self.engine.create(name)
+            self.refresh()
+
+    def mark_last_sim(self, name: str) -> None:
+        if self.engine is not None:
+            self.engine.mark_last_sim(name)
+        self.refresh()
+
+    def reset(self) -> None:
+        self.refresh()
 
 
 class PreferencesNavigator(QWidget):

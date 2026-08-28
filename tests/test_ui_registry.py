@@ -205,3 +205,91 @@ def test_insert_writeback_roundtrip():
     assert len(ob.bind_receivers(o)) == 1
     zs = ob.zones_for_solid(o, "$ORACylinderObj_1")
     assert len(zs) >= 3 and all(z.amplitude == "fresnel" for _l, _r, z in zs)
+
+# ---------------------------------------------------------------------------
+# M-UI4: 配置引擎 / 浮动窗排布 / 布局序列化 / Navigator 分批
+# ---------------------------------------------------------------------------
+
+def test_config_engine_lifecycle():
+    from lts_config import ConfigurationEngine
+    class M:
+        objects = {}
+        def set_prop(self, o, k, v):
+            return None
+    e = ConfigurationEngine(M())
+    e.create('High Beam', {'s1': {'setLength': 30.0}})
+    e.create('High Beam')
+    assert e.names() == ['High Beam', 'High Beam_2']
+    assert e.activate('High Beam') is True
+    assert e.current() == 'High Beam'
+    e.mark_last_sim('High Beam')
+    assert e.last_sim() == 'High Beam'
+    tags = dict(e.list_configs())
+    assert tags.get('High Beam') == 'current'
+    e.delete('High Beam')
+    assert 'High Beam' not in e.names()
+    data = e.dump()
+    assert 'configs' in data and 'meta' in data
+
+
+def test_arrange_rects():
+    from lts_layout import arrange_rects
+    r = arrange_rects(4, (0, 0, 400, 300), 'tile_h')
+    assert len(r) == 4
+    assert all(w > 0 and h > 0 for _x, _y, w, h in r)
+    c = arrange_rects(3, (0, 0, 400, 300), 'cascade')
+    assert len(c) == 3
+    assert c[1][0] > c[0][0] and c[1][1] > c[0][1]
+    assert arrange_rects(0, (0, 0, 400, 300)) == []
+
+
+def test_serialize_apply_layout():
+    from lts_layout import serialize_layout, apply_layout
+    class W:
+        def width(self): return 1000
+        def height(self): return 700
+        _pane_visible = {'nav_system': True, 'nav_config': False}
+        _floating = []
+    data = serialize_layout(W())
+    assert data['size'] == [1000, 700]
+    assert data['panes']['nav_system'] is True
+    class W2:
+        _pane_visible = {'nav_system': True}
+        def resize(self, a, b): return None
+    w2 = W2()
+    apply_layout(w2, data)
+    assert w2._pane_visible['nav_system'] is True
+
+
+def test_sysnav_batch_cap():
+    import os
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(['t'])
+    from lts_panes import SystemNavigator
+    nav = SystemNavigator()
+    nav.EXPAND_LIMIT = 2
+    from lts_model import LTSModel
+    import lts_insert
+    m = LTSModel()
+    for i in range(4):
+        lts_insert.create_solid(m, 'block', name='B%d' % i)
+    nav.model = m
+    nav.populate(m)
+    from PyQt5.QtCore import Qt
+    comp = nav.tree.topLevelItem(0)
+
+    def solid_count(node):
+        c = 0
+        for i in range(node.childCount()):
+            role = node.child(i).data(0, Qt.UserRole)
+            if isinstance(role, tuple) and role and role[0] == 'solid':
+                c += 1
+        return c
+
+    assert solid_count(comp) == 2, solid_count(comp)
+    last = comp.child(comp.childCount() - 1)
+    role = last.data(0, Qt.UserRole)
+    assert isinstance(role, tuple) and role[0] == 'loadmore'
+    nav._load_more(last, m.objects)
+    assert solid_count(comp) == 4

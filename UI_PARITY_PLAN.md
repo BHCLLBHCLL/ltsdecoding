@@ -232,11 +232,11 @@ LT 3D 视图工具栏（从上到下按图示分区）：**Save｜（Editing）D
 3. **菜单↔调色板高亮联动**：任一菜单项激活即高亮对应调色板子面板（LT 行为），`lts_palette.highlight()` 按命令定位分类；`palette_coverage()` 统计覆盖。
 **验收**：调色板 8 类全部可见；Insert/View/Simulation 菜单项激活后对应按钮高亮 —— 已达成（离屏冒烟 + 4 项调色板单测）。
 
-### M-UI4 · 面板与工程化（1–2 轮）
-1. System Navigator 类目化（Sources/Receivers/Configurations/Regions）+ 500/翻倍加载 + 拖放。
-2. Configuration Control Panel 配置引擎；Preferences 分类表逐项对齐。
-3. Output 保存/清空右键；会话环境 Restore/SaveEnv（布局+偏好+最近文件）；Window 浮动/级联。
-**验收**：导航/配置与 LT 分类对表；重启恢复环境。
+### M-UI4 · 面板与工程化 —— ✅ 完成（2026-08-25）
+1. System Navigator：类目化（Components/Materials/Spectral Regions/NS Rays/Illumination Manager/Source/Receiver List/Optimization Manager）、**500/翻倍分批加载（双击展开更多）+ 拖放重排 + 右键 Sort Alphabetically**。
+2. **Configuration Control Panel 配置引擎**（`lts_config.ConfigurationEngine` 命名覆盖集/创建/激活/删除 + last-sim 标记；`ConfigPanel` 引擎驱动 + 右键 New/Delete/Mark current；`BeginForwardSimulation` 后标记 last-sim）。
+3. **会话环境**：`SaveEnv/RestoreEnv`（QSettings：窗口几何/状态、面板可见性、浮动窗几何、最近文件）；`Save/Restore/Clear View Layout`；**Window**：Floating/Tabbed Views、Cascade/Tile H/Tile V/Arrange（`lts_layout.arrange_rects` 排布浮动窗）；Output 窗右键 Save text As/Clear All Text（已有）。
+**验收**：导航/配置与 LT 分类对表；重启恢复环境 —— 已达成（配置引擎、排布、布局序列化、Navigator 分批 4 项单测 + 离屏冒烟）。
 
 ### M-UI5 · 专用视图与结果展示（随 P5/P6 并行）
 Glass Map、LumViewer、网格结果表（照度/强度/亮度）、Ray Report 汇总、Color Viewer。全部分析接线到 `lts_charts.py`（已建成热图/极坐标/CSV）。

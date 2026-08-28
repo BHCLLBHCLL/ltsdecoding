@@ -391,6 +391,17 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("nav_prefs", lambda: self._toggle_left_pane(2))
         b.bind("nav_window", lambda: self._toggle_left_pane(3))
         b.bind("nav_output", self._toggle_output)
+        b.bind("save_env", self._save_env)
+        b.bind("restore_env", self._restore_env)
+        b.bind("save_layout", self._save_layout)
+        b.bind("restore_layout", self._restore_layout)
+        b.bind("clear_layout", self._clear_layout)
+        b.bind("cascade", self._cascade)
+        b.bind("tile_h", self._tile_h)
+        b.bind("tile_v", self._tile_v)
+        b.bind("arrange", self._arrange)
+        b.bind("floating_views", self._floating_views)
+        b.bind("tabbed_views", self._tabbed_views)
         b.bind("about", lambda: about_box(self))
         b.bind("preferences", lambda: self._open_prefs("Preferences"))
         b.bind("refresh", self._refresh)
@@ -497,6 +508,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         self._last_trace = None
         self.sys_nav.populate(self.model, hidden=self._hidden)
         self.config_panel.reset()
+        self._load_config_panel()
         self._remember(os.path.abspath(path))
         self._units = self.model.units
         n_tri = sum(b.n_tris for b in self.model.geo_boxes)
@@ -530,6 +542,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         self.sys_nav.populate(self.model, hidden=self._hidden)
         self._rebuild_scene(fit=True)
         self._set_title()
+        self._load_config_panel()
         self.log("New model")
 
     def _close_model(self) -> None:
@@ -722,6 +735,179 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
 
     def _toggle_output(self) -> None:
         self._output_pane.setVisible(not self._output_pane.isVisible())
+
+    # ------------------------------------------------------------ M-UI4: 配置/布局
+    def _config_engine(self):
+        from lts_config import ConfigurationEngine
+        if self.model is None:
+            self.model = LTSModel()
+        if getattr(self, "config_engine", None) is None or \
+                self.config_engine.model is not self.model:
+            self.config_engine = ConfigurationEngine(self.model)
+            self.config_panel.set_engine(self.config_engine)
+        return self.config_engine
+
+    def _load_config_panel(self) -> None:
+        """载入模型后初始化配置面板."""
+        try:
+            eng = self._config_engine()
+            self.config_panel.refresh()
+        except Exception:
+            pass
+
+    def _save_env(self) -> None:
+        """保存环境: 窗口几何/状态 + 面板可见性 + 最近文件 (QSettings)."""
+        try:
+            from lts_layout import serialize_layout
+            s = QSettings("ltsdecoding", "LightTools")
+            s.setValue("geometry", self.saveGeometry())
+            s.setValue("windowState", self.saveState())
+            panes = {
+                "nav_system": self.sys_nav.isVisible(),
+                "nav_prefs": self.pref_nav.isVisible(),
+                "nav_window": self.win_nav.isVisible(),
+                "nav_config": self.config_panel.isVisible(),
+                "nav_output": self._output_pane.isVisible(),
+            }
+            s.setValue("panes", panes)
+            s.setValue("layout", serialize_layout(self))
+            s.setValue("recent", self._recent_paths())
+            s.sync()
+        except Exception as e:
+            self.log("Save environment failed: %s" % e, "ERROR")
+            return
+        self.log("Environment saved (layout/panes/recent)")
+
+    def _restore_env(self) -> None:
+        """还原环境: 几何/状态/面板/浮动窗/最近文件."""
+        try:
+            from lts_layout import apply_layout
+            s = QSettings("ltsdecoding", "LightTools")
+            geo = s.value("geometry")
+            state = s.value("windowState")
+            if geo:
+                self.restoreGeometry(geo)
+            if state:
+                self.restoreState(state)
+            panes = s.value("panes", {}) or {}
+            for key, w in (("nav_system", self.sys_nav),
+                           ("nav_prefs", self.pref_nav),
+                           ("nav_window", self.win_nav),
+                           ("nav_config", self.config_panel),
+                           ("nav_output", self._output_pane)):
+                if key in panes:
+                    w.setVisible(bool(panes[key]))
+            layout = s.value("layout") or {}
+            apply_layout(self, layout)
+            s.setValue("recent", self._recent_paths())
+            s.sync()
+        except Exception as e:
+            self.log("Restore environment failed: %s" % e, "ERROR")
+            return
+        self.log("Environment restored")
+
+    def _floating_list(self):
+        if not hasattr(self, "_floating"):
+            self._floating = []
+        return self._floating
+
+    def _floating_views(self) -> None:
+        """Floating Views: 当前选中标签拆为独立窗口 (-视觉, 可关闭恢复)."""
+        from PyQt5.QtWidgets import QMainWindow
+        idx = self.center_tabs.currentIndex()
+        w = self.center_tabs.widget(idx)
+        if w is None or w is self.console:
+            self.log("Floating: choose a view tab first.", "WARN")
+            return
+        title = self.center_tabs.tabText(idx)
+        self.center_tabs.removeTab(idx)
+        fw = QMainWindow(self)
+        fw.setWindowTitle(title)
+        fw.setCentralWidget(w)
+        fw.resize(760, 560)
+        fw.show()
+        self._floating_list().append(fw)
+        self.log("Floating view: %s" % title)
+
+    def _tabbed_views(self) -> None:
+        """Tabbed Views: 关闭浮动窗, 收回主窗."""
+        for fw in list(self._floating_list()):
+            try:
+                w = fw.centralWidget()
+                fw.close()
+                if w is not None:
+                    self.center_tabs.addTab(w, "3D_Floating")
+                    self.center_tabs.setCurrentWidget(w)
+            except Exception:
+                pass
+        self._floating_list().clear()
+        self._refresh_window_nav()
+
+    def _cascade(self) -> None:
+        self._arrange_floating("cascade")
+
+    def _tile_h(self) -> None:
+        self._arrange_floating("tile_h")
+
+    def _tile_v(self) -> None:
+        self._arrange_floating("tile_v")
+
+    def _arrange(self) -> None:
+        self._arrange_floating("arrange")
+
+    def _arrange_floating(self, mode: str) -> None:
+        from lts_layout import arrange_rects
+        fl = [f for f in self._floating_list() if True]
+        if not fl:
+            self.log("No floating views to arrange.", "WARN")
+            return
+        area = (10, 10, 600, 420)
+        rects = arrange_rects(len(fl), area, mode)
+        for fw, r in zip(fl, rects):
+            try:
+                fw.setGeometry(r[0], r[1], max(r[2], 200), max(r[3], 160))
+            except Exception:
+                pass
+        self.log("Arranged %d floating views (%s)" % (len(fl), mode))
+
+    def _save_layout(self) -> None:
+        """保存视图布局: 中央标签、分屏尺寸、绘制模式."""
+        try:
+            s = QSettings("ltsdecoding", "LightTools")
+            titles = [self.center_tabs.tabText(i)
+                      for i in range(self.center_tabs.count())]
+            sizes = []
+            for sp in ("_main_split", "_right_split"):
+                obj = getattr(self, sp, None)
+                if obj is not None:
+                    try:
+                        sizes.append([int(v) for v in obj.sizes()])
+                    except Exception:
+                        pass
+            s.setValue("layout_tabs", titles)
+            s.setValue("layout_sizes", sizes)
+            s.setValue("layout_mode", self._drawing_mode)
+            s.sync()
+        except Exception as e:
+            self.log("Save layout failed: %s" % e, "ERROR")
+            return
+        self.log("View layout saved")
+
+    def _restore_layout(self) -> None:
+        try:
+            s = QSettings("ltsdecoding", "LightTools")
+            titles = s.value("layout_tabs") or []
+            self.log("Restore layout: %d tabs" % len(titles))
+        except Exception as e:
+            self.log("Restore layout failed: %s" % e, "ERROR")
+            return
+
+    def _clear_layout(self) -> None:
+        s = QSettings("ltsdecoding", "LightTools")
+        for k in ("layout_tabs", "layout_sizes", "layout_mode"):
+            s.remove(k)
+        s.sync()
+        self.log("View layout cleared")
 
     def _focus_3d(self) -> None:
         self.center_tabs.setCurrentWidget(self.view3d)
@@ -1478,6 +1664,10 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             self.log("Forward simulation failed: %s" % e, "ERROR", tab="sim")
             return
         self._last_trace = pack
+        try:
+            self.config_panel.mark_last_sim(self.config_engine.current() or "Default")
+        except Exception:
+            pass
         if preview:
             self._ray_paths = pack.get("paths") or []
             self._layer_on["rays"] = True
