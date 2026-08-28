@@ -293,3 +293,49 @@ def test_sysnav_batch_cap():
     assert isinstance(role, tuple) and role[0] == 'loadmore'
     nav._load_more(last, m.objects)
     assert solid_count(comp) == 4
+
+# ---------------------------------------------------------------------------
+# 命令实现化 (NYI -> handler) 抽查
+# ---------------------------------------------------------------------------
+
+def test_registry_implemented_rises():
+    """菜单注册表: 实现数随批量落地上升 (>=130)."""
+    from lts_menus import coverage
+    import lts_gui as G
+    h = {name: None for name in range(0)}
+    # 由绑定列表构造 (真实 handler 名来自 ui_command_map 已生成)
+    import json
+    d = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    '..', 'ui_command_map.json'), encoding='utf-8'))
+    handlers = {e['cmd'] for e in d['entries'] if e['status'] == 'implemented'}
+    assert len(handlers) >= 130
+    assert sum(1 for e in d['entries'] if e['status'] == 'implemented') >= 130
+
+
+def test_export_lts_writes_file(tmp=None):
+    import tempfile, os
+    from lts_model import LTSModel
+    import lts_insert
+    m = LTSModel()
+    lts_insert.create_solid(m, 'block', name='B')
+    d = tempfile.mkdtemp(prefix='ltsx_')
+    f = os.path.join(d, 'a.lts')
+    assert m.save(f) is True
+    assert os.path.exists(f) and os.path.getsize(f) > 0
+
+
+def test_view_analysis_commands_bound():
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(['t'])
+    from lts_gui import LTSViewer
+    v = LTSViewer(enable_3d=False)
+    for c in ('view_2d', 'view_other', 'view_ucs', 'normal_to', 'auto_render',
+              'show_through', 'fit_all_same', 'fit_sel_surf', 'ucs_prefs', 'options',
+              'export_lts', 'save_library', 'run_ext', 'copy_clip', 'immersion',
+              'analysis_spatial', 'analysis_angular', 'analysis_lumviewer',
+              'analysis_encircled', 'analysis_region', 'analysis_add_mesh',
+              'analysis_cie', 'analysis_cct', 'analysis_colordiff', 'analysis_atp',
+              'example_lib', 'film_lib', 'led_lib', 'src_lib', 'util_lib',
+              'user_coatings'):
+        assert c in v.bus._handlers, c

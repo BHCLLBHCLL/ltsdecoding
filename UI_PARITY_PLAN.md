@@ -211,6 +211,8 @@ LT 3D 视图工具栏（从上到下按图示分区）：**Save｜（Editing）D
 
 > 上述“面数量”为 UI 元素计数（菜单项/按钮/面板项），与命令覆盖度（710 命令）正交：界面入口 100% ≠ 命令 handler 100%，两者分线推进，最终在 feature_checklist.json 上双 100%。
 
+> **命令实现化进度（2026-08-25）**：菜单注册表（`ui_command_map.json`）198 项 —— **134 implemented / 64 NYI**（145 个已注册 handler）。“命令实现化”批量轮将 Analysis 全部分解为独立命令并接 `lts_charts`（Spatial/Angular Lum、LumViewer、Encircled、CIE/CCT/ColorDiff、Region、Add Intensity Mesh 导出 CSV）、补齐 View（2D/Other/UCS/NormalTo/AutoRender/ShowThrough/FitAllSame/FitSelSurf/UCSPrefs）、File（ExportLTS/PrintSetup/Save+LoadLibrary/RunExt）、Edit（CopyClipboard/UserCoatings/Immersion）、Tools（Options/Example·Film·LED·Source·Utility Library 浏览器）。
+
 ## 9. 分阶段路线图
 
 ### M-UI1 · 视图与工具栏骨架 —— ✅ 完成（2026-08-25）

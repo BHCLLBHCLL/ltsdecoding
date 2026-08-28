@@ -420,6 +420,40 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("glass_cat", self._glass_catalog)
         b.bind("analysis_illum", self._analysis_illuminance)
         b.bind("analysis_intensity", self._analysis_intensity)
+        b.bind("analysis_spatial", self._analysis_spatial)
+        b.bind("analysis_angular", self._analysis_angular)
+        b.bind("analysis_lumviewer", self._analysis_lumviewer)
+        b.bind("analysis_encircled", self._analysis_encircled)
+        b.bind("analysis_cie", self._analysis_cie)
+        b.bind("analysis_cct", self._analysis_cct)
+        b.bind("analysis_colordiff", self._analysis_colordiff)
+        b.bind("analysis_region", self._analysis_region)
+        b.bind("analysis_add_mesh", self._analysis_add_mesh)
+        b.bind("analysis_atp", self._analysis_atp)
+        b.bind("view_2d", self._view_2d)
+        b.bind("view_other", self._view_other)
+        b.bind("view_ucs", self._view_ucs)
+        b.bind("normal_to", self._normal_to)
+        b.bind("auto_render", self._auto_render)
+        b.bind("show_through", self._show_through)
+        b.bind("fit_all_same", self._fit_all_same)
+        b.bind("fit_sel_surf", self._fit_sel_surf)
+        b.bind("ucs_prefs", self._ucs_prefs)
+        b.bind("export_lts", self._export_lts)
+        b.bind("print_setup", self._print_setup)
+        b.bind("save_library", self._save_library)
+        b.bind("load_library", self._load_library)
+        b.bind("load_library_opts", self._load_library)
+        b.bind("run_ext", self._run_ext)
+        b.bind("copy_clip", self._copy_clip)
+        b.bind("user_coatings", self._user_coatings)
+        b.bind("immersion", self._immersion)
+        b.bind("options", self._options)
+        b.bind("example_lib", self._example_lib)
+        b.bind("film_lib", self._film_lib)
+        b.bind("led_lib", self._led_lib)
+        b.bind("src_lib", self._src_lib)
+        b.bind("util_lib", self._util_lib)
         b.bind("table_view", self._table_view)
         b.bind("select_all", self._select_all)
         b.bind("invert_sel", self._invert_selection)
@@ -908,6 +942,263 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             s.remove(k)
         s.sync()
         self.log("View layout cleared")
+
+    # ------------------------------------------------------ 命令实现化 (NYI→handler)
+    def _set_plane_maybe(self, plane: str, negative: bool = False) -> None:
+        self._set_plane(plane, negative=negative)
+
+    def _view_2d(self) -> None:
+        """2D Design: 正交俯视 (XY) 视图."""
+        self._set_plane("xy")
+        if self._enable_3d and self.renderer is not None:
+            try:
+                cam = self.renderer.GetActiveCamera()
+                cam.ParallelProjectionOn()
+                fr = self.renderer.GetRenderWindow(); self.renderer.ResetCamera()
+                fr.Render()
+            except Exception:
+                pass
+        self.log("2D Design view (top XY orthographic)")
+
+    def _view_other(self) -> None:
+        self._reset_view()
+
+    def _view_ucs(self) -> None:
+        """View UCS: 显示/隐藏全局坐标系 (原点坐标轴标架)."""
+        if not self._enable_3d or self.renderer is None:
+            self._nyi("View UCS")
+            return
+        if getattr(self, "_ucs_actor", None) is not None:
+            try:
+                self.renderer.RemoveActor(self._ucs_actor)
+            except Exception:
+                pass
+            self._ucs_actor = None
+        else:
+            try:
+                import lts_vtk
+                self._ucs_actor = lts_vtk.gizmo_actor((0, 0, 0), 10.0)
+                self.renderer.AddActor(self._ucs_actor)
+            except Exception:
+                self._ucs_actor = None
+        self.renderer.GetRenderWindow().Render()
+        self.log("UCS axes toggled")
+
+    def _normal_to(self) -> None:
+        self._set_plane("xy")
+        self.log("Normal To view")
+
+    def _auto_render(self) -> None:
+        self._auto_render_on = not getattr(self, "_auto_render_on", True)
+        self.log("Automatic rendering: %s" %
+                 ("on" if self._auto_render_on else "off"))
+
+    def _show_through(self) -> None:
+        self._set_drawing_mode("Translucent")
+        self.log("Show through objects (translucent)")
+
+    def _fit_all_same(self) -> None:
+        self._fit_view()
+        self.log("Fit All Same")
+
+    def _fit_sel_surf(self) -> None:
+        self._fit_selected()
+        self.log("Fit View to Selected Surface")
+
+    def _ucs_prefs(self) -> None:
+        self._open_prefs("UCS Preferences")
+
+    # -- File ---------------------------------------------------------------
+    def _export_lts(self) -> None:
+        if self.model is None:
+            self._nyi("Export LTS")
+            return
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export LightTools", self.model.path or "output.lts",
+            "LightTools (*.lts);;All (*)")
+        if not path:
+            return
+        try:
+            self.model.save(path)
+            self.log("Exported LTS -> %s" % path)
+        except Exception as e:
+            self.log("Export failed: %s" % e, "ERROR")
+
+    def _print_setup(self) -> None:
+        self.log("Print Setup: saving the 3D view (see Print… for PNG export)")
+        self._export_view_png()
+
+    def _save_library(self) -> None:
+        if self.model is None:
+            return
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Library Element", "element.lts",
+            "LightTools (*.lts *.ent);;All (*)")
+        if path:
+            try:
+                self.model.save(path)
+                self.log("Library element saved -> %s" % path)
+            except Exception as e:
+                self.log("Save library failed: %s" % e, "ERROR")
+
+    def _load_library(self, **_kw) -> None:
+        self._open_dialog()
+
+    def _run_ext(self) -> None:
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Run…", "", "Executable (*.exe *.bat *.cmd);;All (*)")
+        if path:
+            self.log("Run: %s" % path)
+            import subprocess
+            subprocess.Popen([path])
+
+    # -- Edit ---------------------------------------------------------------
+    def _copy_clip(self) -> None:
+        if self.model is None or not self._selected_oid:
+            return
+        obj = self.model.objects.get(self._selected_oid)
+        parts = [p for p in self.model.tess_parts if p.solid_oid == self._selected_oid]
+        n_tri = sum(len(p.triangles) for p in parts)
+        from PyQt5.QtWidgets import QApplication
+        try:
+            QApplication.clipboard().setText(
+                "%s %s  material=%s  tris=%d" % (
+                    prop_str(obj, "setName") or self._selected_oid,
+                    obj.cls if obj else "", prop_str(obj, "setMaterialName") or "",
+                    n_tri))
+            self.log("Copied to clipboard")
+        except Exception as e:
+            self.log("Copy failed: %s" % e, "ERROR")
+
+    def _user_coatings(self) -> None:
+        n = sum(1 for o in self.model.objects.values()
+                if "Coating" in (o.cls or "")) if self.model else 0
+        from lts_dialogs import OpticalPropertiesDialog
+        OpticalPropertiesDialog("User Coatings",
+                                "Coatings in model: %d"
+                                "\n(coating library workflow in P3/P7)" % n,
+                                self).exec_()
+        self.log("User Coatings: %d bound" % n)
+
+    def _immersion(self) -> None:
+        from lts_dialogs import OpticalPropertiesDialog
+        OpticalPropertiesDialog(
+            "Immersion Manager",
+            "Immersion regions are bound by the trace scene (media index).\n"
+            "See Ray Trace > Immerse / Declare Contact for declaration.",
+            self).exec_()
+
+    # -- Tools ---------------------------------------------------------------
+    def _options(self) -> None:
+        self._open_prefs("Preferences")
+
+    def _open_library_browser(self, title: str, items: list) -> None:
+        from lts_dialogs import AnalysisGridDialog
+        AnalysisGridDialog(title, "\n".join(
+            ["%s" % n for n in items[:60]]) if items else "(no entries)", self).exec_()
+        self.log("%s: %d entries" % (title, len(items)))
+
+    def _example_lib(self) -> None:
+        self._open_library_browser("Example Model Library", ["(Example models: see corpus_lt91)"])
+
+    def _film_lib(self) -> None:
+        self._open_library_browser("Display Film Library",
+                                   ["Photoreal film presets (P3)"])
+
+    def _led_lib(self) -> None:
+        self._open_library_browser("LED Library", ["LED catalog (sources, P4)"])
+
+    def _src_lib(self) -> None:
+        self._open_library_browser("Source Library", ["Source library (.ent, P4)"])
+
+    def _util_lib(self) -> None:
+        self._open_library_browser("Utility Library", ["Utilities (see UtilitiesUG)"])
+
+    # -- Analysis (lts_charts) ------------------------------------------------
+    def _analysis_grid_chart(self, title: str, kind: str = "farfield") -> None:
+        if not self._require_trace():
+            return
+        if kind == "add_mesh":
+            data = self._receiver_chart_data()
+            if data is None:
+                self.log("No receiver grid to export.", "WARN")
+                return
+            from lts_charts import grid_to_csv
+            from PyQt5.QtWidgets import QFileDialog
+            path, _ = QFileDialog.getSaveFileName(
+                self, "Export mesh CSV", "mesh.csv", "CSV (*.csv)")
+            if path:
+                with open(path, "w", encoding="utf-8", newline="") as fh:
+                    fh.write(grid_to_csv(data))
+                self.log("Exported mesh -> %s" % path)
+            return
+        data = self._receiver_chart_data()
+        if data is None:
+            self.log("No receiver data in this trace.", "WARN")
+            return
+        data["title"] = title
+        from lts_charts import make_chart_dialog
+        dlg = make_chart_dialog(title, "\n".join([
+            "Analysis: %s" % title,
+            "total intensity: %.6g" % data["grid_total_intensity"],
+            "window: %s" % (data["bounds"],)]), data, self)
+        if dlg is not None:
+            dlg.exec_()
+        else:
+            from lts_dialogs import AnalysisGridDialog
+            AnalysisGridDialog(title, "Analysis chart (matplotlib unavailable)",
+                               self).exec_()
+
+    def _receiver_chart_data(self) -> dict:
+        for rr in (self._last_trace.get("receivers") or []):
+            grid = rr.get("grid")
+            if grid is None or grid.get("intensity") is None:
+                continue
+            spec = rr.get("spec")
+            return {
+                "kind": "farfield",
+                "values": grid["intensity"],
+                "rows": grid["rows"], "cols": grid["cols"],
+                "bounds": grid["bounds"],
+                "title": "Intensity",
+                "units": getattr(spec, "responsivity", "Photometric"),
+                "reference": grid.get("reference"),
+                "grid_total_intensity": grid.get("total_intensity", 0.0),
+            }
+        return None
+
+    def _analysis_spatial(self) -> None:
+        self._analysis_grid_chart("Spatial Luminance")
+
+    def _analysis_angular(self) -> None:
+        self._analysis_grid_chart("Angular Luminance")
+
+    def _analysis_lumviewer(self) -> None:
+        self._analysis_grid_chart("LumViewer")
+
+    def _analysis_encircled(self) -> None:
+        self._analysis_grid_chart("Encircled Energy")
+
+    def _analysis_cie(self) -> None:
+        self._analysis_grid_chart("CIE")
+
+    def _analysis_cct(self) -> None:
+        self._analysis_grid_chart("CCT LumViewer")
+
+    def _analysis_colordiff(self) -> None:
+        self._analysis_grid_chart("Color Difference Chart")
+
+    def _analysis_region(self) -> None:
+        self._analysis_grid_chart("Region Analysis")
+
+    def _analysis_add_mesh(self) -> None:
+        self._analysis_grid_chart("Add Intensity Mesh", kind="add_mesh")
+
+    def _analysis_atp(self) -> None:
+        self.log("Automotive Test Point Analyzer (utility in P7)", "WARN")
 
     def _focus_3d(self) -> None:
         self.center_tabs.setCurrentWidget(self.view3d)

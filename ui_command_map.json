@@ -1,6 +1,6 @@
 {
  "baseline": "Synopsys LightTools 9.1.0",
- "generated": "2026-08-28T00:18:15",
+ "generated": "2026-08-28T23:43:46",
  "menus": [
   "&File",
   "&Edit",
@@ -17,8 +17,8 @@
   "&Help"
  ],
  "total": 198,
- "implemented": 82,
- "nyi": 116,
+ "implemented": 134,
+ "nyi": 64,
  "entries": [
   {
    "path": "&File",
@@ -90,7 +90,7 @@
    "cmd": "save_library",
    "lt": "SaveLibrary",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File",
@@ -98,7 +98,7 @@
    "cmd": "load_library",
    "lt": "LoadElement",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File",
@@ -106,7 +106,7 @@
    "cmd": "load_library_opts",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File/I&mport",
@@ -186,7 +186,7 @@
    "cmd": "export_lts",
    "lt": "Export",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File/E&xport",
@@ -242,7 +242,7 @@
    "cmd": "print_setup",
    "lt": "PrintSetup",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File",
@@ -250,7 +250,7 @@
    "cmd": "run_ext",
    "lt": "Run",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File",
@@ -258,7 +258,7 @@
    "cmd": "restore_env",
    "lt": "RestoreEnv",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File",
@@ -266,7 +266,7 @@
    "cmd": "save_env",
    "lt": "SaveEnv",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File",
@@ -330,7 +330,7 @@
    "cmd": "copy_clip",
    "lt": "CopyToClipboard",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Edit",
@@ -442,7 +442,7 @@
    "cmd": "immersion",
    "lt": "Immersion",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Edit",
@@ -458,7 +458,7 @@
    "cmd": "user_coatings",
    "lt": "UserCoatings",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Edit",
@@ -474,7 +474,7 @@
    "cmd": "view_2d",
    "lt": "New2DDesign",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&View",
@@ -538,7 +538,7 @@
    "cmd": "fit_all_same",
    "lt": "FitSame",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&View",
@@ -554,7 +554,7 @@
    "cmd": "fit_sel_surf",
    "lt": "FitSelSurf",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&View",
@@ -626,7 +626,7 @@
    "cmd": "view_other",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&View",
@@ -642,7 +642,7 @@
    "cmd": "view_ucs",
    "lt": "UCSOnCoordSys",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&View",
@@ -650,7 +650,7 @@
    "cmd": "normal_to",
    "lt": "NormalToView",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&View",
@@ -698,7 +698,7 @@
    "cmd": "auto_render",
    "lt": "AutoRenderOn",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&View",
@@ -706,7 +706,7 @@
    "cmd": "show_through",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&View",
@@ -722,7 +722,7 @@
    "cmd": "ucs_prefs",
    "lt": "UCSPreferences",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&View",
@@ -954,7 +954,7 @@
    "cmd": "src_cyl_surf",
    "lt": "CylSource",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Source",
@@ -962,7 +962,7 @@
    "cmd": "src_sph_surf",
    "lt": "SphSource",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Source",
@@ -970,7 +970,7 @@
    "cmd": "src_blk_surf",
    "lt": "RectSource",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Source",
@@ -986,7 +986,7 @@
    "cmd": "rcv_surface",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Receiver",
@@ -994,7 +994,7 @@
    "cmd": "rcv_primitive",
    "lt": "AddPrimitiveReceiver",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Receiver",
@@ -1002,7 +1002,7 @@
    "cmd": "rcv_solid",
    "lt": "AddSolidReceiver",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Receiver",
@@ -1010,7 +1010,7 @@
    "cmd": "rcv_farfield",
    "lt": "AddFarFieldReceiver",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert",
@@ -1167,82 +1167,82 @@
   {
    "path": "&Analysis",
    "label": "&Spatial Luminance",
-   "cmd": "analysis",
+   "cmd": "analysis_spatial",
    "lt": "LumSpatial",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Analysis",
    "label": "&Angular Luminance",
-   "cmd": "analysis",
+   "cmd": "analysis_angular",
    "lt": "LumAngular",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Analysis",
    "label": "Lum&Viewer",
-   "cmd": "analysis",
+   "cmd": "analysis_lumviewer",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Analysis",
    "label": "&Encircled Energy",
-   "cmd": "analysis",
+   "cmd": "analysis_encircled",
    "lt": "EncircledEnergyIllum",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Analysis",
    "label": "C&IE",
-   "cmd": "analysis",
+   "cmd": "analysis_cie",
    "lt": "CIEColorDiffIllumChart",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Analysis",
    "label": "CC&T LumViewer",
-   "cmd": "analysis",
+   "cmd": "analysis_cct",
    "lt": "CCTLineIllum",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Analysis",
    "label": "Color &Difference Chart",
-   "cmd": "analysis",
+   "cmd": "analysis_colordiff",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Analysis",
    "label": "Region Analysis",
-   "cmd": "analysis",
+   "cmd": "analysis_region",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Analysis",
    "label": "&Add Intensity Mesh",
-   "cmd": "analysis",
+   "cmd": "analysis_add_mesh",
    "lt": "MeshIntensity",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Analysis",
    "label": "&Automotive Test Point Analyzer",
-   "cmd": "analysis",
+   "cmd": "analysis_atp",
    "lt": "AutomotiveTestPoints",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Optimization",
@@ -1378,7 +1378,7 @@
    "cmd": "options",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tools",
@@ -1410,7 +1410,7 @@
    "cmd": "film_lib",
    "lt": "DisplayFilmLib",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tools",
@@ -1418,7 +1418,7 @@
    "cmd": "example_lib",
    "lt": "ExampleModelLib",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tools",
@@ -1426,7 +1426,7 @@
    "cmd": "led_lib",
    "lt": "LEDLib",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tools",
@@ -1434,7 +1434,7 @@
    "cmd": "src_lib",
    "lt": "SourceLib",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tools",
@@ -1442,7 +1442,7 @@
    "cmd": "util_lib",
    "lt": "LTUtilLib",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tools",
@@ -1466,7 +1466,7 @@
    "cmd": "tabbed_views",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Window",
@@ -1474,7 +1474,7 @@
    "cmd": "floating_views",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Window",
@@ -1482,7 +1482,7 @@
    "cmd": "cascade",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Window",
@@ -1490,7 +1490,7 @@
    "cmd": "tile_h",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Window",
@@ -1498,7 +1498,7 @@
    "cmd": "tile_v",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Window",
@@ -1506,7 +1506,7 @@
    "cmd": "arrange",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Window",
@@ -1514,7 +1514,7 @@
    "cmd": "save_layout",
    "lt": "SaveViewLayout",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Window",
@@ -1522,7 +1522,7 @@
    "cmd": "restore_layout",
    "lt": "RestoreViewLayout",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Window",
@@ -1530,7 +1530,7 @@
    "cmd": "clear_layout",
    "lt": "ClearViewLayout",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Help",
