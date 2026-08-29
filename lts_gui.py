@@ -458,6 +458,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("lumviewer", self._lumviewer)
         b.bind("mesh_table", self._mesh_table)
         b.bind("ray_report", self._ray_report)
+        b.bind("run_macro", self._run_macro)
         b.bind("revolved", lambda: self._insert_profile("revolve", "Revolved"))
         b.bind("extruded", lambda: self._insert_profile("extruded", "Extruded"))
         b.bind("swept", lambda: self._insert_profile("swept", "Swept"))
@@ -1444,6 +1445,43 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         self._write_back()
         self._after_insert(oid, "ray data source %s" % os.path.basename(path))
         self.log("Ray Data source: %s" % path, tab="sim")
+
+    def _run_macro(self) -> None:
+        """Tools > Run Macro…: 用内置 MACRO 解释器运行脚本 (Command 对接命令总线)."""
+        from lts.macro import MacroContext, run_macro
+        from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QPlainTextEdit, QVBoxLayout
+        src = getattr(self, "_macro_src", "")
+        if self.isVisible():
+            dlg = QDialog(self)
+            dlg.setWindowTitle("Run Macro…")
+            dlg.resize(680, 420)
+            v = QVBoxLayout(dlg)
+            te = QPlainTextEdit(dlg)
+            te.setPlainText(src)
+            v.addWidget(te, 1)
+            bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, dlg)
+            bb.accepted.connect(dlg.accept)
+            bb.rejected.connect(dlg.reject)
+            v.addWidget(bb)
+            if dlg.exec_() != dlg.Accepted:
+                return
+            src = te.toPlainText()
+        if not (src or "").strip():
+            self.log("Run Macro: empty script.", "WARN")
+            return
+        self._macro_src = src
+        ctx = MacroContext()
+        ctx.issue = lambda cmd: self.run_command(cmd)
+        ctx.print = lambda text: self.log(text, tab="macro")
+        ctx.version = lambda: LT_VERSION
+        try:
+            out = run_macro(src, ctx)
+            if out.strip():
+                self.log(out, tab="macro")
+            self.log("Macro ran (stdout %d lines)" % len([l for l in out.splitlines() if l.strip()]),
+                     tab="macro")
+        except Exception as e:
+            self.log("Macro failed: %s" % e, "ERROR", tab="macro")
 
     def _help_docs(self) -> None:
         """Help: 打开 LT 文档库 (Document Library mainmenu PDF)."""

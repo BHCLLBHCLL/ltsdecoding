@@ -490,3 +490,22 @@ def test_optimize_now_drives_radius():
               'optimize_results', 'optimize_clear', 'tolerancing_sensitivity',
               'tolerancing_manager', 'param_analyzer'):
         assert c in v.bus._handlers, c
+# ---------------------------------------------------------------------------
+
+def test_run_macro_bound_and_issues_commands():
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(['t'])
+    from lts_gui import LTSViewer
+    import lts_insert
+    v = LTSViewer(enable_3d=False)
+    v.model = __import__('lts_model').LTSModel()
+    lts_insert.create_solid(v.model, 'block', name='B')
+    v._rebuild_scene(fit=False)
+    assert 'run_macro' in v.bus._handlers
+    # 直接驱动 _run_macro (非可见 -> 用 _macro_src, 无对话框)
+    v._macro_src = ''.join(['PRINT ' + chr(34) + 'hello' + chr(34) + chr(10), 'COMMAND ' + chr(34) + 'fit' + chr(34) + chr(10), 'COMMAND ' + chr(34) + 'fit_all' + chr(34)])
+    out_events = []
+    v.bus.run = lambda name: out_events.append(name)
+    v._run_macro()
+    assert out_events == ['fit', 'fit_all']

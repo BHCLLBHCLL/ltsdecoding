@@ -1,6 +1,6 @@
 {
  "baseline": "Synopsys LightTools 9.1.0",
- "generated": "2026-08-29T23:36:10",
+ "generated": "2026-08-30T00:30:22",
  "menus": [
   "&File",
   "&Edit",
@@ -17,8 +17,8 @@
   "&Help"
  ],
  "total": 202,
- "implemented": 169,
- "nyi": 33,
+ "implemented": 170,
+ "nyi": 32,
  "entries": [
   {
    "path": "&File",
@@ -1418,7 +1418,7 @@
    "cmd": "run_macro",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tools",
