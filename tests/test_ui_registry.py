@@ -462,3 +462,31 @@ def test_ref_cs_and_text_marker():
     v._current_point = (1.0, 2.0, 3.0)
     v._insert_ref_cs()
     assert v._ucs_point == (1.0, 2.0, 3.0)
+
+# ---------------------------------------------------------------------------
+# P7 优化器引擎 GUI 与命令
+# ---------------------------------------------------------------------------
+
+def test_optimize_now_drives_radius():
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(['t'])
+    from lts_gui import LTSViewer
+    from lts_model import LTSModel
+    import lts_insert
+    v = LTSViewer(enable_3d=False)
+    v.model = LTSModel()
+    oid = lts_insert.create_solid(v.model, 'cylinder', name='L', radius=8.0,
+                                  length=20.0)
+    prim = next(t for m, t in v.model.objects[oid].edges
+                if m == 'restoreRootNode')
+    v._opt_target = 12.0
+    v.run_command('optimize_now')
+    assert v._opt_result is not None
+    rad = float(v.model.objects[prim].props['setRadius'])
+    assert abs(rad - 12.0) < 0.5, rad
+    # 绑定断言
+    for c in ('optimize_now', 'optimize_vars', 'optimize_merit',
+              'optimize_results', 'optimize_clear', 'tolerancing_sensitivity',
+              'tolerancing_manager', 'param_analyzer'):
+        assert c in v.bus._handlers, c

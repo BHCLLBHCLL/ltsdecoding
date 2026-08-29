@@ -1,6 +1,6 @@
 {
  "baseline": "Synopsys LightTools 9.1.0",
- "generated": "2026-08-29T00:18:20",
+ "generated": "2026-08-29T23:36:10",
  "menus": [
   "&File",
   "&Edit",
@@ -17,8 +17,8 @@
   "&Help"
  ],
  "total": 202,
- "implemented": 158,
- "nyi": 44,
+ "implemented": 169,
+ "nyi": 33,
  "entries": [
   {
    "path": "&File",
@@ -1279,82 +1279,82 @@
   {
    "path": "&Optimization",
    "label": "&Optimize!",
-   "cmd": "optimization",
+   "cmd": "optimize_now",
    "lt": "Optimize",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Optimization",
    "label": "&Variables…",
-   "cmd": "optimization",
+   "cmd": "optimize_vars",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Optimization",
    "label": "&Constraints…",
-   "cmd": "optimization",
+   "cmd": "optimize_vars",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Optimization",
    "label": "&Merit Function…",
-   "cmd": "optimization",
+   "cmd": "optimize_merit",
    "lt": "AddMeshMeritFunction",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Optimization",
    "label": "&Results…",
-   "cmd": "optimization",
+   "cmd": "optimize_results",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Optimization",
    "label": "&Clear Results",
-   "cmd": "optimization",
+   "cmd": "optimize_clear",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Optimization",
    "label": "&Backlight Pattern Optimization",
-   "cmd": "optimization",
+   "cmd": "optimize_now",
    "lt": "BacklightPatternOptimization",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tolerancing",
    "label": "Tolerancing &Manager…",
-   "cmd": "tolerancing",
-   "lt": "TolerancingInput",
+   "cmd": "tolerancing_manager",
+   "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tolerancing",
    "label": "Tolerance &Sensitivities…",
-   "cmd": "tolerancing",
+   "cmd": "tolerancing_sensitivity",
    "lt": "ToleranceSensitivities",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tolerancing",
    "label": "Add User Defined &Tolerance Group…",
-   "cmd": "tolerancing",
+   "cmd": "tolerancing_sensitivity",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Photoreal",
@@ -1490,7 +1490,7 @@
    "cmd": "param_analyzer",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Window",

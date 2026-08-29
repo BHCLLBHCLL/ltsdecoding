@@ -473,6 +473,14 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("aim_virtual_grid", lambda: self._aim_rays("grid"))
         b.bind("src_raydata", self._insert_ray_data_source)
         b.bind("help", self._help_docs)
+        b.bind("optimize_now", self._optimize_now)
+        b.bind("optimize_vars", self._optimize_vars)
+        b.bind("optimize_merit", self._optimize_merit)
+        b.bind("optimize_results", self._optimize_results)
+        b.bind("optimize_clear", self._optimize_clear)
+        b.bind("tolerancing_manager", self._tolerancing_manager)
+        b.bind("tolerancing_sensitivity", self._tolerancing_sensitivity)
+        b.bind("param_analyzer", self._param_analyzer)
         b.bind("table_view", self._table_view)
         b.bind("select_all", self._select_all)
         b.bind("invert_sel", self._invert_selection)
@@ -1446,6 +1454,139 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         else:
             self.log("LightTools documentation not found.", "WARN")
         self.log("Help: Document Library")
+
+    # ----------------------------------------------- P7 优化器 GUI
+    def _opt_var_set(self):
+        """惰性构造优化变量集: 默认为首个实体的半径 (可扩展)."""
+        from lts.optimizer.variables import VariableSet
+        if getattr(self, "_opt_vs", None) is None or self._opt_vs.model is not self.model:
+            self._opt_vs = VariableSet(self.model)
+            # 默认变量: 首个实体图元的半径
+            oid = next((p.solid_oid for p in self.model.tess_parts
+                        if p.kind == "solid"), None)
+            if oid is not None:
+                prim = next((t for m, t in
+                             (self.model.objects.get(oid).edges or [])
+                             if m == "restoreRootNode"), None)
+                if prim is not None:
+                    self._opt_vs.add(prim, "setRadius", 1.0, 50.0, value=8.0)
+        return self._opt_vs
+
+    def _opt_merit(self):
+        """默认真: 实体半径 -> 目标 12 (可被 trace 指标替换)."""
+        if getattr(self, "_opt_merit_fn", None) is None:
+            vs = self._opt_var_set()
+            target = float(getattr(self, "_opt_target", 12.0))
+            prim = vs.vars[0].oid if vs.vars else None
+            from lts.optimizer.merit import MeritFunction
+            mf = MeritFunction()
+            if prim is not None:
+                mf.add("radius_target",
+                       lambda: float(self.model.objects[prim].props["setRadius"]),
+                       target=target, weight=1.0)
+            self._opt_merit_fn = mf
+        return self._opt_merit_fn
+
+    def _opt_func(self):
+        vs = self._opt_var_set()
+        merit = self._opt_merit()
+
+        def fn(x):
+            vs.apply(x)
+            self.model._refresh_geoboxes()
+            return float(merit.value())
+        return fn
+
+    def _optimize_now(self) -> None:
+        """Optimize!: 变量+评价函数 -> 优化 -> 应用最优 -> 重算场景."""
+        if self.model is None or not self.model.tess_parts:
+            self.log("No model to optimize.", "WARN")
+            return
+        try:
+            from lts.optimizer import nelder_mead
+            vs = self._opt_var_set()
+            if len(vs) == 0:
+                self.log("No variables defined (use Variables…).", "WARN")
+                return
+            r = nelder_mead(self._opt_func(), vs.current(), bounds=vs.bounds())
+            x0 = vs.current()
+            vs.apply(r.x)
+            self.model._refresh_geoboxes()
+            self._opt_result = r
+            self._rebuild_scene(fit=False)
+            self.log("Optimize!: %s  (from %s)" % (
+                r.summary(), ", ".join("%.4g" % v for v in x0)), tab="opt")
+            self._save_env() if False else None
+        except Exception as e:
+            self.log("Optimize failed: %s" % e, "ERROR", tab="opt")
+
+    def _optimize_vars(self) -> None:
+        from lts_dialogs import AnalysisGridDialog
+        vs = self._opt_var_set()
+        lines = ["Optimization variables"]
+        for v in vs.vars:
+            lines.append("  %s.%s  [%.3g, %.3g]  x=%.4g" % (
+                v.oid, v.prop, v.lower, v.upper, v.value if v.value is not None
+                else "—"))
+        AnalysisGridDialog("Variables (P7 engine)",
+                           "\n".join(lines), self).exec_() if self.isVisible() else             self.log("Optimization variables: %d" % len(vs.vars), tab="opt")
+
+    def _optimize_merit(self) -> None:
+        self._opt_target = float(getattr(self, "_opt_target", 12.0))
+        self._opt_merit_fn = None     # 重新构建 (刷新 target)
+        self._opt_merit()
+        self.log("Merit: drive radius to %.3g" % self._opt_target, tab="opt")
+
+    def _optimize_results(self) -> None:
+        from lts_dialogs import AnalysisGridDialog
+        r = getattr(self, "_opt_result", None)
+        body = r.summary() if r is not None else "(no run yet)"
+        AnalysisGridDialog("Optimization Results", body, self).exec_()             if self.isVisible() else self.log("Optimization results: %s" % body,
+                                              tab="opt")
+
+    def _optimize_clear(self) -> None:
+        self._opt_result = None
+        self._opt_merit_fn = None
+        if hasattr(self, "_opt_vs"):
+            self._opt_vs.clear()
+        self.log("Optimization results cleared", tab="opt")
+
+    def _tolerancing_sensitivity(self) -> None:
+        if self.model is None or not self.model.tess_parts:
+            self.log("No model for tolerancing.", "WARN")
+            return
+        try:
+            from lts.optimizer.tolerancing import sensitivity, tolerance_report
+            vs = self._opt_var_set()
+            rows = sensitivity(vs, self._opt_func(), delta=0.5)
+            report = tolerance_report(rows)
+            self.log(report, tab="opt")
+            from lts_dialogs import AnalysisGridDialog
+            AnalysisGridDialog("Tolerance Sensitivities", report, self).exec_()                 if self.isVisible() else None
+        except Exception as e:
+            self.log("Tolerancing failed: %s" % e, "ERROR", tab="opt")
+
+    def _tolerancing_manager(self) -> None:
+        self._tolerancing_sensitivity()
+
+    def _param_analyzer(self) -> None:
+        if self.model is None or not self.model.tess_parts:
+            self.log("No model for parameter analyzer.", "WARN")
+            return
+        try:
+            from lts.optimizer.param_sweep import sweep
+            vs = self._opt_var_set()
+            res = sweep(vs, self._opt_func(), points=21)
+            line = " ".join("%.4g" % v for v in res["values"][:6])
+            self.log("Parameter sweep %s: merit %s..." % (
+                res["prop"], line), tab="opt")
+            self.log("sweep min merit=%.6g @ %.4g" % (
+                min(res["merits"]),
+                res["values"][int(min(range(len(res["merits"])),
+                                     key=lambda i: res["merits"][i]))]),
+                tab="opt")
+        except Exception as e:
+            self.log("Parameter analyzer failed: %s" % e, "ERROR", tab="opt")
 
     def _focus_3d(self) -> None:
         self.center_tabs.setCurrentWidget(self.view3d)
