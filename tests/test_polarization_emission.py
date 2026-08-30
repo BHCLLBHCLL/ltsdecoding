@@ -51,6 +51,27 @@ def test_engine_carries_jones_through_transmit():
     S = pol.stokes(j)
     assert abs(S[3]) > 0.9, S    # 透射后圆偏振基本保留
 
+
+def test_engine_plane_states_carries_jones():
+    verts = np.array([[0,0,0],[1,0,0],[0,1,0]], dtype=np.float32)
+    tris = np.array([[0,1,2]], dtype=np.int32)
+    mesh = TriMesh(verts, tris, props=[SurfaceOpt(kind="transmitting",
+                                                  n_in=1.0, n_out=1.0)])
+    scene = Scene([mesh]).build()
+    eng = Engine(scene, max_bounces=16, seed=4)
+    eng.set_plane_receivers([{"pos": np.array([0.0,0.0,2.0]),
+                              "rot": np.eye(3), "bounds": (0.0,1.0,0.0,1.0),
+                              "rows": 4, "cols": 4}])
+    jc = pol.jones_from_amplitudes(1/math.sqrt(2), 1/math.sqrt(2), 0, -math.pi/2)
+    ray = {"p": np.array([0.0,0.0,5.0]), "d": np.array([0.0,0.0,-1.0]),
+           "weight": 1.0, "medium": 1.0, "wl_nm": 550.0, "jones": jc}
+    res = eng.trace([ray])
+    assert len(res.plane_states) >= 1
+    _ri, x, y, w, j = res.plane_states[0]
+    assert j is not None
+    assert abs(pol.stokes(j)[3]) > 0.9
+
+
 def test_stokes_grid_circular_dop():
     # 合成逃逸态: 全向圆偏振 -> 各格 DOP~1, |S3|/S0~1
     recv = type("R", (), {"angular_bounds": (0.0, 360.0, 0.0, 90.0),

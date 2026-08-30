@@ -1,0 +1,58 @@
+
+# -*- coding: utf-8 -*-
+"""接收器 Stokes 网格 (平面/远场) + 图表 + GUI 数据层 (物理深度⑦后续)."""
+import math, os, sys, tempfile
+import numpy as np
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import ltsoptics.polarization as pol
+from lts.trace.from_model import plane_stokes_grid, stokes_grid, stokes_to_rows
+import lts_charts
+
+
+class R:
+    def __init__(s, seed=0): s.r = np.random.default_rng(seed)
+    def next1(s): return float(s.r.random())
+
+
+def test_plane_stokes_grid_dop():
+    recv = type("R", (), {"bounds": (0.0, 1.0, 0.0, 1.0), "mesh_rows": 8,
+                          "mesh_cols": 8})()
+    states = []
+    for i in range(1000):
+        x, y = (i % 8) / 7.0, ((i // 8) % 8) / 7.0
+        j = pol.emission_jones([0, 0, 1], "circular", 0.0)
+        states.append((0, x, y, 1.0, j))
+    g = plane_stokes_grid(states, recv)
+    assert g["rows"] == 8 and g["cols"] == 8
+    S0 = g["s0"]
+    tot = float(S0.sum())
+    S3 = float(g["s3"].sum())
+    assert tot > 0
+    assert abs(S3) / tot > 0.95, (S3, tot)
+
+def test_stokes_to_rows_shape():
+    recv = type("R", (), {"angular_bounds": (0.0, 360.0, 0.0, 90.0),
+                          "mesh_rows": 4, "mesh_cols": 6, "rot": np.eye(3),
+                          "data_bounds": None, "mesh_values": None})()
+    states = [(float((j % 4) * 10), 0.0, 0.0, 1.0,
+               pol.emission_jones([0, 0, 1], "circular", 0.0))
+              for j in range(24)]
+    g = stokes_grid(states, recv)
+    header, rows = stokes_to_rows(g)
+    assert len(rows) == 4 * 6
+    assert len(header) == 7
+
+def test_render_stokes_png_writes_file():
+    recv = type("R", (), {"angular_bounds": (0.0, 360.0, 0.0, 90.0),
+                          "mesh_rows": 9, "mesh_cols": 18, "rot": np.eye(3),
+                          "data_bounds": None, "mesh_values": None})()
+    states = []
+    for i in range(400):
+        d = np.array([0.1, 0.05, 1.0]); d = d / np.linalg.norm(d)
+        states.append((float(d[0]), float(d[1]), float(d[2]), 1.0,
+                       pol.emission_jones(d, "circular", 0.0)))
+    g = stokes_grid(states, recv)
+    d = tempfile.mkdtemp(prefix="stokes_")
+    p = os.path.join(d, "s.png")
+    out = lts_charts.render_stokes_png(g, p)
+    assert os.path.exists(out) and os.path.getsize(out) > 1000

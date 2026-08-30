@@ -16,7 +16,7 @@ from .physics import beer_absorption, surface_event
 class TraceResult:
     __slots__ = ("absorbed", "escaped", "launched", "face_flux",
                  "n_rays", "n_bounces", "hits", "escaped_dirs",
-                 "plane_hits", "escaped_states")
+                 "plane_hits", "escaped_states", "plane_states")
 
     def __init__(self, n_faces):
         self.absorbed = 0.0
@@ -28,6 +28,7 @@ class TraceResult:
         self.hits = []          # (x, y, z, weight)
         self.escaped_dirs = []  # (dx, dy, dz, weight)
         self.escaped_states = []  # (dx, dy, dz, weight, jones_or_None)
+        self.plane_states = []    # (receiver_index, x_local, y_local, weight, jones)
         self.plane_hits = []    # (receiver_index, x_local, y_local, weight)
 
 
@@ -94,7 +95,9 @@ class Engine:
                 for ri, rv in enumerate(self.plane_receivers):
                     c = self._plane_cross(p, d, tri_t, rv)
                     if c is not None:
-                        res.plane_hits.append((ri, c[0], c[1], float(w)))
+                        wf = float(w)
+                        res.plane_hits.append((ri, c[0], c[1], wf))
+                        res.plane_states.append((ri, c[0], c[1], wf, jones))
             if tri is None:
                 res.escaped += w
                 dd = np.asarray(d, dtype=float)

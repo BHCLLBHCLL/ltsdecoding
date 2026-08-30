@@ -389,5 +389,48 @@ def make_mesh_result_dialog(grid, *, title="Mesh Results", parent=None):
     exp = QPushButton("Export CSV…")
     exp.clicked.connect(export)
     bb.addButton(exp, QDialogButtonBox.ActionRole)
+    if grid.get("stokes"):
+        stk = QPushButton("Stokes…")
+        stk.clicked.connect(lambda: make_stokes_dialog(grid.get("stokes"),
+                                                       parent=dlg))
+        bb.addButton(stk, QDialogButtonBox.ActionRole)
+    v.addWidget(bb)
+    return dlg
+
+
+def make_stokes_dialog(stk, *, title="Stokes", parent=None):
+    """Stokes 网格结果: S0..S3/DOP 表 + PNG 导出 (无模态)."""
+    from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
+                                 QLabel, QPushButton, QTableWidget,
+                                 QTableWidgetItem, QVBoxLayout)
+    from lts_charts import render_stokes_png
+    from lts.trace.from_model import stokes_to_rows
+    header, data = stokes_to_rows(stk)
+    dlg = QDialog(parent)
+    dlg.setWindowTitle(title)
+    dlg.resize(760, 520)
+    v = QVBoxLayout(dlg)
+    v.addWidget(QLabel("%s: S0=%.4g  DOP_max=%.3f  samples=%d" % (
+        title, float(stk.get("total", 0.0)),
+        float(np.max(stk.get("dop"))) if np.size(stk.get("dop")) else 0.0,
+        stk.get("n_samples", 0)), dlg))
+    tbl = QTableWidget(len(data), len(header), dlg)
+    tbl.setHorizontalHeaderLabels(header)
+    for i, row in enumerate(data):
+        for j, cell in enumerate(row):
+            tbl.setItem(i, j, QTableWidgetItem(str(cell)))
+    tbl.setEditTriggers(QTableWidget.NoEditTriggers)
+    v.addWidget(tbl, 1)
+
+    def save_png():
+        path, _ = QFileDialog.getSaveFileName(dlg, "Save Stokes PNG",
+                                              "stokes.png", "PNG (*.png)")
+        if path:
+            render_stokes_png(stk, path)
+    bb = QDialogButtonBox(QDialogButtonBox.Close, dlg)
+    bb.rejected.connect(dlg.close)
+    png = QPushButton("Save PNG…")
+    png.clicked.connect(save_png)
+    bb.addButton(png, QDialogButtonBox.ActionRole)
     v.addWidget(bb)
     return dlg

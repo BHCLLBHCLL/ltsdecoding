@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 """一键常驻校验: 依次跑 verify_ui / verify_goldens / (可选) verify_pipeline / verify_raytrace."""
 import subprocess, sys, os
+# Windows 控制台默认 cp1252 无法编码中文 -> 强制 UTF-8 (errors=replace)
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 root = os.path.dirname(os.path.abspath(__file__))
 
 

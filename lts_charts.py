@@ -154,6 +154,40 @@ def render_polar_png(data: dict, path: str, *, dpi: int = 110) -> str:
 # Qt 内嵌 dialog
 # --------------------------------------------------------------------------
 
+
+
+
+def render_stokes_png(stk: dict, path: str, *, dpi: int = 110) -> str:
+    """Stokes 网格 -> 双面板 PNG (S0 强度 + DOP). 无 GUI 测试路径."""
+    plt = _import_pyplot()
+    s0 = np.asarray(stk.get("s0"), dtype=float)
+    dop = np.asarray(stk.get("dop"), dtype=float)
+    b = stk.get("bounds", (0.0, 1.0, 0.0, 1.0))
+    rows, cols = stk.get("rows", s0.shape[0]), stk.get("cols", s0.shape[1])
+    if s0.ndim == 2 and dop.ndim == 2 and s0.shape == dop.shape:
+        fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(9.0, 4.2))
+        im0 = ax0.imshow(s0, origin="upper", aspect="auto",
+                         extent=[b[0], b[1], b[2], b[3]], cmap="inferno")
+        cb0 = plt.colorbar(im0, ax=ax0, fraction=0.046, pad=0.04)
+        cb0.set_label("S0 (intensity)")
+        ax0.set_xlabel("x/phi"); ax0.set_ylabel("y/theta")
+        ax0.set_title("Stokes S0", fontsize=10)
+        im1 = ax1.imshow(dop, origin="upper", aspect="auto",
+                         extent=[b[0], b[1], b[2], b[3]], cmap="viridis",
+                         vmin=0.0, vmax=1.0)
+        cb1 = plt.colorbar(im1, ax=ax1, fraction=0.046, pad=0.04)
+        cb1.set_label("degree of polarization")
+        ax1.set_xlabel("x/phi"); ax1.set_ylabel("y/theta")
+        ax1.set_title("Stokes DOP", fontsize=10)
+    else:
+        fig, ax0 = plt.subplots(figsize=(6.0, 4.2))
+        ax0.text(0.5, 0.5, "no stokes data", ha="center", va="center")
+        ax0.axis("off")
+    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def make_chart_dialog(title: str, report: str, data: dict, parent=None):
     """创建 QDialog (PyQt5 + matplotlib canvas). 无 PyQt5 时回退纯报告."""
     try:

@@ -644,6 +644,10 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
         try:
             if recv.kind == "plane":
                 grid = plane_receiver_grid(res.plane_hits, recv)
+                try:
+                    grid["stokes"] = plane_stokes_grid(res.plane_states, recv)
+                except Exception:
+                    pass
             else:
                 grid = far_field_grid(res.escaped_dirs, recv)
                 try:
@@ -757,6 +761,27 @@ def format_stokes_report(stk, recv) -> list:
     return lines
 
 
+
+
+def stokes_to_rows(stk, *, coord="index", bounds=None) -> tuple:
+    """Stokes 网格 -> 表格 (header, rows). bounds 用于生成坐标列."""
+    rows, cols = stk["rows"], stk["cols"]
+    b = bounds or stk.get("bounds")
+    header = (["row", "col", "S0", "S1", "S2", "S3", "DOP", "deg"]
+              if coord != "index" else
+              ["row", "col", "S0", "S1", "S2", "S3", "DOP"])
+    out = []
+    for i in range(rows):
+        for j in range(cols):
+            row = [i, j, float(stk["s0"][i, j]), float(stk["s1"][i, j]),
+                   float(stk["s2"][i, j]), float(stk["s3"][i, j]),
+                   float(stk["dop"][i, j])]
+            if coord != "index":
+                row.append(round(float(b[0]) + (j + 0.5) * (b[1] - b[0]) / cols, 3))
+            out.append(row)
+    return header, out
+
+
 def intensity_grid(escaped_dirs, *, n_theta: int = 18, n_phi: int = 36) -> dict:
     """Far-field intensity: bin escaped directions on a sphere."""
     grid = np.zeros((n_theta, n_phi))
@@ -810,6 +835,51 @@ def plane_receiver_grid(plane_hits, recv) -> dict:
            "reference": (recv.mesh_values if recv.mesh_values is not None
                          else None)}
     return out
+
+
+
+
+def plane_stokes_grid(plane_states, recv, n_rows: int = 0, n_cols: int = 0) -> dict:
+    """平面接收器 Stokes 网格: 每格累加 S0..S3 并求 DOP.
+
+    plane_states: [(receiver_index, x_local, y_local, weight, jones)].
+    返回 {"s0","s1","s2","s3","dop","rows","cols","bounds","total","n_samples"}.
+    """
+    b = recv.bounds or (0.0, 1.0, 0.0, 1.0)
+    x0, x1, y0, y1 = b
+    rows = n_rows or recv.mesh_rows or 16
+    cols = n_cols or recv.mesh_cols or 16
+    if x1 <= x0:
+        x1 = x0 + 1.0
+    if y1 <= y0:
+        y1 = y0 + 1.0
+    dx = (x1 - x0) / cols
+    dy = (y1 - y0) / rows
+    S = np.zeros((rows, cols, 4), dtype=float)
+    n_used = 0
+    for st in (plane_states or []):
+        _ri, x, y, w, jones = st[0], st[1], st[2], st[3], (st[4] if len(st) > 4 else None)
+        j = min(int((x - x0) / dx), cols - 1)
+        i = min(int((y - y0) / dy), rows - 1)
+        if i < 0 or j < 0:
+            continue
+        w = float(w)
+        if accumulate_stokes is not None and jones is not None:
+            s0, s1, s2, s3, _dop = accumulate_stokes([(0.0, 0.0, 0.0, w, jones)])
+        else:
+            s0, s1, s2, s3 = w, 0.0, 0.0, 0.0
+        S[i, j, 0] += s0
+        S[i, j, 1] += s1
+        S[i, j, 2] += s2
+        S[i, j, 3] += s3
+        n_used += 1
+    S0 = S[:, :, 0]
+    st = np.sqrt(S[:, :, 1] ** 2 + S[:, :, 2] ** 2 + S[:, :, 3] ** 2)
+    dop = np.divide(st, S0, out=np.zeros_like(S0), where=S0 > 1e-12)
+    return {"s0": S[:, :, 0], "s1": S[:, :, 1], "s2": S[:, :, 2],
+            "s3": S[:, :, 3], "dop": dop, "rows": rows, "cols": cols,
+            "bounds": (x0, x1, y0, y1), "total": float(S0.sum()),
+            "n_samples": n_used}
 
 
 def far_field_grid(dirs, recv, n_rows: int = 0, n_cols: int = 0) -> dict:
