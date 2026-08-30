@@ -37,6 +37,13 @@ def test_scene_and_preview_hits_plate():
     assert abs(paths[0][1][2]) < 1e-4  # hit z=0
 
 
+
+def test_scene_media_key():
+    model = _Model()
+    scene, meta = scene_from_model(model)
+    assert "media" in meta and isinstance(meta["media"], dict)
+
+
 def test_engine_hits_recorded():
     model = _Model()
     scene, _ = scene_from_model(model)

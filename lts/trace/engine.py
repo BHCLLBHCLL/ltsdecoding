@@ -2,15 +2,40 @@
 """主循环引擎 (对标 P5 lts/trace/engine.py).
 
 - 工作栈传播光线; 表面确定性分裂(反射+折射权重守恒), 低权重俄罗斯轮盘截断
-- Beer 吸收在命中间距内衰减
+- 体介质: Beer 吸收 (alpha) + 体散射 (mu_s, HG 不对称因子 g), 自由程采样/隐式吸收
 - 统计: 吸收 / 逃逸 / 逐面命中 / 通量守恒(发射=吸收+逃逸)
 """
 from __future__ import annotations
+
+import math
 
 import numpy as np
 
 from .intersect import intersect_scene
 from .physics import beer_absorption, surface_event
+
+try:
+    from ltsoptics.volume_scatter import random_free_path, sample_hg
+except Exception:  # pragma: no cover
+    random_free_path = None
+    sample_hg = None
+
+
+def _scatter_dir(d, ct, rng):
+    """绕入射方向 d 构造极角 acos(ct) 的散射方向 (随机方位)."""
+    d = np.asarray(d, dtype=float)
+    n = float(np.linalg.norm(d))
+    d = d / n if n > 1e-12 else np.array([0.0, 0.0, 1.0])
+    up = np.array([0.0, 0.0, 1.0]) if abs(float(d[2])) < 0.999 else np.array([1.0, 0.0, 0.0])
+    t1 = np.cross(d, up)
+    t1 = t1 / (np.linalg.norm(t1) + 1e-12)
+    t2 = np.cross(d, t1)
+    st = math.sqrt(max(1.0 - ct * ct, 0.0))
+    az = 2.0 * math.pi * rng.next1()
+    v = ct * d + st * (math.cos(az) * t1 + math.sin(az) * t2)
+    v = np.asarray(v, dtype=float)
+    vn = float(np.linalg.norm(v))
+    return v / vn if vn > 1e-12 else d
 
 
 class TraceResult:
@@ -43,10 +68,18 @@ class Engine:
         self.max_rays = max_rays
         self.rng = _RNG(seed)
         self.medium_alpha = {}          # {medium_index: absorption coeff 1/m}
+        self.media = {}                 # {medium_index: {alpha, mu_s, g}}
         self.plane_receivers = []       # [{pos, rot, bounds, rows, cols}]
 
     def set_medium_absorption(self, alpha_by_index: dict):
         self.medium_alpha.update(alpha_by_index)
+        for k, v in (alpha_by_index or {}).items():
+            self.media.setdefault(k, {})["alpha"] = v
+
+    def set_volume_media(self, media: dict):
+        """{medium_index: {alpha, mu_s, g}}."""
+        for k, v in (media or {}).items():
+            self.media.setdefault(k, {}).update(v)
 
     def set_plane_receivers(self, receivers: list):
         self.plane_receivers = list(receivers or [])
@@ -107,14 +140,38 @@ class Engine:
                     res.escaped_dirs.append((float(dd[0]), float(dd[1]),
                                              float(dd[2]), float(w)))
                 continue
-            alpha = self.medium_alpha.get(med, 0.0)
-            if alpha > 0:
+            md = self.media.get(med, {})
+            alpha = float(md.get("alpha", 0.0) or 0.0)
+            mu_s = float(md.get("mu_s", 0.0) or 0.0)
+            gg = float(md.get("g", 0.0) or 0.0)
+            mu_t = alpha + mu_s
+            if mu_t > 0:
                 tt = max(t, 0.0)
-                trans = beer_absorption(alpha, tt)
-                res.absorbed += w * (1.0 - trans)   # Beer 吸收计入吸收
-                w *= trans
-                if w <= 0:
-                    continue
+                if mu_s > 0 and random_free_path is not None and sample_hg is not None:
+                    fp = random_free_path(mu_t, self.rng)
+                    if fp < tt:
+                        # 命中表面前散射: 改向继续, 吸收计入损耗
+                        w2 = w * math.exp(-mu_t * fp) * (mu_s / mu_t)
+                        res.absorbed += w * (1.0 - w2)
+                        if w2 <= 0:
+                            continue
+                        ct, _ph = sample_hg(gg, self.rng)
+                        d2 = _scatter_dir(d, ct, self.rng)
+                        stack.append((np.asarray(p, dtype=float) + np.asarray(d, dtype=float) * fp,
+                                      d2, w2, med, depth + 1, jones))
+                        continue
+                    # 未散射到面: Beer 总衰减
+                    trans = math.exp(-mu_t * tt)
+                    res.absorbed += w * (1.0 - trans)
+                    w *= trans
+                    if w <= 0:
+                        continue
+                else:
+                    trans = beer_absorption(alpha, tt)
+                    res.absorbed += w * (1.0 - trans)   # Beer 吸收计入吸收
+                    w *= trans
+                    if w <= 0:
+                        continue
             res.n_bounces += 1
             res.face_flux[tri] += w
             if record_hits and len(res.hits) < max_hits and hit is not None:

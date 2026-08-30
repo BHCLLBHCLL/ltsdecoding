@@ -326,10 +326,16 @@ def scene_from_model(model, *, max_tris: int = 24000, wl_nm: float = 550.0,
     meta["n_tris"] = used
     scene = Scene(meshes).build()
     alphas = {}
+    media = {}
     for mat in catalog.values():
         if mat.alpha > 0:
             alphas[mat.n_at_nm(wl_nm)] = mat.alpha
+        mu_s = float(getattr(mat, "mu_s", 0.0) or 0.0)
+        if mat.alpha > 0 or mu_s > 0:
+            media[mat.n_at_nm(wl_nm)] = {"alpha": mat.alpha, "mu_s": mu_s,
+                                        "g": float(getattr(mat, "g", 0.0) or 0.0)}
     meta["alphas"] = alphas
+    meta["media"] = media
     return scene, meta
 
 
@@ -630,6 +636,8 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
                                  catalog=catalog)
     eng = Engine(scene, max_bounces=max_bounces, seed=seed)
     eng.set_medium_absorption(meta.get("alphas") or {})
+    if meta.get("media"):
+        eng.set_volume_media(meta["media"])
     recv_specs = bind_receivers(model.objects)
     planes = [{"pos": r.pos, "rot": r.rot,
                "bounds": r.bounds or (0.0, 1.0, 0.0, 1.0),
