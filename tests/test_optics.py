@@ -186,7 +186,7 @@ def test_equal_energy_white():
 def test_color_temp():
     # 白点 (0.3457, 0.3585) 用 McCamy 近似 -> 落在大致黑体附近(≠精确 D50)
     t = spectrum.color_temp_approx(0.3457, 0.3585)
-    assert t is not None and 5500 < t < 6500
+    assert t is not None and 4800 < t < 5200   # D50 ~ 5003K (修正 McCamy)
 
 
 def test_spectral_region_samples():

@@ -421,5 +421,82 @@ def insert_roots(model, *oids) -> None:
             model.inserted_oids.append(oid)
 
 
-def bounds2data(b):
-    return b
+
+
+
+# ---------------------------------------------------------------------------
+# 区域纹理 (ZoneTexture) 创建 + 写回
+# ---------------------------------------------------------------------------
+
+def create_texture_zone(model, solid_oid: str, zone_name: str,
+                        texture=None, *, value: float = 1.0,
+                        shape: str = "rect", surface_number: int = 0,
+                        translate=(0.0, 0.0), scale=(1.0, 1.0),
+                        inner: float = 0.0, outer: float = 1.0) -> str:
+    """在实体表面创建纹理区域 (ZoneTexture) 并写回 .lts, 返回 zone_oid.
+
+    texture 为 ltsoptics.textures.TextureZone / VariableSpacedTexture / None。
+    创建 ORAVariableSpacedTextureObj + ORAPropertyZoneObj 并登记到 model
+    (随 model.save() 持久化), 记入 model.texture_zones 供 from_model 绑定。
+    """
+    from lts_parser import LTSObject
+    import ltsoptics.textures as texm
+
+    if texture is None:
+        tz = texm.TextureZone(name=zone_name, value=value, shape=shape,
+                              translate=translate, scale=scale,
+                              inner=inner, outer=outer)
+    elif isinstance(texture, texm.VariableSpacedTexture):
+        tz = texm.TextureZone(name=zone_name, texture=texture, shape=shape,
+                              translate=translate, scale=scale,
+                              inner=inner, outer=outer)
+    else:
+        tz = texture
+        zone_name = zone_name or tz.name
+
+    used = set(model.objects)
+    tex_oid = lts_create.next_oid("ORAVariableSpacedTextureObj", used)
+    used |= {tex_oid}
+    zone_oid = lts_create.next_oid("ORAPropertyZoneObj", used)
+
+    api = tz.to_texture_api()
+    tex = LTSObject(tex_oid)
+    n = len(api["positions"])
+    tex.props = {"setNumberOfPoints": n, "apply": True,
+                 "setInterpolation": api["interpolation"]}
+    for i, (p, v) in enumerate(zip(api["positions"], api["values"])):
+        tex.props["setPosition%d" % i] = p
+        tex.props["setValue%d" % i] = v
+    if api["cyclic"]:
+        tex.props["setCyclic"] = True
+
+    zone = LTSObject(zone_oid)
+    zone.props = {"setName": zone_name, "setZoneId": 1,
+                  "setZonePattern": "texture"}
+    zone.edges = [("setTexture", tex_oid)]
+
+    for o in (tex, zone):
+        model.objects[o.oid] = o
+        if o.oid not in model.inserted_oids:
+            model.inserted_oids.append(o.oid)
+
+    # 关联实体: 把 zone 挂到几何的 SurfaceInfo 上
+    prim_oid = next((r for m, r in model.objects[solid_oid].edges
+                     if m == "restoreRootNode"), None)
+    if prim_oid:
+        prim = model.objects.get(prim_oid)
+        if prim is not None:
+            for m, ref in list(prim.edges):
+                if m == "addSurfaceInfo":
+                    si = model.objects.get(ref)
+                    if si is not None:
+                        si.edges.append(("setTexture", tex_oid))
+                        break
+
+    zs = getattr(model, "texture_zones", None)
+    if zs is None:
+        zs = model.texture_zones = []
+    zs.append({"solid": solid_oid, "zone": zone_oid, "tex": tex_oid,
+               "name": zone_name, "texture": tz, "surface_number": surface_number})
+    return zone_oid
+

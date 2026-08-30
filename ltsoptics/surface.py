@@ -180,6 +180,9 @@ class SurfaceOpt:
     scatter_side: str = "reflected"   # lambert_scatter: reflected|transmitted|both
     refract_mode: str = "refract"     # rt: refract|mechanical|reflect
     is_emitter: bool = False          # surface 同时是光源发射面
+    bsdf: object = None               # 可选 BSDF (解析/表格) -> 采样散射方向
+    coating: object = None            # 可选 FilmStack -> 界面反射率用膜系
+    wavelength: float = 550.0         # 镀膜/波长相关计算默认波长 (nm)
 
     def fresnel(self, theta1):
         return fresnel(theta1, self.n_in, self.n_out)

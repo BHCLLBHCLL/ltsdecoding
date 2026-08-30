@@ -666,6 +666,8 @@ class EmitterSpec:
     dir_apod_oid: str = ""
     surf_apod_oid: str = ""
     emittance_direction: str = "Outward"
+    polarization: str = "none"          # none|linear|circular|elliptical
+    pol_angle: float = 0.0              # 偏振角 (度)
 
 
 @dataclass
@@ -772,6 +774,8 @@ def _emitters_of(objects: dict, source_obj) -> List[EmitterSpec]:
             surf_apod_oid=_edge(e, "setSurfaceApodizer") or "",
             emittance_direction=_str(e, "restoreEmittanceDirectionType",
                                      "Outward"),
+            polarization=_str(e, "setPolarization", "none"),
+            pol_angle=_float(e, "setPolarizationAngle", 0.0),
         ))
     return out
 

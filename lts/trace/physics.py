@@ -27,14 +27,24 @@ def beer_absorption(alpha: float, length: float) -> float:
     return math.exp(-alpha * length)
 
 
-def fresnel_interface_event(d, n, n1, n2, jones=None):
+def fresnel_interface_event(d, n, n1, n2, jones=None, coating=None,
+                            wavelength=550.0):
     """透明界面 -> 反射+折射子光线(R+T=1).
 
     返回 [(dir, weight, medium, kind [, jones])], kind in {"reflect","refract"}.
     带 jones 时分解到 (s,p) 应用复菲涅尔, 子光线携带 (Er_s,Er_p)/(Et_s,Et_p).
     """
     inc_angle = math.acos(min(max(-float(np.dot(d, n)), 0.0), 1.0))
-    R, f = surface_state_split(inc_angle, n1, n2, 0.5)
+    if coating is not None:
+        try:
+            Rs = coating.reflectivity(inc_angle, wavelength, n1, n2, "s")
+            Rp = coating.reflectivity(inc_angle, wavelength, n1, n2, "p")
+            R = 0.5 * (Rs + Rp)
+            f = {"tir": False}
+        except Exception:
+            R, f = surface_state_split(inc_angle, n1, n2, 0.5)
+    else:
+        R, f = surface_state_split(inc_angle, n1, n2, 0.5)
     r_dir = reflect_ray(d, n)
     ch = [(r_dir, R, n1, "reflect")]
     if jones is not None and _pol is not None:
@@ -70,12 +80,21 @@ def surface_event(d, n, prop, cur, rng, jones=None):
         return [(reflect_ray(d, n), prop.reflectivity or 1.0, cur, "reflect")]
 
     if kind == "transmitting":
-        return fresnel_interface_event(d, n, cur, other, jones=jones)
+        return fresnel_interface_event(d, n, cur, other, jones=jones,
+                                       coating=getattr(prop, "coating", None),
+                                       wavelength=getattr(prop, "wavelength", 550.0))
 
     if kind == "diffuse":
         w = prop.reflectivity
         if w <= 0:
             return []
+        if prop.bsdf is not None:
+            try:
+                from ltsoptics.bsdf import sample_bsdf_dir
+                dir_out, pdf, brdf = sample_bsdf_dir(prop.bsdf, n, rng)
+                return [(np.asarray(dir_out, dtype=float), w, cur, "diffuse")]
+            except Exception:
+                pass
         dir_out = sample_hemisphere_cosine(rng.next1(), rng.next1(), n)
         return [(dir_out, w, cur, "diffuse")]
 
@@ -122,5 +141,12 @@ def surface_event(d, n, prop, cur, rng, jones=None):
         return []
     if prop.specular_frac >= 0.5:
         return [(reflect_ray(d, n), rho, cur, "reflect")]
+    if prop.bsdf is not None:
+        try:
+            from ltsoptics.bsdf import sample_bsdf_dir
+            dir_out, pdf, brdf = sample_bsdf_dir(prop.bsdf, n, rng)
+            return [(np.asarray(dir_out, dtype=float), rho, cur, "diffuse")]
+        except Exception:
+            pass
     dir_out = sample_hemisphere_cosine(rng.next1(), rng.next1(), n)
     return [(dir_out, rho, cur, "diffuse")]

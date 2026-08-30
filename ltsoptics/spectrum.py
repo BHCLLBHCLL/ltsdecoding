@@ -214,7 +214,7 @@ def color_temp_approx(x: float, y: float) -> Optional[float]:
     n = (x - 0.3320) / (y - 0.1858)
     if abs(n) < 1e-9:
         return None
-    return 449.0 * n ** 3 + 3525.0 * n ** 2 + 6823.3 * n + 5520.33
+    return -449.0 * n ** 3 + 3525.0 * n ** 2 - 6823.3 * n + 5520.33
 
 
 if __name__ == "__main__":

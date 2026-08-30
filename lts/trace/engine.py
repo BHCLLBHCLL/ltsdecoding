@@ -16,7 +16,7 @@ from .physics import beer_absorption, surface_event
 class TraceResult:
     __slots__ = ("absorbed", "escaped", "launched", "face_flux",
                  "n_rays", "n_bounces", "hits", "escaped_dirs",
-                 "plane_hits")
+                 "plane_hits", "escaped_states")
 
     def __init__(self, n_faces):
         self.absorbed = 0.0
@@ -27,6 +27,7 @@ class TraceResult:
         self.face_flux = np.zeros(n_faces, dtype=float)
         self.hits = []          # (x, y, z, weight)
         self.escaped_dirs = []  # (dx, dy, dz, weight)
+        self.escaped_states = []  # (dx, dy, dz, weight, jones_or_None)
         self.plane_hits = []    # (receiver_index, x_local, y_local, weight)
 
 
@@ -72,14 +73,15 @@ class Engine:
     def trace(self, initial_rays, record_hits=False, record_escaped=False,
               max_hits=50000):
         res = TraceResult(self.scene.n_tri)
-        stack = [(r["p"], r["d"], r["weight"], r.get("medium", 1.0), 0)
+        stack = [(r["p"], r["d"], r["weight"], r.get("medium", 1.0), 0,
+                  r.get("jones"))
                  for r in initial_rays]
         for r in initial_rays:
             res.launched += r["weight"]
         total = 0
         while stack and total < self.max_rays:
             total += 1
-            p, d, w, med, depth = stack.pop()
+            p, d, w, med, depth, jones = stack.pop()
             if w <= 0:
                 continue
             res.n_rays += 1
@@ -95,8 +97,10 @@ class Engine:
                         res.plane_hits.append((ri, c[0], c[1], float(w)))
             if tri is None:
                 res.escaped += w
+                dd = np.asarray(d, dtype=float)
+                res.escaped_states.append((float(dd[0]), float(dd[1]),
+                                           float(dd[2]), float(w), jones))
                 if record_escaped:
-                    dd = np.asarray(d, dtype=float)
                     res.escaped_dirs.append((float(dd[0]), float(dd[1]),
                                              float(dd[2]), float(w)))
                 continue
@@ -114,9 +118,11 @@ class Engine:
                 h = np.asarray(hit, dtype=float)
                 res.hits.append((float(h[0]), float(h[1]), float(h[2]), float(w)))
             prop = self.scene.face_prop(tri)
-            children = surface_event(d, n, prop, med, self.rng)
+            children = surface_event(d, n, prop, med, self.rng, jones=jones)
             out_w_sum = 0.0
-            for cd, cfrac, cmed, ckind in children:
+            for ch in children:
+                cd, cfrac, cmed, ckind = ch[0], ch[1], ch[2], ch[3]
+                cj = ch[4] if len(ch) > 4 else None
                 cw = float(cfrac) * w
                 if cw <= 0:
                     continue
@@ -126,7 +132,7 @@ class Engine:
                         cw = self.rr_threshold
                     else:
                         continue
-                stack.append((hit, cd, cw, cmed, depth + 1))
+                stack.append((hit, cd, cw, cmed, depth + 1, cj))
             res.absorbed += max(w - out_w_sum, 0.0)
         res.n_rays = total
         return res

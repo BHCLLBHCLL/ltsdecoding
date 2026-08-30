@@ -18,6 +18,11 @@ from lts.trace.raygen import RNG
 from lts.trace.rayspace import RaySpace
 from lts.trace.scene import Scene, TriMesh
 from ltsoptics.surface import SurfaceOpt, sample_apodizer
+try:
+    from ltsoptics.polarization import emission_jones, accumulate_stokes
+except Exception:  # pragma: no cover
+    emission_jones = None
+    accumulate_stokes = None
 from lts_optics_bind import (bind_materials, bind_receivers, bind_sources,
                              surface_opt_for_name, surface_infos_for_leaf,
                              zone_prop)
@@ -392,8 +397,11 @@ def rays_from_sources(model, n_per_source: int = 40, *,
                                                 apod_kind=e.dir_apod)
                         wl = _sample_source_wl(spec, rng.next1(), wl_nm)
                         weight = per_ray * wfrac
+                        jones = (emission_jones(d, e.polarization, e.pol_angle)
+                                 if emission_jones is not None else None)
                         rays.append({"p": origin, "d": d, "weight": weight,
-                                     "medium": 1.0, "wl_nm": wl})
+                                     "medium": 1.0, "wl_nm": wl,
+                                     "jones": jones})
                         rs.add(origin, d, weight=weight, wl_nm=wl,
                                kind="primary")
                 continue
@@ -638,6 +646,10 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
                 grid = plane_receiver_grid(res.plane_hits, recv)
             else:
                 grid = far_field_grid(res.escaped_dirs, recv)
+                try:
+                    grid["stokes"] = stokes_grid(res.escaped_states, recv)
+                except Exception:
+                    pass
             receivers.append({"spec": recv, "grid": grid})
         except Exception as e:
             receivers.append({"spec": recv, "error": str(e)})
@@ -673,6 +685,76 @@ def illuminance_grid(hits, *, bins: int = 32) -> dict:
             "extent": (x0, x1, y0, y1),
             "max": float(grid.max()) if grid.size else 0.0,
             "sum": float(grid.sum())}
+
+
+
+def stokes_grid(escaped_states, recv, n_rows: int = 0, n_cols: int = 0) -> dict:
+    """远场 Stokes 网格: 按逃逸方向对角元累加 S0..S3 并求 DOP.
+
+    escaped_states: [(dx, dy, dz, weight, jones_or_None)] (engine 产出).
+    返回 {"s0","s1","s2","s3","dop","rows","cols","bounds","total","n_samples"}.
+    """
+    p0, p1, t0, t1 = (recv.angular_bounds
+                      if recv.angular_bounds is not None
+                      else (0.0, 360.0, 0.0, 180.0))
+    rows = n_rows or recv.mesh_rows or 18
+    cols = n_cols or recv.mesh_cols or 36
+    if recv.data_bounds is not None and recv.mesh_values is not None:
+        p0, p1, t0, t1 = (recv.data_bounds[0], recv.data_bounds[1],
+                          recv.data_bounds[2], recv.data_bounds[3])
+    S = np.zeros((rows, cols, 4), dtype=float)
+    r = np.asarray(recv.rot, dtype=float)
+    dth = (t1 - t0) / rows
+    dph = (p1 - p0) / cols
+    n_used = 0
+    for st in (escaped_states or []):
+        dx, dy, dz, w, jones = st[0], st[1], st[2], st[3], (st[4] if len(st) > 4 else None)
+        d = np.array([dx, dy, dz], dtype=float)
+        nrm = float(np.linalg.norm(d)) or 1.0
+        dl = (r.T @ (d / nrm))
+        th = math.degrees(math.acos(min(max(float(dl[2]), -1.0), 1.0)))
+        ph = math.degrees(math.atan2(float(dl[1]), float(dl[0]))) % 360.0
+        if ph < p0 or ph > p1 or th < t0 or th > t1:
+            continue
+        i = min(int((th - t0) / dth), rows - 1)
+        j = min(int((ph - p0) / dph), cols - 1)
+        if i < 0 or j < 0:
+            continue
+        w = float(w)
+        if accumulate_stokes is not None and jones is not None:
+            s0, s1, s2, s3, _dop = accumulate_stokes([(dx, dy, dz, w, jones)])
+        else:
+            s0, s1, s2, s3 = w, 0.0, 0.0, 0.0
+        S[i, j, 0] += s0
+        S[i, j, 1] += s1
+        S[i, j, 2] += s2
+        S[i, j, 3] += s3
+        n_used += 1
+    S0 = S[:, :, 0]
+    st = np.sqrt(S[:, :, 1] ** 2 + S[:, :, 2] ** 2 + S[:, :, 3] ** 2)
+    dop = np.divide(st, S0, out=np.zeros_like(S0), where=S0 > 1e-12)
+    return {"s0": S[:, :, 0], "s1": S[:, :, 1], "s2": S[:, :, 2],
+            "s3": S[:, :, 3], "dop": dop, "rows": rows, "cols": cols,
+            "bounds": (p0, p1, t0, t1),
+            "total": float(S0.sum()), "n_samples": n_used}
+
+
+def format_stokes_report(stk, recv) -> list:
+    """Stokes 网格 -> 报表文本行 (与 format_trace_report 样式)."""
+    name = getattr(recv, "name", "") or getattr(recv, "oid", "")
+    lines = ["  receiver: %s  Stokes grid=%dx%d" % (name, stk["rows"], stk["cols"]),
+             "            collected=%.6g  samples=%d" % (stk["total"], stk["n_samples"])]
+    S0 = stk["s0"]
+    if S0.size and S0.max() > 0:
+        ip, jp = np.unravel_index(int(np.argmax(S0)), S0.shape)
+        p0, p1, t0, t1 = stk["bounds"]
+        dth = (t1 - t0) / stk["rows"]
+        dph = (p1 - p0) / stk["cols"]
+        lines.append("            peak S0=%.4g @ theta=%.1f deg phi=%.1f deg  "
+                     "peak DOP=%.3f" % (
+                         float(S0[ip, jp]), t0 + (ip + 0.5) * dth,
+                         p0 + (jp + 0.5) * dph, float(stk["dop"][ip, jp])))
+    return lines
 
 
 def intensity_grid(escaped_dirs, *, n_theta: int = 18, n_phi: int = 36) -> dict:

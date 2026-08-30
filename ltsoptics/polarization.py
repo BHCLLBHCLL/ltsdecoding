@@ -57,6 +57,61 @@ def poincare_angles(jones):
     return chi, psi
 
 
+
+
+def transverse_basis(d):
+    """光线横向基 (s, p): s x p = d, 右手系."""
+    d = _unit(np.asarray(d, dtype=float))
+    up = np.array([0.0, 0.0, 1.0])
+    s = np.cross(d, up)
+    if float(np.linalg.norm(s)) < 1e-9:
+        s = np.cross(d, np.array([1.0, 0.0, 0.0]))
+    s = _unit(s)
+    p = np.cross(d, s)
+    return s, p
+
+
+def emission_jones(d, kind="none", angle_deg=0.0, ell_deg=0.0):
+    """按发射方向 d 构造发射偏振 Jones (Es, Ep) 于横向 (s, p) 基.
+
+    kind: none/unpolarized -> None; linear; circular; elliptical.
+    angle_deg: 偏振方向/椭圆长轴角 (度); ell_deg: 椭率角 (度). 返回 2-矢量复 Jones.
+    """
+    k = (kind or "").lower().strip()
+    if k in ("", "none", "unpolarized", "random", "0"):
+        return None
+    s, p = transverse_basis(d)
+    a = math.radians(angle_deg)
+    if k in ("linear", "linear_deg"):
+        j = np.array([math.cos(a), math.sin(a)], dtype=complex)
+    elif k == "circular":
+        ph = math.pi / 2.0 if angle_deg >= 0 else -math.pi / 2.0
+        j = jones_from_amplitudes(1.0 / math.sqrt(2.0), 1.0 / math.sqrt(2.0),
+                                  0.0, ph)
+    else:  # elliptical
+        e = math.radians(ell_deg)
+        j = jones_from_amplitudes(math.cos(a), math.sin(a), 0.0, e)
+    return normalize_jones(j)
+
+
+def accumulate_stokes(states, weight_fn=None):
+    """把多条光线的 (dx,dy,dz,w,jones) 列表按权重累加为总 Stokes.
+
+    返回 (S0, S1, S2, S3, DOP). 未偏振 (jones=None) 的射线只贡献 S0 (非偏振光).
+    """
+    S = np.zeros(4, dtype=float)
+    for st in states:
+        _dx, _dy, _dz, w, jones = st[0], st[1], st[2], st[3], (st[4] if len(st) > 4 else None)
+        w = float(w)
+        if jones is None:
+            S[0] += w   # 非偏振: 只贡献强度, 无偏振分量
+        else:
+            s = stokes(np.asarray(jones, dtype=complex)) * w
+            S += s
+    dop = math.sqrt(S[1] ** 2 + S[2] ** 2 + S[3] ** 2) / S[0] if S[0] > 1e-12 else 0.0
+    return float(S[0]), float(S[1]), float(S[2]), float(S[3]), float(dop)
+
+
 def linear_polarizer(angle):
     "沿 angle (rad, 相对 x) 的线偏振器 Jones 矩阵."
     c, s2 = math.cos(angle), math.sin(angle)
