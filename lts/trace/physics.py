@@ -15,6 +15,11 @@ import numpy as np
 from ltsoptics.surface import (reflect_ray, snell_refract,
                                surface_state_split, sample_hemisphere_cosine)
 
+try:
+    import ltsoptics.polarization as _pol
+except Exception:  # pragma: no cover
+    _pol = None
+
 _ABS_TOL = 1e-9
 
 
@@ -22,24 +27,42 @@ def beer_absorption(alpha: float, length: float) -> float:
     return math.exp(-alpha * length)
 
 
-def fresnel_interface_event(d, n, n1, n2):
+def fresnel_interface_event(d, n, n1, n2, jones=None):
     """透明界面 -> 反射+折射子光线(R+T=1).
 
-    返回 [(dir, weight, medium, kind)], kind in {"reflect","refract"}.
+    返回 [(dir, weight, medium, kind [, jones])], kind in {"reflect","refract"}.
+    带 jones 时分解到 (s,p) 应用复菲涅尔, 子光线携带 (Er_s,Er_p)/(Et_s,Et_p).
     """
     inc_angle = math.acos(min(max(-float(np.dot(d, n)), 0.0), 1.0))
     R, f = surface_state_split(inc_angle, n1, n2, 0.5)
     r_dir = reflect_ray(d, n)
-    children = [(r_dir, R, n1, "reflect")]
+    ch = [(r_dir, R, n1, "reflect")]
+    if jones is not None and _pol is not None:
+        try:
+            dd = np.asarray(d, dtype=float)
+            nn = np.asarray(n, dtype=float)
+            s, p = _pol.s_p_basis(dd, nn)
+            j = np.asarray(jones, dtype=complex)
+            # jones 视为 (Es, Ep)
+            Er_s, Er_p, Et_s, Et_p, _R, _T, _ = _pol.interface_jones(
+                j[0], j[1], inc_angle, n1, n2)
+            ch = [(r_dir, R, n1, "reflect",
+                   np.array([Er_s, Er_p], dtype=complex))]
+        except Exception:
+            pass
     if f["tir"]:
-        return children
+        return ch
     t_dir, _ = snell_refract(d, n, n1, n2)
-    children.append((t_dir, 1.0 - R, n2, "refract"))
-    return children
+    if jones is not None and _pol is not None:
+        ch.append((t_dir, 1.0 - R, n2, "refract",
+                   np.array([Et_s, Et_p], dtype=complex)))
+    else:
+        ch.append((t_dir, 1.0 - R, n2, "refract"))
+    return ch
 
 
-def surface_event(d, n, prop, cur, rng):
-    """单面事件. n 已朝向入射侧. 返回 [(dir, weight, medium, kind)]."""
+def surface_event(d, n, prop, cur, rng, jones=None):
+    """单面事件. n 已朝向入射侧. 返回 [(dir, weight, medium, kind[, jones])]."""
     other = prop.n_in if abs(cur - prop.n_in) > _ABS_TOL else prop.n_out
     kind = prop.kind
 
@@ -47,7 +70,7 @@ def surface_event(d, n, prop, cur, rng):
         return [(reflect_ray(d, n), prop.reflectivity or 1.0, cur, "reflect")]
 
     if kind == "transmitting":
-        return fresnel_interface_event(d, n, cur, other)
+        return fresnel_interface_event(d, n, cur, other, jones=jones)
 
     if kind == "diffuse":
         w = prop.reflectivity
