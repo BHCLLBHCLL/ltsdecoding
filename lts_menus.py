@@ -178,14 +178,14 @@ MENUS: List[Menu] = [
         _mi('&Output', cmd='nav_output', checkable=True, checked=True, dyn='nav_output'),
     ]),
     Menu('&Imaging', [
-        _mi('&Imaging Paths', cmd='imaging'),
-        _mi('&Field Specification…', cmd='imaging', lt='FieldSpecification'),
-        _mi('&Ray Aberration Plot…', cmd='imaging'),
-        _mi('&Spot Diagram…', cmd='imaging', lt='SpotDiagram'),
-        _mi('&Pupil Specification', cmd='imaging'),
-        _mi('Set &Entrance Pupil Diameter', cmd='imaging', lt='SetEPD'),
-        _mi('Set &Object Space NA', cmd='imaging', lt='SetNAO'),
-        _mi('Set &Vignetting', cmd='imaging', lt='SetVignetting'),
+        _mi('&Imaging Paths', cmd='imaging_paths'),
+        _mi('&Field Specification…', cmd='imaging_fields', lt='FieldSpecification'),
+        _mi('&Ray Aberration Plot…', cmd='imaging_aberration'),
+        _mi('&Spot Diagram…', cmd='imaging_spot', lt='SpotDiagram'),
+        _mi('&Pupil Specification', cmd='imaging_pupil'),
+        _mi('Set &Entrance Pupil Diameter', cmd='imaging_epd', lt='SetEPD'),
+        _mi('Set &Object Space NA', cmd='imaging_nao', lt='SetNAO'),
+        _mi('Set &Vignetting', cmd='imaging_vig', lt='SetVignetting'),
     ]),
     Menu('&Insert', [
         MI('&Optical Element', items=[

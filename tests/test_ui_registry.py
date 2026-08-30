@@ -509,3 +509,26 @@ def test_run_macro_bound_and_issues_commands():
     v.bus.run = lambda name: out_events.append(name)
     v._run_macro()
     assert out_events == ['fit', 'fit_all']
+
+
+# ---------------------------------------------------------------------------
+# P5: 顺序成像路径 GUI
+# ---------------------------------------------------------------------------
+
+def test_imaging_commands_bound_and_spot():
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(['t'])
+    from lts_gui import LTSViewer
+    v = LTSViewer(enable_3d=False)
+    for c in ('imaging_paths', 'imaging_fields', 'imaging_aberration',
+              'imaging_spot', 'imaging_pupil', 'imaging_epd', 'imaging_nao',
+              'imaging_vig'):
+        assert c in v.bus._handlers, c
+    p = v._img_path()
+    import numpy as np
+    spots = p.spot_diagram(n=15)
+    assert len(spots) > 100
+    assert p.effective_focal_length() > 40
+    fan = p.ray_fan(n=11)
+    assert len(fan) == 11

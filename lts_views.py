@@ -69,6 +69,70 @@ def mesh_to_rows(grid, *, rows=None, cols=None, bounds=None, units="candela",
 # Qt 视图 (需 QApplication)
 # ---------------------------------------------------------------------------
 
+def make_spot_dialog(spots, title="Spot Diagram", parent=None):
+    """Spot 图: 像面散点 + RMS."""
+    from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QLabel, QVBoxLayout
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_qt5agg import (FigureCanvasQTAgg,
+                                                    NavigationToolbar2QT)
+    import numpy as np
+    pts = np.asarray(spots, dtype=float)
+    fig = plt.figure(figsize=(5.6, 5.0))
+    ax = fig.add_subplot(1, 1, 1)
+    if len(pts):
+        ax.scatter(pts[:, 0], pts[:, 1], s=6, c="#c00000")
+        rms = float(np.sqrt(np.mean(pts[:, 1] ** 2)))
+        ax.set_title("%s\nRMS(y)=%.4f mm  n=%d" % (title, rms, len(pts)))
+    else:
+        ax.set_title(title + " (no rays)")
+    ax.axis("equal")
+    ax.grid(True, alpha=0.3)
+    ax.set_xlabel("X (mm)"); ax.set_ylabel("Y (mm)")
+    dlg = QDialog(parent)
+    dlg.setWindowTitle(title)
+    dlg.resize(620, 560)
+    v = QVBoxLayout(dlg)
+    can = FigureCanvasQTAgg(fig)
+    v.addWidget(NavigationToolbar2QT(can, dlg))
+    v.addWidget(can)
+    v.addWidget(QLabel("Sequential path (P5): pupil grid traced to image plane",
+                       dlg))
+    bb = QDialogButtonBox(QDialogButtonBox.Close, dlg)
+    bb.rejected.connect(dlg.close)
+    v.addWidget(bb)
+    return dlg
+
+
+def make_ray_fan_dialog(fan, title="Ray Aberration Plot", parent=None):
+    """光线扇形图: 归一化孔径 -> 横向像差."""
+    from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+    fan = list(fan or [])
+    fig = plt.figure(figsize=(5.6, 4.2))
+    ax = fig.add_subplot(1, 1, 1)
+    if fan:
+        xs = [p for p, _d in fan]
+        ys = [d for _p, d in fan]
+        ax.plot(xs, ys, "-o", ms=4, color="#1f4e79")
+        ax.axhline(0, color="#999", lw=1)
+        ax.set_xlabel("Normalized pupil (PY)")
+        ax.set_ylabel("Transverse aberration (mm)")
+        ax.set_title(title)
+    else:
+        ax.set_title(title + " (no data)")
+    ax.grid(True, alpha=0.3)
+    dlg = QDialog(parent)
+    dlg.setWindowTitle(title)
+    dlg.resize(620, 480)
+    v = QVBoxLayout(dlg)
+    v.addWidget(FigureCanvasQTAgg(fig))
+    bb = QDialogButtonBox(QDialogButtonBox.Close, dlg)
+    bb.rejected.connect(dlg.close)
+    v.addWidget(bb)
+    return dlg
+
+
 def make_glass_map_dialog(catalog, on_apply=None, parent=None,
                            on_pick=None):
     from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout,

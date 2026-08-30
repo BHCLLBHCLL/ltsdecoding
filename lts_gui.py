@@ -8,6 +8,7 @@ Layout: menu + main toolbar
 
 from __future__ import annotations
 
+import math
 import os
 import sys
 from typing import Optional
@@ -459,6 +460,14 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("mesh_table", self._mesh_table)
         b.bind("ray_report", self._ray_report)
         b.bind("run_macro", self._run_macro)
+        b.bind("imaging_paths", self._imaging_paths)
+        b.bind("imaging_fields", self._imaging_fields)
+        b.bind("imaging_aberration", self._imaging_aberration)
+        b.bind("imaging_spot", self._imaging_spot)
+        b.bind("imaging_pupil", self._imaging_pupil)
+        b.bind("imaging_epd", self._imaging_epd)
+        b.bind("imaging_nao", self._imaging_nao)
+        b.bind("imaging_vig", self._imaging_vig)
         b.bind("revolved", lambda: self._insert_profile("revolve", "Revolved"))
         b.bind("extruded", lambda: self._insert_profile("extruded", "Extruded"))
         b.bind("swept", lambda: self._insert_profile("swept", "Swept"))
@@ -1625,6 +1634,92 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                 tab="opt")
         except Exception as e:
             self.log("Parameter analyzer failed: %s" % e, "ERROR", tab="opt")
+
+    # ----------------------------------------------- P5 顺序追迹成像
+    def _img_path(self):
+        """惰性构建顺序成像路径 (单透镜 + 模型实体预置)."""
+        from lts.trace.sequential import single_lens
+        if getattr(self, "_img", None) is None:
+            self._img = single_lens()
+        return self._img
+
+    def _imaging_paths(self):
+        p = self._img_path()
+        lines = ["Imaging path (sequential, +Z axis)  EPD=%.3g mm  field=%.4g deg" % (
+            p.epd, math.degrees(p.field_angle)),
+            "  f = %.4f mm   BFL = %.4f mm" % (
+                p.effective_focal_length(), p.paraxial_image_distance())]
+        for s in p.surfaces:
+            lines.append("  %-6s z=%-9.4g c=%-9.4g ap=%-8.4g n %g -> %g" % (
+                s.name, s.z, s.curvature, s.aperture, s.n_prev, s.n_next))
+        self.log("\n".join(lines), tab="imaging")
+        from lts_dialogs import AnalysisGridDialog
+        AnalysisGridDialog("Imaging Paths (lens prescription)",
+                           "\n".join(lines), self).exec_() if self.isVisible() else None
+
+    def _imaging_spot(self):
+        p = self._img_path()
+        spots = p.spot_diagram(n=31)
+        from lts_views import make_spot_dialog
+        dlg = make_spot_dialog(spots, "Spot Diagram", self)
+        dlg.exec_()
+        self.log("Spot diagram: %d rays traced (sequential)" % len(spots),
+                 tab="imaging")
+
+    def _imaging_aberration(self):
+        p = self._img_path()
+        fan = p.ray_fan(n=21)
+        from lts_views import make_ray_fan_dialog
+        dlg = make_ray_fan_dialog(fan, "Ray Aberration Plot", self)
+        dlg.exec_()
+        self.log("Ray aberration plot: %d fan rays" % len(fan), tab="imaging")
+
+    def _imaging_fields(self):
+        from lts_dialogs import InsertWizardDialog
+        if not self.isVisible():
+            self.log("Field Specification: set field angle in the dialog.",
+                     tab="imaging")
+            return
+        dlg = InsertWizardDialog("Field Specification", [
+            ("field_deg", "Field angle (deg)", math.degrees(
+                self._img_path().field_angle), "float")], self)
+        if dlg.exec_() == dlg.Accepted:
+            p = dlg.values()
+            self._img_path().field_angle = math.radians(float(p.get("field_deg", 0.0)))
+            self.log("Field angle set: %s deg" % p.get("field_deg"), tab="imaging")
+
+    def _imaging_pupil(self):
+        p = self._img_path()
+        self.log("Pupil specification: EPD=%.4g mm  field=%.4g deg  NA(obj)~%.4g"
+                 % (p.epd, math.degrees(p.field_angle),
+                    math.sin(math.atan(p.epd / (2.0 * max(
+                        p.effective_focal_length(), 1e-6))))), tab="imaging")
+
+    def _imaging_epd(self):
+        from lts_dialogs import InsertWizardDialog
+        if not self.isVisible():
+            self._img_path().epd = 20.0
+            self.log("EPD set: 20.0 mm", tab="imaging")
+            return
+        dlg = InsertWizardDialog("Set Entrance Pupil Diameter", [
+            ("epd", "EPD (mm)", self._img_path().epd, "float")], self)
+        if dlg.exec_() == dlg.Accepted:
+            self._img_path().epd = float(dlg.values().get("epd", 20.0))
+            self.log("EPD set: %s mm" % dlg.values().get("epd"), tab="imaging")
+
+    def _imaging_nao(self):
+        p = self._img_path()
+        f = max(p.effective_focal_length(), 1e-6)
+        # NAO -> EPD = 2 f tan(asin(NA)) (默认 NA=0.2)
+        self.log("Object space NA: EPD=%.4g -> NA~%.4g (sequential)"
+                 % (p.epd, p.epd / (2.0 * f)), tab="imaging")
+
+    def _imaging_vig(self):
+        p = self._img_path()
+        for s in p.surfaces:
+            s.aperture = min(s.aperture, 0.5 * p.epd)
+        self.log("Vignetting: apertures clamped to EPD/2 for the path.",
+                 tab="imaging")
 
     def _focus_3d(self) -> None:
         self.center_tabs.setCurrentWidget(self.view3d)

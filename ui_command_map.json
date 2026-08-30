@@ -1,6 +1,6 @@
 {
  "baseline": "Synopsys LightTools 9.1.0",
- "generated": "2026-08-30T00:30:22",
+ "generated": "2026-08-30T09:13:55",
  "menus": [
   "&File",
   "&Edit",
@@ -17,8 +17,8 @@
   "&Help"
  ],
  "total": 202,
- "implemented": 170,
- "nyi": 32,
+ "implemented": 178,
+ "nyi": 24,
  "entries": [
   {
    "path": "&File",
@@ -791,66 +791,66 @@
   {
    "path": "&Imaging",
    "label": "&Imaging Paths",
-   "cmd": "imaging",
+   "cmd": "imaging_paths",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Imaging",
    "label": "&Field Specification…",
-   "cmd": "imaging",
+   "cmd": "imaging_fields",
    "lt": "FieldSpecification",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Imaging",
    "label": "&Ray Aberration Plot…",
-   "cmd": "imaging",
+   "cmd": "imaging_aberration",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Imaging",
    "label": "&Spot Diagram…",
-   "cmd": "imaging",
+   "cmd": "imaging_spot",
    "lt": "SpotDiagram",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Imaging",
    "label": "&Pupil Specification",
-   "cmd": "imaging",
+   "cmd": "imaging_pupil",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Imaging",
    "label": "Set &Entrance Pupil Diameter",
-   "cmd": "imaging",
+   "cmd": "imaging_epd",
    "lt": "SetEPD",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Imaging",
    "label": "Set &Object Space NA",
-   "cmd": "imaging",
+   "cmd": "imaging_nao",
    "lt": "SetNAO",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Imaging",
    "label": "Set &Vignetting",
-   "cmd": "imaging",
+   "cmd": "imaging_vig",
    "lt": "SetVignetting",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Optical Element",
