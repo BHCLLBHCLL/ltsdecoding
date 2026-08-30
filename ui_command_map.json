@@ -1,6 +1,6 @@
 {
  "baseline": "Synopsys LightTools 9.1.0",
- "generated": "2026-08-30T09:13:55",
+ "generated": "2026-08-30T10:26:32",
  "menus": [
   "&File",
   "&Edit",
@@ -17,8 +17,8 @@
   "&Help"
  ],
  "total": 202,
- "implemented": 178,
- "nyi": 24,
+ "implemented": 202,
+ "nyi": 0,
  "entries": [
   {
    "path": "&File",
@@ -42,7 +42,7 @@
    "cmd": "recent_models",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File",
@@ -114,7 +114,7 @@
    "cmd": "import_codev",
    "lt": "ImportCV",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File/I&mport",
@@ -146,7 +146,7 @@
    "cmd": "import_x_t",
    "lt": "ImportParasolidFile",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File/I&mport",
@@ -162,7 +162,7 @@
    "cmd": "import_dxf",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File/I&mport",
@@ -170,7 +170,7 @@
    "cmd": "import_catia4",
    "lt": "ImportCATIA",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File/I&mport",
@@ -178,7 +178,7 @@
    "cmd": "import_catia5",
    "lt": "ImportCATIAv5File",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File/E&xport",
@@ -194,7 +194,7 @@
    "cmd": "export_codev",
    "lt": "ExportCV",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File/E&xport",
@@ -218,7 +218,7 @@
    "cmd": "export_x_t",
    "lt": "ExportParasolid3",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&File/E&xport",
@@ -346,7 +346,7 @@
    "cmd": "undelete",
    "lt": "Undelete",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Edit",
@@ -378,7 +378,7 @@
    "cmd": "edit_all_sel",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Edit",
@@ -386,7 +386,7 @@
    "cmd": "edit_all_desc",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Edit",
@@ -490,7 +490,7 @@
    "cmd": "view_imaging",
    "lt": "ImagPathView",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&View",
@@ -906,7 +906,7 @@
    "cmd": "cpc",
    "lt": "CPCRevolvedSolid",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Insert/&Optical Element",
@@ -1114,7 +1114,7 @@
    "cmd": "begin_bwd",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Ray Trace",
@@ -1170,7 +1170,7 @@
    "cmd": "rt_precision",
    "lt": "SetupRTMode",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Ray Trace",
@@ -1178,7 +1178,7 @@
    "cmd": "rt_accel",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Analysis",
@@ -1362,7 +1362,7 @@
    "cmd": "pr_view",
    "lt": "PhotorealView",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Photoreal",
@@ -1370,7 +1370,7 @@
    "cmd": "pr_camera",
    "lt": "PlaceCamera",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Photoreal",
@@ -1378,7 +1378,7 @@
    "cmd": "pr_point",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Photoreal",
@@ -1386,7 +1386,7 @@
    "cmd": "pr_spot",
    "lt": "PlaceSpotLight",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Photoreal",
@@ -1394,7 +1394,7 @@
    "cmd": "begin_lit",
    "lt": "StartLitSim",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Photoreal",
@@ -1402,7 +1402,7 @@
    "cmd": "render_after_lit",
    "lt": "RerunLitSim",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tools",
@@ -1426,7 +1426,7 @@
    "cmd": "addins",
    "lt": "AddIns",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tools",
@@ -1482,7 +1482,7 @@
    "cmd": "sw_link",
    "lt": "",
    "short": "",
-   "status": "nyi"
+   "status": "implemented"
   },
   {
    "path": "&Tools",

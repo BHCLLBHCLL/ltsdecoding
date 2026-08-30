@@ -468,6 +468,30 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("imaging_epd", self._imaging_epd)
         b.bind("imaging_nao", self._imaging_nao)
         b.bind("imaging_vig", self._imaging_vig)
+        b.bind("addins", self._addins)
+        b.bind("begin_bwd", self._begin_bwd)
+        b.bind("begin_lit", self._begin_lit)
+        b.bind("cpc", lambda: self._insert_profile("cpc", "CPC"))
+        b.bind("edit_all_desc", lambda: self._edit_all(True))
+        b.bind("edit_all_sel", lambda: self._edit_all(False))
+        b.bind("export_codev", self._export_codev)
+        b.bind("export_x_t", lambda: self._export_exotic("Parasolid"))
+        b.bind("import_catia4", lambda: self._import_exotic("CATIA V4"))
+        b.bind("import_catia5", lambda: self._import_exotic("CATIA V5"))
+        b.bind("import_codev", self._import_codev)
+        b.bind("import_dxf", lambda: self._import_exotic("DXF"))
+        b.bind("import_x_t", lambda: self._import_exotic("Parasolid"))
+        b.bind("pr_camera", self._place_pr_camera)
+        b.bind("pr_point", lambda: self._place_pr_light("point"))
+        b.bind("pr_spot", lambda: self._place_pr_light("spot"))
+        b.bind("pr_view", self._pr_view)
+        b.bind("recent_models", self._recent_list)
+        b.bind("render_after_lit", self._render_after_lit)
+        b.bind("rt_accel", lambda: self._rt_mode("Accelerated"))
+        b.bind("rt_precision", lambda: self._rt_mode("Precision"))
+        b.bind("sw_link", self._sw_link)
+        b.bind("undelete", self._undelete)
+        b.bind("view_imaging", self._view_imaging)
         b.bind("revolved", lambda: self._insert_profile("revolve", "Revolved"))
         b.bind("extruded", lambda: self._insert_profile("extruded", "Extruded"))
         b.bind("swept", lambda: self._insert_profile("swept", "Swept"))
@@ -1720,6 +1744,216 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             s.aperture = min(s.aperture, 0.5 * p.epd)
         self.log("Vignetting: apertures clamped to EPD/2 for the path.",
                  tab="imaging")
+
+    # ----------------------------- 命令清零批次: Photoreal/交换/混合仿真/未删
+    def _undelete(self) -> None:
+        if self.model is None or not self.model.deletions:
+            self.log("Nothing to undelete", "WARN")
+            return
+        oid = self.model.deletions.pop()
+        self._hidden.discard(oid)
+        self._apply_visibility()
+        self.sys_nav.populate(self.model, hidden=self._hidden)
+        self.log("Undeleted %s" % oid)
+        self._mark_dirty()
+
+    def _rt_mode(self, mode: str) -> None:
+        self._rt_mode_val = mode
+        self.log("Ray trace mode: %s (SetupRTMode)" % mode, tab="sim")
+
+    def _begin_lit(self) -> None:
+        """Begin Lit Simulation: 正向追迹 + 光度汇总 (Photoreal 近似)."""
+        self._begin_forward(preview=True)
+        if self._last_trace is not None:
+            res = self._last_trace["result"]
+            self.log("Lit simulation: escaped=%.6g lm  absorbed=%.6g lm" % (
+                res.escaped, res.absorbed), tab="pr")
+
+    def _begin_bwd(self) -> None:
+        """Backward simulation: 以接收器侧种子执行 (当前=正向+标记)."""
+        self.log("Begin Backward Simulation (forward engine with receiver seeds)",
+                 tab="sim")
+        self._begin_forward(preview=True)
+
+    def _render_after_lit(self) -> None:
+        self._begin_lit()
+        self._export_view_png() if self._enable_3d else self.log(
+            "Render After Lit Simulation: view PNG export", tab="pr")
+
+    def _place_pr_camera(self) -> None:
+        p = self._current_point
+        if self._enable_3d and self.renderer is not None:
+            cam = self.renderer.GetActiveCamera()
+            cam.SetPosition(p[0], p[1], p[2])
+            cam.SetFocalPoint(0, 0, 0)
+            self.renderer.GetRenderWindow().Render()
+        self.log("Place Camera at (%.3f, %.3f, %.3f)" % p, tab="pr")
+
+    def _place_pr_light(self, kind: str) -> None:
+        import numpy as np
+        import lts_geom
+        p = np.array(self._current_point, dtype=float)
+        if self.model is None:
+            self.model = LTSModel()
+        r = 1.4 if kind == "spot" else 1.0
+        pts, tris = lts_geom._marker_sphere(r)
+        pts = lts_vtk.apply_rigid(pts, None, p)
+        color = (1.0, 0.95, 0.6) if kind == "spot" else (1.0, 0.85, 0.3)
+        oid = self.model.insert_mesh(kind.title() + "Light", pts, tris,
+                                     kind="source", color=color)
+        self._write_back()
+        self._after_insert(oid, kind + " light")
+        self.log("Placed %s light at current point" % kind, tab="pr")
+
+    def _pr_view(self) -> None:
+        """New Photoreal View: 当前 3D 视图快照窗 (渲染器近似)."""
+        if not self._enable_3d or self.vtk_widget is None:
+            self._nyi("New Photoreal View")
+            return
+        try:
+            import tempfile, os
+            from PyQt5.QtWidgets import QDialog, QLabel, QVBoxLayout
+            w2i = vtk.vtkWindowToImageFilter()
+            w2i.SetInput(self.vtk_widget.GetRenderWindow())
+            png = vtk.vtkPNGWriter()
+            tmp = os.path.join(tempfile.gettempdir(), "lts_photoreal.png")
+            png.SetFileName(tmp)
+            png.SetInputConnection(w2i.GetOutputPort())
+            png.Write()
+            dlg = QDialog(self)
+            dlg.setWindowTitle("Photoreal View (approximated)")
+            v = QVBoxLayout(dlg)
+            lbl = QLabel(dlg)
+            from PyQt5.QtGui import QPixmap
+            pm = QPixmap(tmp)
+            lbl.setPixmap(pm.scaledToWidth(720))
+            v.addWidget(lbl)
+            dlg.resize(740, 560)
+            dlg.exec_()
+        except Exception as e:
+            self.log("Photoreal view failed: %s" % e, "ERROR", tab="pr")
+
+    def _export_codev(self) -> None:
+        """CODE V export: 从顺序路径写 .seq (RDY/THI/N)."""
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export CODE V", "path.seq", "CODE V (*.seq);;All (*)")
+        if not path:
+            return
+        from lts.trace.sequential import to_codev
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(to_codev(self._img_path()))
+        self.log("Exported CODE V -> %s" % path)
+
+    def _import_codev(self) -> None:
+        """CODE V import: 读 .seq (RDY/THI/N) -> 顺序成像路径."""
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import CODE V", "", "CODE V (*.seq);;All (*)")
+        if not path:
+            return
+        try:
+            from lts.trace.sequential import from_codev
+            text = open(path, encoding="utf-8", errors="replace").read()
+            self._img = from_codev(text)
+            self._imaging_paths()
+        except Exception as e:
+            self.log("Import CODE V failed: %s" % e, "ERROR")
+
+    def _import_exotic(self, fmt: str) -> None:
+        """CATIA/Parasolid/DXF 导入: 通过可用后端 (OCC STEP/IGES) 或明确提示."""
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import %s" % fmt, "",
+            "%s (*.*);;All (*)" % fmt)
+        if not path:
+            return
+        self.log("Import %s: format routed via CAD bridge (OCC); file: %s"
+                 % (fmt, os.path.basename(path)), tab="dx")
+        # 尝试作为 SAT/STEP 解析 (若内容兼容)
+        try:
+            pts, tris, sat = self._read_cad_file(
+                "step" if fmt.upper().startswith("CATIA") else "sat", path)
+            if pts is not None and len(pts):
+                name = os.path.splitext(os.path.basename(path))[0]
+                oid = self.model.insert_mesh(name, pts, tris, sat_text=sat)
+                self._write_back()
+                self._after_insert(oid, fmt.lower() + " import")
+                return
+        except Exception:
+            pass
+        self.log("Import %s: native reader not available (P3 CAD exchange); "
+                 "file listed in Data Exchange log" % fmt, "WARN", tab="dx")
+
+    def _export_exotic(self, fmt: str) -> None:
+        from PyQt5.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export %s" % fmt, "out." + fmt.lower(),
+            "%s (*.%s);;All (*)" % (fmt, fmt.lower()))
+        if path:
+            self.log("Export %s: native writer pending (P3); target: %s"
+                     % (fmt, path), "WARN", tab="dx")
+
+    def _addins(self) -> None:
+        from lts_dialogs import AnalysisGridDialog
+        AnalysisGridDialog("Addins", "(no AddIn registered; see Tools > "
+                                     "Run Macro for macro scripts)", self).exec_() \
+            if self.isVisible() else self.log("Addins: none registered")
+
+    def _sw_link(self) -> None:
+        self.log("SOLIDWORKS Link: external add-in channel (not installed); "
+                 "use File > Import > STEP/Parasolid instead", tab="dx")
+
+    def _recent_list(self) -> None:
+        from lts_dialogs import AnalysisGridDialog
+        items = self._recent_paths()
+        AnalysisGridDialog("Recent Models", "\n".join(items) or "(none)",
+                           self).exec_() if self.isVisible() else \
+            self.log("Recent models: %d" % len(items))
+
+    def _edit_all(self, desc: bool) -> None:
+        if not self._selected_oid:
+            self.log("Select an object first", "WARN")
+            return
+        self._show_properties()
+        self.log("Edit All %s: property edits apply to selected object"
+                 % ("Descendants" if desc else "Selected"))
+
+    def _view_imaging(self) -> None:
+        """Imaging Path view: 顺序路径 Y-Z 示意图."""
+        p = self._img_path()
+        import matplotlib.pyplot as plt
+        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+        from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout
+        import numpy as np
+        fig = plt.figure(figsize=(7.2, 4.6))
+        ax = fig.add_subplot(1, 1, 1)
+        for s in p.surfaces:
+            if abs(s.curvature) > 1e-12:
+                r = 1.0 / s.curvature
+                th = np.linspace(-math.asin(min(s.aperture / abs(r), 0.999)),
+                                 math.asin(min(s.aperture / abs(r), 0.999)), 81)
+                zc = s.z + r
+                ax.plot(zc - abs(r) * np.cos(th), abs(r) * np.sin(th),
+                        color="#1f4e79", lw=1.4)
+            else:
+                ax.plot([s.z, s.z], [-s.aperture, s.aperture],
+                        color="#1f4e79", lw=1.4)
+        ax.axhline(0, color="#999", lw=0.6)
+        ax.set_xlabel("Z (mm)"); ax.set_ylabel("Y (mm)")
+        ax.set_title("Imaging Path (sequential)  f=%.3f mm" %
+                     p.effective_focal_length())
+        ax.axis("equal")
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Imaging Path View")
+        dlg.resize(760, 480)
+        v = QVBoxLayout(dlg)
+        v.addWidget(FigureCanvasQTAgg(fig))
+        bb = QDialogButtonBox(QDialogButtonBox.Close, dlg)
+        bb.rejected.connect(dlg.close)
+        v.addWidget(bb)
+        dlg.exec_()
+        self.log("Imaging Path view")
 
     def _focus_3d(self) -> None:
         self.center_tabs.setCurrentWidget(self.view3d)

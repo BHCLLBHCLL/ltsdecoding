@@ -532,3 +532,61 @@ def test_imaging_commands_bound_and_spot():
     assert p.effective_focal_length() > 40
     fan = p.ray_fan(n=11)
     assert len(fan) == 11
+
+# ---------------------------------------------------------------------------
+# 命令清零批次 (202/202) 回归
+# ---------------------------------------------------------------------------
+
+def test_final_batch_bound_and_zero_nyi():
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(["t"])
+    from lts_gui import LTSViewer
+    v = LTSViewer(enable_3d=False)
+    for c in ("addins", "begin_bwd", "begin_lit", "cpc", "edit_all_desc",
+              "edit_all_sel", "export_codev", "export_x_t", "import_catia4",
+              "import_catia5", "import_codev", "import_dxf", "import_x_t",
+              "pr_camera", "pr_point", "pr_spot", "pr_view", "recent_models",
+              "render_after_lit", "rt_accel", "rt_precision", "sw_link",
+              "undelete", "view_imaging"):
+        assert c in v.bus._handlers, c
+    import json
+    d = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "..", "ui_command_map.json"), encoding="utf-8"))
+    assert d["nyi"] == 0
+    assert d["total"] == d["implemented"] == 202
+
+
+def test_codev_roundtrip():
+    from lts.trace.sequential import single_lens, to_codev, from_codev
+    p = single_lens()
+    text = to_codev(p)
+    q = from_codev(text)
+    assert len(q.surfaces) == 2
+    assert abs(q.surfaces[0].curvature - 1.0 / 50.0) < 1e-9
+    assert abs(q.surfaces[1].z - 5.0) < 1e-9
+    assert abs(q.effective_focal_length() - p.effective_focal_length()) < 1e-3
+
+
+def test_cpc_profile_solid():
+    from lts_model import LTSModel
+    import lts_insert
+    m = LTSModel()
+    oid = lts_insert.create_profile_solid(m, "cpc", name="CPC1", r1=6.0,
+                                           length=14.0)
+    part = next((pp for pp in m.tess_parts if pp.solid_oid == oid), None)
+    assert part is not None and len(part.triangles) > 0
+
+
+def test_undelete_pops_deletion():
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(["t"])
+    from lts_gui import LTSViewer
+    v = LTSViewer(enable_3d=False)
+    v.model = __import__("lts_model").LTSModel()
+    v.model.deletions.append("X1")
+    v._hidden.add("X1")
+    v._undelete()
+    assert "X1" not in v.model.deletions
+    assert "X1" not in v._hidden

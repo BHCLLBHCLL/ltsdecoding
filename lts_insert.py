@@ -340,6 +340,18 @@ def _profile_mesh(kind: str, *, n_steps: int = 48, r0: float = 5.0,
             poly.append((0.0, _z0 + length))
         return rings(poly, n_steps)
 
+    if kind == "cpc":
+        # 复合抛物面聚光器近似: 抛物线剖面 (r/r1)^2 * length 回转
+        steps = max(n_steps // 2, 8)
+        poly = []
+        for i in range(steps + 1):
+            rr = r1 * i / steps
+            zz = _z0 + length * (i / steps) ** 2
+            poly.append((rr, zz))
+        if poly and poly[-1][0] > 0:
+            poly.append((0.0, _z0 + length))
+        return rings(poly, n_steps)
+
     if kind == "extruded":
         hw = 0.5 * width
         quad = [(-hw, -hw), (hw, -hw), (hw, hw), (-hw, hw)]

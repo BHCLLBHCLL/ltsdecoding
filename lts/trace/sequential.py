@@ -216,6 +216,55 @@ class ImagingPath:
         return out
 
 
+def to_codev(path) -> str:
+    """顺序路径 -> CODE V .seq 文本 (RDY/THI/N)."""
+    lines = ["! exported from ltsdecoding (sequential path)",
+             "EPD %.6g" % path.epd]
+    for i, s in enumerate(path.surfaces):
+        thi = (path.surfaces[i + 1].z - s.z
+               if i + 1 < len(path.surfaces) else 0.0)
+        r = 1.0 / s.curvature if abs(s.curvature) > 1e-12 else 0.0
+        lines.append("S %d: RDY %.8g THI %.8g N %.6f" % (
+            i + 1, r, thi, s.n_next))
+    return chr(10).join(lines) + chr(10)
+
+
+def from_codev(text: str) -> ImagingPath:
+    """.seq 文本 -> ImagingPath."""
+    surfs = []
+    z = 0.0
+    n_prev = 1.0
+    epd = 20.0
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("!"):
+            continue
+        up = line.upper()
+        if up.startswith("EPD"):
+            try:
+                epd = float(line.split()[-1])
+            except Exception:
+                pass
+            continue
+        if up.startswith("S "):
+            rd = thi = 0.0
+            nxt = 1.0
+            toks = line.split(":", 1)[1].split()
+            for i, tok in enumerate(toks):
+                if tok.upper() == "RDY" and i + 1 < len(toks):
+                    rd = float(toks[i + 1])
+                elif tok.upper() == "THI" and i + 1 < len(toks):
+                    thi = float(toks[i + 1])
+                elif tok.upper() == "N" and i + 1 < len(toks):
+                    nxt = float(toks[i + 1])
+            c = 1.0 / rd if abs(rd) > 1e-9 else 0.0
+            surfs.append(SeqSurface("S%d" % (len(surfs) + 1), z, c, 1e9,
+                                    n_prev, nxt))
+            z += thi
+            n_prev = nxt
+    return ImagingPath(surfaces=surfs, epd=epd)
+
+
 def demo_doublet():
     """演示双胶合 (正/负) 路径: 4 面 + 像面."""
     return ImagingPath(surfaces=[
