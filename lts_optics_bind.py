@@ -156,6 +156,9 @@ class BoundMaterial:
     mu_s: float = 0.0
     g: float = 0.0
     depol: float = 0.0
+    qe: float = 0.0
+    emit_wl: float = 0.0
+    emit_spectral: list = field(default_factory=list)
     samples: list = field(default_factory=list)
     family: str = "glass"  # glass | metal | air | opaque
 
@@ -208,6 +211,12 @@ def bind_materials(objects: dict) -> Dict[str, BoundMaterial]:
         mu_s = _float(obj, "setScatteringCoefficient", 0.0)
         g = _float(obj, "setScatterAsymmetryFactor", 0.0)
         depol = _float(obj, "setDepolarization", 0.0)
+        qe = _float(obj, "setQuantumEfficiency", 0.0)
+        emit_wl = _float(obj, "setEmissionWavelength", 0.0)
+        emit_spectral = []
+        emit_oid = _edge(obj, "restoreEmissionObj")
+        if emit_oid and objects.get(emit_oid):
+            emit_spectral = _wavelength_samples(objects, objects.get(emit_oid))
         n = disp.n_at(0.55)
         fam = _family_of(name, cls, n)
         samples = []
@@ -217,6 +226,7 @@ def bind_materials(objects: dict) -> Dict[str, BoundMaterial]:
         out[oid] = BoundMaterial(
             oid=oid, name=name, cls=cls, dispersion=disp,
             alpha=alpha, mu_s=mu_s, g=g, depol=depol,
+            qe=qe, emit_wl=emit_wl, emit_spectral=emit_spectral,
             samples=samples, family=fam)
     return out
 

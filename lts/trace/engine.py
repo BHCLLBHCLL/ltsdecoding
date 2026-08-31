@@ -42,7 +42,7 @@ def _scatter_dir(d, ct, rng):
 
 class TraceResult:
     __slots__ = ("absorbed", "escaped", "launched", "face_flux",
-                 "n_rays", "n_bounces", "n_scatter", "hits",
+                 "n_rays", "n_bounces", "n_scatter", "n_fluo", "hits",
                  "escaped_dirs", "plane_hits", "escaped_states",
                  "plane_states")
 
@@ -53,6 +53,7 @@ class TraceResult:
         self.n_rays = 0
         self.n_bounces = 0
         self.n_scatter = 0
+        self.n_fluo = 0
         self.face_flux = np.zeros(n_faces, dtype=float)
         self.hits = []          # (x, y, z, weight)
         self.escaped_dirs = []  # (dx, dy, dz, weight)
@@ -112,14 +113,14 @@ class Engine:
               max_hits=50000):
         res = TraceResult(self.scene.n_tri)
         stack = [(r["p"], r["d"], r["weight"], r.get("medium", 1.0), 0,
-                  r.get("jones"))
+                  r.get("jones"), r.get("wl_nm", 550.0))
                  for r in initial_rays]
         for r in initial_rays:
             res.launched += r["weight"]
         total = 0
         while stack and total < self.max_rays:
             total += 1
-            p, d, w, med, depth, jones = stack.pop()
+            p, d, w, med, depth, jones, wl = stack.pop()
             if w <= 0:
                 continue
             res.n_rays += 1
@@ -166,7 +167,7 @@ class Engine:
                         j2 = (scatter_polarization(jones, d, d2, depol, self.rng)
                               if scatter_polarization is not None else jones)
                         stack.append((np.asarray(p, dtype=float) + np.asarray(d, dtype=float) * fp,
-                                      d2, w2, med, depth + 1, j2))
+                                      d2, w2, med, depth + 1, j2, wl))
                         continue
                     # 未散射到面: Beer 总衰减
                     trans = math.exp(-mu_t * tt)
@@ -176,7 +177,26 @@ class Engine:
                         continue
                 else:
                     trans = beer_absorption(alpha, tt)
-                    res.absorbed += w * (1.0 - trans)   # Beer 吸收计入吸收
+                    ab = w * (1.0 - trans)
+                    qe = float(md.get("qe", 0.0) or 0.0)
+                    if qe > 0 and ab > 0:
+                        # 荧光/磷光: 吸收能量按量子效率重发射 (Stokes 位移)
+                        try:
+                            from ltsoptics.phosphor import (emission_wavelength,
+                                                            isotropic_dir)
+                            em = ab * qe
+                            res.absorbed += ab * (1.0 - qe)   # 真实损耗
+                            if em > 0:
+                                de = isotropic_dir(self.rng)
+                                em_wl = emission_wavelength(md, self.rng)
+                                stack.append((np.asarray(hit, dtype=float),
+                                              de, em, med, depth + 1, jones,
+                                              em_wl))
+                                res.n_fluo += 1
+                        except Exception:
+                            res.absorbed += ab
+                    else:
+                        res.absorbed += ab
                     w *= trans
                     if w <= 0:
                         continue
@@ -200,7 +220,7 @@ class Engine:
                         cw = self.rr_threshold
                     else:
                         continue
-                stack.append((hit, cd, cw, cmed, depth + 1, cj))
+                stack.append((hit, cd, cw, cmed, depth + 1, cj, wl))
             res.absorbed += max(w - out_w_sum, 0.0)
         res.n_rays = total
         return res

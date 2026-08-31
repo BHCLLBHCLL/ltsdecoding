@@ -252,15 +252,18 @@ def make_media_dialog(stats, media, parent=None):
     dlg.setWindowTitle("Media & Scatter")
     dlg.resize(620, 440)
     v = QVBoxLayout(dlg)
-    v.addWidget(QLabel("Volume media: %d   scatters: %d   bounces: %d" % (
-        len(media), stats.get("n_scatter", 0), stats.get("n_bounces", 0)), dlg))
-    header = ["n (index)", "alpha(1/m)", "mu_s(1/m)", "g", "depol"]
+    v.addWidget(QLabel("Volume media: %d   scatters: %d   bounces: %d   fluoresc: %d" % (
+        len(media), stats.get("n_scatter", 0), stats.get("n_bounces", 0),
+        stats.get("n_fluo", 0)), dlg))
+    header = ["n (index)", "alpha(1/m)", "mu_s(1/m)", "g", "depol", "qe", "emit_wl"]
     rows = []
     for idx in sorted(media):
         m = media[idx]
         rows.append([("%.4g" % idx), ("%.4g" % m.get("alpha", 0.0)),
                      ("%.4g" % m.get("mu_s", 0.0)),
-                     ("%.3f" % m.get("g", 0.0)), ("%.2f" % m.get("depol", 0.0))])
+                     ("%.3f" % m.get("g", 0.0)), ("%.2f" % m.get("depol", 0.0)),
+                     ("%.3f" % m.get("qe", 0.0)),
+                     ("%.1f" % m.get("emit_wl", 0.0))])
     tbl = QTableWidget(len(rows), len(header), dlg)
     tbl.setHorizontalHeaderLabels(header)
     for i, row in enumerate(rows):
@@ -313,6 +316,7 @@ def ray_report_stats(pack) -> dict:
         "n_rays": int(res.n_rays),
         "n_bounces": int(res.n_bounces),
         "n_scatter": int(getattr(res, "n_scatter", 0)),
+        "n_fluo": int(getattr(res, "n_fluo", 0)),
     }
     receivers = []
     for rr in (pack.get("receivers") or []):

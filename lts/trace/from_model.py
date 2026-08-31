@@ -334,7 +334,10 @@ def scene_from_model(model, *, max_tris: int = 24000, wl_nm: float = 550.0,
         if mat.alpha > 0 or mu_s > 0:
             media[mat.n_at_nm(wl_nm)] = {"alpha": mat.alpha, "mu_s": mu_s,
                                         "g": float(getattr(mat, "g", 0.0) or 0.0),
-                                        "depol": float(getattr(mat, "depol", 0.0) or 0.0)}
+                                        "depol": float(getattr(mat, "depol", 0.0) or 0.0),
+                                        "qe": float(getattr(mat, "qe", 0.0) or 0.0),
+                                        "emit_wl": float(getattr(mat, "emit_wl", 0.0) or 0.0),
+                                        "emit_spectral": list(getattr(mat, "emit_spectral", []) or [])}
     meta["alphas"] = alphas
     meta["media"] = media
     return scene, meta
@@ -1023,6 +1026,7 @@ def format_trace_report(pack: dict) -> str:
         "  conservation  : %.6g  (absorbed+escaped)" % cons,
         "  bounces       : %d" % res.n_bounces,
         "  scatters      : %d" % getattr(res, "n_scatter", 0),
+        "  fluoresc      : %d" % getattr(res, "n_fluo", 0),
         "  paths drawn   : %d" % len(pack.get("paths") or []),
     ]
     if res.launched > 0:
