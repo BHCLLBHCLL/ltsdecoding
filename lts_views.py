@@ -240,7 +240,41 @@ def make_glass_catalog_dialog(catalog, on_apply=None, parent=None):
     return dlg
 
 
-def make_ray_report_dialog(stats, text, parent=None):
+
+
+
+def make_media_dialog(stats, media, parent=None):
+    """媒体与散射独立面板: 介质表 (alpha/mu_s/g/depol) + 散射统计."""
+    from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QLabel,
+                                 QTableWidget, QTableWidgetItem, QVBoxLayout)
+    media = media or {}
+    dlg = QDialog(parent)
+    dlg.setWindowTitle("Media & Scatter")
+    dlg.resize(620, 440)
+    v = QVBoxLayout(dlg)
+    v.addWidget(QLabel("Volume media: %d   scatters: %d   bounces: %d" % (
+        len(media), stats.get("n_scatter", 0), stats.get("n_bounces", 0)), dlg))
+    header = ["n (index)", "alpha(1/m)", "mu_s(1/m)", "g", "depol"]
+    rows = []
+    for idx in sorted(media):
+        m = media[idx]
+        rows.append([("%.4g" % idx), ("%.4g" % m.get("alpha", 0.0)),
+                     ("%.4g" % m.get("mu_s", 0.0)),
+                     ("%.3f" % m.get("g", 0.0)), ("%.2f" % m.get("depol", 0.0))])
+    tbl = QTableWidget(len(rows), len(header), dlg)
+    tbl.setHorizontalHeaderLabels(header)
+    for i, row in enumerate(rows):
+        for j, cell in enumerate(row):
+            tbl.setItem(i, j, QTableWidgetItem(str(cell)))
+    tbl.setEditTriggers(QTableWidget.NoEditTriggers)
+    v.addWidget(tbl, 1)
+    bb = QDialogButtonBox(QDialogButtonBox.Close, dlg)
+    bb.rejected.connect(dlg.close)
+    v.addWidget(bb)
+    return dlg
+
+
+def make_ray_report_dialog(stats, text, parent=None, media=None, scatters=0):
     """Ray Report 汇总对话框 (文本明细)."""
     from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QLabel,
                                  QPlainTextEdit, QVBoxLayout)
@@ -257,6 +291,11 @@ def make_ray_report_dialog(stats, text, parent=None):
     v.addWidget(te, 1)
     bb = QDialogButtonBox(QDialogButtonBox.Close, dlg)
     bb.rejected.connect(dlg.close)
+    if media is not None:
+        from PyQt5.QtWidgets import QPushButton
+        sm = QPushButton("Media…")
+        sm.clicked.connect(lambda: make_media_dialog(stats, media, parent=dlg))
+        bb.addButton(sm, QDialogButtonBox.ActionRole)
     v.addWidget(bb)
     return dlg
 
@@ -273,6 +312,7 @@ def ray_report_stats(pack) -> dict:
         "conservation": float(res.absorbed + res.escaped),
         "n_rays": int(res.n_rays),
         "n_bounces": int(res.n_bounces),
+        "n_scatter": int(getattr(res, "n_scatter", 0)),
     }
     receivers = []
     for rr in (pack.get("receivers") or []):
@@ -432,5 +472,15 @@ def make_stokes_dialog(stk, *, title="Stokes", parent=None):
     png = QPushButton("Save PNG…")
     png.clicked.connect(save_png)
     bb.addButton(png, QDialogButtonBox.ActionRole)
+
+    def save_poincare():
+        from lts_charts import render_poincare_png
+        path, _ = QFileDialog.getSaveFileName(dlg, "Save Poincare PNG",
+                                              "poincare.png", "PNG (*.png)")
+        if path:
+            render_poincare_png(stk, path)
+    poi = QPushButton("Poincaré…")
+    poi.clicked.connect(save_poincare)
+    bb.addButton(poi, QDialogButtonBox.ActionRole)
     v.addWidget(bb)
     return dlg

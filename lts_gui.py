@@ -1334,7 +1334,9 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             nz = int((res.face_flux > 0).sum())
             text += "\n  faces hit   : %d  (peak %.6g)\n" % (
                 nz, float(res.face_flux.max()) if res.face_flux.size else 0.0)
-        dlg = make_ray_report_dialog(stats, text, self)
+        media = (self._last_trace.get("meta") or {}).get("media") or {}
+        scat = int(getattr(res, "n_scatter", 0))
+        dlg = make_ray_report_dialog(stats, text, self, media=media, scatters=scat)
         dlg.exec_()
         self.log("Ray Report")
 

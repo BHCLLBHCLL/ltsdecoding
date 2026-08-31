@@ -772,6 +772,30 @@ def format_stokes_report(stk, recv) -> list:
 
 
 
+
+
+def poincare_points(stk) -> dict:
+    """Stokes 网格 -> Poincare 球点 (chi, psi, s0, dop) 用于偏振演化图.
+
+    对 S0>0 的每格计算 chi=0.5*asin(s3/s), psi=0.5*atan2(s2,s1).
+    """
+    s0 = np.asarray(stk["s0"], dtype=float)
+    s1 = np.asarray(stk["s1"], dtype=float)
+    s2 = np.asarray(stk["s2"], dtype=float)
+    s3 = np.asarray(stk["s3"], dtype=float)
+    s = np.sqrt(s1 ** 2 + s2 ** 2 + s3 ** 2)
+    chi = np.where(s > 1e-12, 0.5 * np.arcsin(np.clip(np.divide(s3, s, out=np.zeros_like(s3), where=s > 1e-12), -1.0, 1.0)), 0.0)
+    psi = np.where(s > 1e-12, 0.5 * np.arctan2(s2, s1), 0.0)
+    mask = s0 > 1e-9
+    xs = np.column_stack([chi[mask].ravel(), psi[mask].ravel(),
+                          s0[mask].ravel(),
+                          (np.divide(s, s0, out=np.zeros_like(s0), where=s0 > 1e-12))[mask].ravel()])
+    return {"chi": chi, "psi": psi, "s0": s0, "dop": (np.divide(s, s0, out=np.zeros_like(s0), where=s0 > 1e-12)),
+            "points": xs,
+            "rows": stk.get("rows"), "cols": stk.get("cols"),
+            "bounds": stk.get("bounds")}
+
+
 def stokes_to_rows(stk, *, coord="index", bounds=None) -> tuple:
     """Stokes 网格 -> 表格 (header, rows). bounds 用于生成坐标列."""
     rows, cols = stk["rows"], stk["cols"]

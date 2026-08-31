@@ -42,6 +42,41 @@ def test_stokes_to_rows_shape():
     assert len(rows) == 4 * 6
     assert len(header) == 7
 
+
+def test_poincare_points():
+    from lts.trace.from_model import poincare_points
+    recv = type("R", (), {"angular_bounds": (0.0, 360.0, 55.0, 95.0),
+                          "mesh_rows": 6, "mesh_cols": 12, "rot": np.eye(3),
+                          "data_bounds": None, "mesh_values": None})()
+    states = []
+    for i in range(200):
+        d = np.array([0.1, 0.05, 1.0]); d = d / np.linalg.norm(d)
+        states.append((float(d[0]), float(d[1]), float(d[2]), 1.0,
+                       pol.emission_jones(d, "circular", 0.0) if i % 2 else
+                       pol.emission_jones(d, "linear", 30.0)))
+    g = stokes_grid(states, recv)
+    pp = poincare_points(g)
+    assert pp["points"].shape[1] == 4
+    assert np.isfinite(pp["points"]).all()
+
+def test_render_poincare_png_writes():
+    from lts.trace.from_model import stokes_grid
+    import lts_charts
+    recv = type("R", (), {"angular_bounds": (0.0, 360.0, 0.0, 90.0),
+                          "mesh_rows": 9, "mesh_cols": 18, "rot": np.eye(3),
+                          "data_bounds": None, "mesh_values": None})()
+    states = []
+    for i in range(400):
+        d = np.array([0.1, 0.05, 1.0]); d = d/np.linalg.norm(d)
+        states.append((float(d[0]), float(d[1]), float(d[2]), 1.0,
+                       pol.emission_jones(d, "linear", 20.0)))
+    g = stokes_grid(states, recv)
+    d = tempfile.mkdtemp(prefix="poin_")
+    p = os.path.join(d, "p.png")
+    out = lts_charts.render_poincare_png(g, p)
+    assert os.path.exists(out) and os.path.getsize(out) > 1000
+
+
 def test_render_stokes_png_writes_file():
     recv = type("R", (), {"angular_bounds": (0.0, 360.0, 0.0, 90.0),
                           "mesh_rows": 9, "mesh_cols": 18, "rot": np.eye(3),

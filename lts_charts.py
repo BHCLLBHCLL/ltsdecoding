@@ -188,6 +188,48 @@ def render_stokes_png(stk: dict, path: str, *, dpi: int = 110) -> str:
     return path
 
 
+
+
+
+def render_poincare_png(stk: dict, path: str, *, dpi: int = 110) -> str:
+    """Poincare 球投影 (chi-psi) + 椭圆度/方位角与 DOP 热图 -> PNG.
+
+    chi = 椭圆度角, psi = 偏振方位角; 点色=S0. 无 GUI 测试路径."""
+    from lts.trace.from_model import poincare_points
+    plt = _import_pyplot()
+    pts = poincare_points(stk)
+    fig = plt.figure(figsize=(9.0, 4.4))
+    ax = fig.add_subplot(1, 2, 1)
+    X = pts["psi"] * 180.0 / np.pi
+    Y = pts["chi"] * 180.0 / np.pi
+    S0 = pts["s0"]
+    if S0.size:
+        m = S0 > 1e-9
+        sc = ax.scatter(X[m], Y[m], c=S0[m], cmap="inferno", s=22, alpha=0.8)
+        cb = plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
+        cb.set_label("S0")
+    ax.set_xlabel("psi (deg, orientation)"); ax.set_ylabel("chi (deg, ellipticity)")
+    ax.set_title("Poincare projection", fontsize=10)
+    ax.set_xlim(-95, 95); ax.set_ylim(-48, 48)
+    ax2 = fig.add_subplot(1, 2, 2)
+    dop = np.asarray(stk.get("dop"), dtype=float)
+    if dop.ndim == 2:
+        b = stk.get("bounds", (0.0, 1.0, 0.0, 1.0))
+        im = ax2.imshow(dop, origin="upper", aspect="auto",
+                        extent=[b[0], b[1], b[2], b[3]], cmap="viridis",
+                        vmin=0.0, vmax=1.0)
+        cb2 = plt.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
+        cb2.set_label("degree of polarization")
+        ax2.set_xlabel("x/phi"); ax2.set_ylabel("y/theta")
+        ax2.set_title("DOP", fontsize=10)
+    else:
+        ax2.axis("off")
+        ax2.set_title("no DOP", fontsize=10)
+    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def make_chart_dialog(title: str, report: str, data: dict, parent=None):
     """创建 QDialog (PyQt5 + matplotlib canvas). 无 PyQt5 时回退纯报告."""
     try:
