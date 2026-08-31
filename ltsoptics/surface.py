@@ -183,6 +183,10 @@ class SurfaceOpt:
     bsdf: object = None               # 可选 BSDF (解析/表格) -> 采样散射方向
     coating: object = None            # 可选 FilmStack -> 界面反射率用膜系
     wavelength: float = 550.0         # 镀膜/波长相关计算默认波长 (nm)
+    phos_qe: float = 0.0              # 磷光涂层量子效率 (0..1)
+    phos_emit_wl: float = 0.0         # 磷光发射波长 (nm, 0=继承)
+    disp_in: object = None            # 可选 callable wl->n (内部材质色散)
+    disp_out: object = None           # 可选 callable wl->n (外部介质色散)
 
     def fresnel(self, theta1):
         return fresnel(theta1, self.n_in, self.n_out)

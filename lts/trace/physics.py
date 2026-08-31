@@ -71,18 +71,35 @@ def fresnel_interface_event(d, n, n1, n2, jones=None, coating=None,
     return ch
 
 
-def surface_event(d, n, prop, cur, rng, jones=None):
-    """单面事件. n 已朝向入射侧. 返回 [(dir, weight, medium, kind[, jones])]."""
-    other = prop.n_in if abs(cur - prop.n_in) > _ABS_TOL else prop.n_out
+def surface_event(d, n, prop, cur, rng, jones=None, wl_nm=None):
+    """单面事件. n 已朝向入射侧. 返回 [(dir, weight, medium, kind[, jones])].
+
+    wl_nm 提供时, 若 prop 带 disp_in/disp_out (callable wl->n) 则按色散取入射/透射介质折射率.
+    """
+    def _idx(f, fallback):
+        if wl_nm is not None and callable(f):
+            try:
+                return float(f(wl_nm))
+            except Exception:
+                return fallback
+        return fallback
+    disp_in = getattr(prop, "disp_in", None)
+    disp_out = getattr(prop, "disp_out", None)
+    n_in = _idx(disp_in, prop.n_in)
+    n_out = _idx(disp_out, prop.n_out)
+    if abs(cur - prop.n_in) > _ABS_TOL:
+        n1, other = n_out, n_in      # 射线在外部, 进入内部 n_in
+    else:
+        n1, other = n_in, n_out      # 射线在内部, 进入外部 n_out
     kind = prop.kind
 
     if kind == "mirror":
         return [(reflect_ray(d, n), prop.reflectivity or 1.0, cur, "reflect")]
 
     if kind == "transmitting":
-        return fresnel_interface_event(d, n, cur, other, jones=jones,
+        return fresnel_interface_event(d, n, n1, other, jones=jones,
                                        coating=getattr(prop, "coating", None),
-                                       wavelength=getattr(prop, "wavelength", 550.0))
+                                       wavelength=wl_nm if wl_nm is not None else getattr(prop, "wavelength", 550.0))
 
     if kind == "diffuse":
         w = prop.reflectivity
@@ -134,6 +151,25 @@ def surface_event(d, n, prop, cur, rng, jones=None):
 
     if kind == "absorbing":
         return []
+
+    if kind == "phosphor":
+        # 磷光涂层: 反射 R, 吸收部分按量子效率各向同性重发射 (emission wl)
+        R = prop.reflectivity
+        qe = getattr(prop, "phos_qe", 0.0) or 0.0
+        emw = float(getattr(prop, "phos_emit_wl", 0.0) or 0.0)
+        children = []
+        if R > 0:
+            children.append((reflect_ray(d, n), R, cur, "reflect"))
+        if qe > 0 and (1.0 - R) > 0:
+            try:
+                from ltsoptics.phosphor import isotropic_dir
+                de = isotropic_dir(rng)
+            except Exception:
+                de = sample_hemisphere_cosine(rng.next1(), rng.next1(), n)
+            children.append((de, (1.0 - R) * qe, cur, "fluorescent",
+                             None, emw if emw > 0 else None))
+        # 剩余 (1-R)(1-qe) 吸收消失
+        return children
 
     # opaque 默认
     rho = prop.reflectivity

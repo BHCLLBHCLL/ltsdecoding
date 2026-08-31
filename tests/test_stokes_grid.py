@@ -77,6 +77,26 @@ def test_render_poincare_png_writes():
     assert os.path.exists(out) and os.path.getsize(out) > 1000
 
 
+
+def test_stokes_grid_mean_wl():
+    recv = type("R", (), {"angular_bounds": (0.0, 360.0, 0.0, 90.0),
+                          "mesh_rows": 5, "mesh_cols": 10, "rot": np.eye(3),
+                          "data_bounds": None, "mesh_values": None})()
+    # 一半 450nm 泵浦, 一半 620nm 荧光, 权重相等
+    states = []
+    for i in range(200):
+        d = np.array([0.1, 0.05, 1.0]); d = d/np.linalg.norm(d)
+        wl = 450.0 if i % 2 == 0 else 620.0
+        states.append((float(d[0]), float(d[1]), float(d[2]), 1.0,
+                       pol.emission_jones(d, "circular", 0.0), wl))
+    g = stokes_grid(states, recv)
+    mw = g["mean_wl"]
+    assert mw.shape == (5, 10)
+    nz = mw > 0
+    # 平均波长应在两个波长之间 (约 535)
+    assert 500 < np.mean(mw[nz]) < 575, np.mean(mw[nz])
+
+
 def test_render_stokes_png_writes_file():
     recv = type("R", (), {"angular_bounds": (0.0, 360.0, 0.0, 90.0),
                           "mesh_rows": 9, "mesh_cols": 18, "rot": np.eye(3),

@@ -135,12 +135,12 @@ class Engine:
                     if c is not None:
                         wf = float(w)
                         res.plane_hits.append((ri, c[0], c[1], wf))
-                        res.plane_states.append((ri, c[0], c[1], wf, jones))
+                        res.plane_states.append((ri, c[0], c[1], wf, jones, wl))
             if tri is None:
                 res.escaped += w
                 dd = np.asarray(d, dtype=float)
                 res.escaped_states.append((float(dd[0]), float(dd[1]),
-                                           float(dd[2]), float(w), jones))
+                                           float(dd[2]), float(w), jones, wl))
                 if record_escaped:
                     res.escaped_dirs.append((float(dd[0]), float(dd[1]),
                                              float(dd[2]), float(w)))
@@ -206,11 +206,13 @@ class Engine:
                 h = np.asarray(hit, dtype=float)
                 res.hits.append((float(h[0]), float(h[1]), float(h[2]), float(w)))
             prop = self.scene.face_prop(tri)
-            children = surface_event(d, n, prop, med, self.rng, jones=jones)
+            children = surface_event(d, n, prop, med, self.rng, jones=jones,
+                                     wl_nm=wl)
             out_w_sum = 0.0
             for ch in children:
                 cd, cfrac, cmed, ckind = ch[0], ch[1], ch[2], ch[3]
                 cj = ch[4] if len(ch) > 4 else None
+                cwl = ch[5] if len(ch) > 5 else None
                 cw = float(cfrac) * w
                 if cw <= 0:
                     continue
@@ -220,7 +222,8 @@ class Engine:
                         cw = self.rr_threshold
                     else:
                         continue
-                stack.append((hit, cd, cw, cmed, depth + 1, cj, wl))
+                cwl_use = cwl if cwl is not None else wl
+                stack.append((hit, cd, cw, cmed, depth + 1, cj, cwl_use))
             res.absorbed += max(w - out_w_sum, 0.0)
         res.n_rays = total
         return res

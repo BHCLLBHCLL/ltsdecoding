@@ -172,14 +172,17 @@ class BoundMaterial:
         n = self.n_at_nm(wl_nm)
         if self.family == "air":
             return SurfaceOpt(name=self.name, kind="transmitting",
-                              n_in=1.0, n_out=1.0, transmission=1.0)
+                              n_in=1.0, n_out=1.0, transmission=1.0,
+                              disp_in=self.n_at_nm, disp_out=self.n_at_nm)
         if self.family == "metal":
             return SurfaceOpt(name=self.name, kind="opaque",
                               reflectivity=0.91, specular_frac=0.95,
-                              n_in=n if n > 1.01 else 1.0, n_out=1.0)
+                              n_in=n if n > 1.01 else 1.0, n_out=1.0,
+                              disp_in=self.n_at_nm, disp_out=lambda w: 1.0)
         if self.family == "glass" or n > 1.01:
             return SurfaceOpt(name=self.name, kind="transmitting",
-                              n_in=n, n_out=1.0, transmission=1.0)
+                              n_in=n, n_out=1.0, transmission=1.0,
+                              disp_in=self.n_at_nm, disp_out=lambda w: 1.0)
         return SurfaceOpt(name=self.name, kind="opaque",
                           reflectivity=0.04, specular_frac=0.1,
                           n_in=1.0, n_out=1.0)

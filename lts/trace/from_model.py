@@ -719,12 +719,15 @@ def stokes_grid(escaped_states, recv, n_rows: int = 0, n_cols: int = 0) -> dict:
         p0, p1, t0, t1 = (recv.data_bounds[0], recv.data_bounds[1],
                           recv.data_bounds[2], recv.data_bounds[3])
     S = np.zeros((rows, cols, 4), dtype=float)
+    W = np.zeros((rows, cols), dtype=float)
+    Ws = np.zeros((rows, cols), dtype=float)
     r = np.asarray(recv.rot, dtype=float)
     dth = (t1 - t0) / rows
     dph = (p1 - p0) / cols
     n_used = 0
     for st in (escaped_states or []):
         dx, dy, dz, w, jones = st[0], st[1], st[2], st[3], (st[4] if len(st) > 4 else None)
+        wl_st = st[5] if len(st) > 5 else 550.0
         d = np.array([dx, dy, dz], dtype=float)
         nrm = float(np.linalg.norm(d)) or 1.0
         dl = (r.T @ (d / nrm))
@@ -745,12 +748,16 @@ def stokes_grid(escaped_states, recv, n_rows: int = 0, n_cols: int = 0) -> dict:
         S[i, j, 1] += s1
         S[i, j, 2] += s2
         S[i, j, 3] += s3
+        W[i, j] += w * wl_st
+        Ws[i, j] += w
         n_used += 1
     S0 = S[:, :, 0]
     st = np.sqrt(S[:, :, 1] ** 2 + S[:, :, 2] ** 2 + S[:, :, 3] ** 2)
     dop = np.divide(st, S0, out=np.zeros_like(S0), where=S0 > 1e-12)
+    mean_wl = np.divide(W, Ws, out=np.zeros_like(W), where=Ws > 1e-12)
     return {"s0": S[:, :, 0], "s1": S[:, :, 1], "s2": S[:, :, 2],
-            "s3": S[:, :, 3], "dop": dop, "rows": rows, "cols": cols,
+            "s3": S[:, :, 3], "dop": dop, "mean_wl": mean_wl,
+            "rows": rows, "cols": cols,
             "bounds": (p0, p1, t0, t1),
             "total": float(S0.sum()), "n_samples": n_used}
 
@@ -892,9 +899,12 @@ def plane_stokes_grid(plane_states, recv, n_rows: int = 0, n_cols: int = 0) -> d
     dx = (x1 - x0) / cols
     dy = (y1 - y0) / rows
     S = np.zeros((rows, cols, 4), dtype=float)
+    W = np.zeros((rows, cols), dtype=float)
+    Ws = np.zeros((rows, cols), dtype=float)
     n_used = 0
     for st in (plane_states or []):
         _ri, x, y, w, jones = st[0], st[1], st[2], st[3], (st[4] if len(st) > 4 else None)
+        wl_st = st[5] if len(st) > 5 else 550.0
         j = min(int((x - x0) / dx), cols - 1)
         i = min(int((y - y0) / dy), rows - 1)
         if i < 0 or j < 0:
@@ -908,12 +918,16 @@ def plane_stokes_grid(plane_states, recv, n_rows: int = 0, n_cols: int = 0) -> d
         S[i, j, 1] += s1
         S[i, j, 2] += s2
         S[i, j, 3] += s3
+        W[i, j] += w * wl_st
+        Ws[i, j] += w
         n_used += 1
     S0 = S[:, :, 0]
     st = np.sqrt(S[:, :, 1] ** 2 + S[:, :, 2] ** 2 + S[:, :, 3] ** 2)
     dop = np.divide(st, S0, out=np.zeros_like(S0), where=S0 > 1e-12)
+    mean_wl = np.divide(W, Ws, out=np.zeros_like(W), where=Ws > 1e-12)
     return {"s0": S[:, :, 0], "s1": S[:, :, 1], "s2": S[:, :, 2],
-            "s3": S[:, :, 3], "dop": dop, "rows": rows, "cols": cols,
+            "s3": S[:, :, 3], "dop": dop, "mean_wl": mean_wl,
+            "rows": rows, "cols": cols,
             "bounds": (x0, x1, y0, y1), "total": float(S0.sum()),
             "n_samples": n_used}
 
