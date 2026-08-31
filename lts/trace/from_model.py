@@ -333,7 +333,8 @@ def scene_from_model(model, *, max_tris: int = 24000, wl_nm: float = 550.0,
         mu_s = float(getattr(mat, "mu_s", 0.0) or 0.0)
         if mat.alpha > 0 or mu_s > 0:
             media[mat.n_at_nm(wl_nm)] = {"alpha": mat.alpha, "mu_s": mu_s,
-                                        "g": float(getattr(mat, "g", 0.0) or 0.0)}
+                                        "g": float(getattr(mat, "g", 0.0) or 0.0),
+                                        "depol": float(getattr(mat, "depol", 0.0) or 0.0)}
     meta["alphas"] = alphas
     meta["media"] = media
     return scene, meta
@@ -997,6 +998,7 @@ def format_trace_report(pack: dict) -> str:
         "  escaped       : %.6g" % res.escaped,
         "  conservation  : %.6g  (absorbed+escaped)" % cons,
         "  bounces       : %d" % res.n_bounces,
+        "  scatters      : %d" % getattr(res, "n_scatter", 0),
         "  paths drawn   : %d" % len(pack.get("paths") or []),
     ]
     if res.launched > 0:
@@ -1016,6 +1018,14 @@ def format_trace_report(pack: dict) -> str:
                          ", ".join(aps) or "-",
                          ("  wl=%d pts" % len(srcs[0].spectral))
                          if srcs and srcs[0].spectral else ""))
+    media = meta.get("media") or {}
+    if media:
+        lines.append("  media         : %d  (alpha/mu_s/g averaged by index)" % len(media))
+        for idx in sorted(media):
+            m = media[idx]
+            lines.append("      [n=%.4g]  alpha=%.4g   mu_s=%.4g   g=%.3f" % (
+                idx, float(m.get("alpha", 0.0)), float(m.get("mu_s", 0.0)),
+                float(m.get("g", 0.0))))
     for rr in (pack.get("receivers") or []):
         spec = rr.get("spec")
         grid = rr.get("grid")

@@ -81,6 +81,38 @@ def volume_event(mu_a: float, mu_s: float, g: float, length: float,
     return w2, dd, True
 
 
+
+
+
+def scatter_polarization(jones, d0, d1, depol: float = 0.0, rng=None):
+    """散射对偏振的作用: 平行输运 (重投影到新横向基) + 可选随机退偏.
+
+    d0 -> 入射方向, d1 -> 散射方向. depol 为单次散射退偏概率 (0..1), 非零则
+    以该概率将 Jones 替换为等强度随机偏振 (蒙特卡洛退偏, 使光束总体 DOP 衰减).
+    返回新 Jones (与入射等强度). jones=None 时返回 None (未偏振).
+    """
+    if jones is None:
+        return None
+    try:
+        from ltsoptics.polarization import (transverse_basis, normalize_jones,
+                                            jones_from_amplitudes)
+    except Exception:
+        return jones
+    s0, p0 = transverse_basis(d0)
+    s1, p1 = transverse_basis(d1)
+    Es, Ep = complex(jones[0]), complex(jones[1])
+    Ev = Es * s0 + Ep * p0                      # 电场矢量 (lab)
+    Es1 = float(np.real(np.dot(Ev, s1))) + 1j * float(np.imag(np.dot(Ev, s1)))
+    Ep1 = float(np.real(np.dot(Ev, p1))) + 1j * float(np.imag(np.dot(Ev, p1)))
+    j1 = normalize_jones(np.array([Es1, Ep1], dtype=complex))
+    if depol > 0 and rng is not None and rng.next1() < depol:
+        a = math.acos(math.sqrt(max(min(rng.next1(), 1.0), 0.0)))
+        ph = 2.0 * math.pi * rng.next1()
+        j1 = normalize_jones(jones_from_amplitudes(math.cos(a), math.sin(a),
+                                                   0.0, ph))
+    return j1
+
+
 def scatter_albedo(mu_a: float, mu_s: float) -> float:
     """单次散射反照率."""
     s = mu_a + mu_s

@@ -15,10 +15,12 @@ from .intersect import intersect_scene
 from .physics import beer_absorption, surface_event
 
 try:
-    from ltsoptics.volume_scatter import random_free_path, sample_hg
+    from ltsoptics.volume_scatter import (random_free_path, sample_hg,
+                                          scatter_polarization)
 except Exception:  # pragma: no cover
     random_free_path = None
     sample_hg = None
+    scatter_polarization = None
 
 
 def _scatter_dir(d, ct, rng):
@@ -40,8 +42,9 @@ def _scatter_dir(d, ct, rng):
 
 class TraceResult:
     __slots__ = ("absorbed", "escaped", "launched", "face_flux",
-                 "n_rays", "n_bounces", "hits", "escaped_dirs",
-                 "plane_hits", "escaped_states", "plane_states")
+                 "n_rays", "n_bounces", "n_scatter", "hits",
+                 "escaped_dirs", "plane_hits", "escaped_states",
+                 "plane_states")
 
     def __init__(self, n_faces):
         self.absorbed = 0.0
@@ -49,6 +52,7 @@ class TraceResult:
         self.launched = 0.0
         self.n_rays = 0
         self.n_bounces = 0
+        self.n_scatter = 0
         self.face_flux = np.zeros(n_faces, dtype=float)
         self.hits = []          # (x, y, z, weight)
         self.escaped_dirs = []  # (dx, dy, dz, weight)
@@ -144,6 +148,7 @@ class Engine:
             alpha = float(md.get("alpha", 0.0) or 0.0)
             mu_s = float(md.get("mu_s", 0.0) or 0.0)
             gg = float(md.get("g", 0.0) or 0.0)
+            depol = float(md.get("depol", 0.0) or 0.0)
             mu_t = alpha + mu_s
             if mu_t > 0:
                 tt = max(t, 0.0)
@@ -153,12 +158,15 @@ class Engine:
                         # 命中表面前散射: 改向继续, 吸收计入损耗
                         w2 = w * math.exp(-mu_t * fp) * (mu_s / mu_t)
                         res.absorbed += w * (1.0 - w2)
+                        res.n_scatter += 1
                         if w2 <= 0:
                             continue
                         ct, _ph = sample_hg(gg, self.rng)
                         d2 = _scatter_dir(d, ct, self.rng)
+                        j2 = (scatter_polarization(jones, d, d2, depol, self.rng)
+                              if scatter_polarization is not None else jones)
                         stack.append((np.asarray(p, dtype=float) + np.asarray(d, dtype=float) * fp,
-                                      d2, w2, med, depth + 1, jones))
+                                      d2, w2, med, depth + 1, j2))
                         continue
                     # 未散射到面: Beer 总衰减
                     trans = math.exp(-mu_t * tt)
