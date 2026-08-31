@@ -486,5 +486,15 @@ def make_stokes_dialog(stk, *, title="Stokes", parent=None):
     poi = QPushButton("Poincaré…")
     poi.clicked.connect(save_poincare)
     bb.addButton(poi, QDialogButtonBox.ActionRole)
+
+    def save_color():
+        from lts_charts import render_color_png
+        path, _ = QFileDialog.getSaveFileName(dlg, "Save Color map PNG",
+                                              "color.png", "PNG (*.png)")
+        if path:
+            render_color_png(stk, path)
+    col = QPushButton("Color…")
+    col.clicked.connect(save_color)
+    bb.addButton(col, QDialogButtonBox.ActionRole)
     v.addWidget(bb)
     return dlg

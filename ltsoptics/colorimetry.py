@@ -213,6 +213,37 @@ def cri_from_spd(spd: Dict[float, float],
     return {"Ra": max(0.0, Ra), "R": Rs, "cct": cct, "xy": (xw, yw)}
 
 
+
+
+
+def wavelength_to_rgb(wl_nm: float, intensity: float = 1.0):
+    """单一波长光的感知 sRGB (按 CIE 1931 CMF, 色调归一)."""
+    from ltsoptics.spectrum import xyz_to_rgb
+    x, y, z = interp_cie(wl_nm)
+    r, g, b = xyz_to_rgb(x, y, z)
+    m = max(r, g, b)
+    if m > 1e-9:
+        r, g, b = r / m, g / m, b / m
+    return (intensity * min(max(r, 0.0), 1.0),
+            intensity * min(max(g, 0.0), 1.0),
+            intensity * min(max(b, 0.0), 1.0))
+
+
+def colorize_grid(mean_wl, intensity=None):
+    """mean_wl (H,W, nm) -> RGB 图 (H,W,3, 0..1). 无波长格为黑."""
+    import numpy as np
+    mw = np.asarray(mean_wl, dtype=float)
+    H, W = mw.shape
+    out = np.zeros((H, W, 3), dtype=float)
+    for i in range(H):
+        for j in range(W):
+            w = mw[i, j]
+            if w > 0:
+                rgb = wavelength_to_rgb(w)
+                out[i, j] = rgb if intensity is None else tuple(v * intensity for v in rgb)
+    return out
+
+
 def render_xyz(spd, rho_fn=None):
     """(可选) 供上层调用: 由光谱+反射率求 XYZ."""
     return spd_to_XYZ(spd)

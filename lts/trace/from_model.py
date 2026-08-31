@@ -784,6 +784,41 @@ def format_stokes_report(stk, recv) -> list:
 
 
 
+
+
+def receiver_spectrum(escaped_states, *, bounds=None, recv=None) -> dict:
+    """把逃逸 (带波长) 按接收器角域聚合成光谱: {wl: flux}.
+
+    escaped_states: (dx,dy,dz,weight,jones,wl_or_None). 可选角域过滤.
+    """
+    import math as _m
+    from collections import OrderedDict
+    if bounds is None and recv is not None:
+        bounds = recv.angular_bounds
+    phi0, phi1, theta0, theta1 = (bounds if bounds is not None
+                                  else (0.0, 360.0, 0.0, 180.0))
+    r = np.asarray(recv.rot, dtype=float) if recv is not None else np.eye(3)
+    acc = OrderedDict()
+    for st in (escaped_states or []):
+        dx, dy, dz, w, jones = st[0], st[1], st[2], st[3], (st[4] if len(st) > 4 else None)
+        wl = st[5] if len(st) > 5 else None
+        if wl is None:
+            continue
+        if recv is not None and bounds is not None:
+            v = np.array([dx, dy, dz], dtype=float)
+            nrm = float(np.linalg.norm(v)) or 1.0
+            dl = (r.T @ (v / nrm))
+            th = _m.degrees(_m.acos(min(max(float(dl[2]), -1.0), 1.0)))
+            ph = _m.degrees(_m.atan2(float(dl[1]), float(dl[0]))) % 360.0
+            if ph < phi0 or ph > phi1 or th < theta0 or th > theta1:
+                continue
+        wl = float(wl)
+        if wl not in acc:
+            acc[wl] = 0.0
+        acc[wl] += float(w)
+    return dict(acc)
+
+
 def poincare_points(stk) -> dict:
     """Stokes 网格 -> Poincare 球点 (chi, psi, s0, dop) 用于偏振演化图.
 

@@ -230,6 +230,49 @@ def render_poincare_png(stk: dict, path: str, *, dpi: int = 110) -> str:
     return path
 
 
+
+
+
+def render_color_png(grid: dict, path: str, *, dpi: int = 110) -> str:
+    """mean_wl 网格 -> 颜色(色度)图 PNG. 无 GUI 测试路径."""
+    from ltsoptics.colorimetry import colorize_grid
+    plt = _import_pyplot()
+    if "color" in grid and grid["color"] is not None:
+        arr = np.asarray(grid["color"], dtype=float)
+    else:
+        arr = colorize_grid(grid.get("mean_wl"))
+    b = grid.get("bounds", (0.0, 1.0, 0.0, 1.0))
+    fig, ax = plt.subplots(figsize=(6.4, 4.4))
+    ax.imshow(arr, origin="upper", aspect="auto", extent=[b[0], b[1], b[2], b[3]])
+    ax.set_xlabel("x/phi"); ax.set_ylabel("y/theta")
+    ax.set_title("Color map (mean wavelength)", fontsize=10)
+    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def render_spectrum_png(spd: dict, path: str, *, dpi: int = 110) -> str:
+    """接收器光谱 (wl->flux) -> 折线图 PNG."""
+    plt = _import_pyplot()
+    wl = sorted(spd)
+    y = [float(spd[w]) for w in wl]
+    fig, ax = plt.subplots(figsize=(6.4, 4.0))
+    if wl:
+        ax.plot(wl, y, "-o", ms=3.5)
+        ax.fill_between(wl, y, alpha=0.2)
+        # 叠加峰值波长颜色
+        im = max(range(len(y)), key=lambda i: y[i])
+        from ltsoptics.colorimetry import wavelength_to_rgb
+        r, g, b = wavelength_to_rgb(wl[im])
+        ax.plot([wl[im]], [y[im]], marker="o", ms=9, color=(r, g, b))
+    ax.set_xlabel("wavelength (nm)"); ax.set_ylabel("relative flux")
+    ax.set_title("Receiver spectrum", fontsize=10)
+    ax.grid(True, alpha=0.3)
+    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def make_chart_dialog(title: str, report: str, data: dict, parent=None):
     """创建 QDialog (PyQt5 + matplotlib canvas). 无 PyQt5 时回退纯报告."""
     try:
