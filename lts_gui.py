@@ -2486,6 +2486,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             ("current", "Current (A)", 0.0, "float"),
             ("forward_voltage", "Forward voltage (V)", 0.0, "float"),
             ("efficiency", "Wall-plug efficiency", 0.0, "float"),
+            ("spectral_angle_shift", "Angular spectrum shift (K)", 0.0, "float"),
             ("spectrum", "Emission spectrum", "blackbody_temp", "spectrum"),
             ("apodizer", "Direction apodizer",
              ("Lambertian", ["Lambertian", "Uniform", "Power"]), "combo"),
@@ -2503,7 +2504,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             p = {"name": "%sSource" % kind.title(), "lamp_power": 25.0,
                  "apodizer": "Lambertian", "emit_surface": default_surf,
                  "blackbody_temp": 0.0, "current": 0.0,
-                 "forward_voltage": 0.0, "efficiency": 0.0}
+                 "forward_voltage": 0.0, "efficiency": 0.0,
+                 "spectral_angle_shift": 0.0}
             write_back = False
         try:
             oid = lts_insert.create_source(
@@ -2515,7 +2517,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                 blackbody_temp=float(p.get("blackbody_temp", 0.0)),
                 current=float(p.get("current", 0.0)),
                 forward_voltage=float(p.get("forward_voltage", 0.0)),
-                efficiency=float(p.get("efficiency", 0.0)))
+                efficiency=float(p.get("efficiency", 0.0)),
+                spectral_angle_shift_k=float(p.get("spectral_angle_shift", 0.0)))
         except Exception as e:
             self.log("Insert source failed: %s" % e, "ERROR")
             return

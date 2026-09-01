@@ -719,6 +719,7 @@ class SourceSpec:
     current_A: float = 0.0
     forward_voltage: float = 0.0
     luminous_efficacy: float = 0.0                      # lm/W (光谱光度效能)
+    spectral_angle_shift_k: float = 0.0                 # 角向谱移 (K 每单位 (1-cos theta))
     solid_oid: str = ""                               # 发射体实体
     emitters: list = field(default_factory=list)      # [EmitterSpec]
     aim_cos_upper: float = 1.0
@@ -853,7 +854,9 @@ def bind_sources(objects: dict) -> List[SourceSpec]:
                           electrical_power=_float(obj, "setElectricalPower", 0.0),
                           efficiency=_float(obj, "setEfficiency", 0.0),
                           current_A=_float(obj, "setCurrent", 0.0),
-                          forward_voltage=_float(obj, "setForwardVoltage", 0.0))
+                          forward_voltage=_float(obj, "setForwardVoltage", 0.0),
+                          spectral_angle_shift_k=_float(obj, "setSpectralAngleShiftK", 0.0))
+
         spec.solid_oid = _edge(obj, "setSolid") or ""
         spec.spectral_oid = _edge(obj, "setSpectralRegion") or ""
         spec.spectral = _spectral_weights(objects, spec.spectral_oid)

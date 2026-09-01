@@ -410,7 +410,9 @@ def rays_from_sources(model, n_per_source: int = 40, *,
                                                          tri_idx, rng)
                         d = _sample_emitter_dir(spec, normal, rng,
                                                 apod_kind=e.dir_apod)
-                        wl = _sample_source_wl(spec, rng.next1(), wl_nm)
+                        cos_t = float(np.dot(d, normal))
+                        wl = _sample_source_wl(spec, rng.next1(), wl_nm,
+                                                cos_theta=cos_t)
                         weight = per_ray * wfrac
                         jones = (emission_jones(d, e.polarization, e.pol_angle)
                                  if emission_jones is not None else None)
@@ -545,13 +547,24 @@ def _sample_emitter_dir(spec, normal, rng, apod_kind="Lambertian"):
     return d
 
 
-def _sample_source_wl(spec, u, default_wl):
+def _sample_source_wl(spec, u, default_wl, cos_theta=None):
     wl = [p[0] for p in spec.spectral]
     w = [max(p[1], 0.0) for p in spec.spectral]
     if not wl or sum(w) <= 0:
-        return default_wl
+        return float(default_wl)
     from lts.trace.raygen import sample_wavelength
-    return float(sample_wavelength(wl, w, u))
+    base = float(sample_wavelength(wl, w, u))
+    # 光谱角向调制: 出射方向偏离法线 -> 有效色温偏移 (黑体 Wien 峰位移)
+    shift_k = float(getattr(spec, "spectral_angle_shift_k", 0.0) or 0.0)
+    bbT = float(getattr(spec, "blackbody_temp", 0.0) or 0.0)
+    if shift_k and bbT > 0 and cos_theta is not None:
+        try:
+            from ltsoptics.colorimetry import wien_peak_nm
+            Teff = bbT + shift_k * max(0.0, 1.0 - float(cos_theta))
+            base += wien_peak_nm(Teff) - wien_peak_nm(bbT)
+        except Exception:
+            pass
+    return base
 
 
 def aim_ns_ray(origin, direction, *, n: int = 1, spread_deg: float = 0.0,
@@ -1136,8 +1149,10 @@ def format_trace_report(pack: dict) -> str:
             txt += " K=%.0flm/W lm=%.3g" % (getattr(s, "luminous_efficacy", 0.0),
                                             getattr(s, "lamp_power", 0.0))
         el.append(txt)
-    if bb or el:
-        lines.append("  source mode   : %s" % ("  ".join(bb + el)))
+    ang = [("angleShift=%.0fK" % getattr(s, "spectral_angle_shift_k", 0.0))
+           for s in srcs if abs(getattr(s, "spectral_angle_shift_k", 0.0)) > 0]
+    if bb or el or ang:
+        lines.append("  source mode   : %s" % ("  ".join(bb + el + ang)))
     media = meta.get("media") or {}
     if media:
         lines.append("  media         : %d  (alpha/mu_s/g averaged by index)" % len(media))

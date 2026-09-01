@@ -47,6 +47,45 @@ def test_luminous_efficacy_blackbody_trend():
     assert e6500 > e2500, (e6500, e2500)     # 冷白更接近明视觉峰值
     assert 0 < e6500 < 683
 
+
+def test_spectral_angular_shift_bluer_off_axis():
+    from ltsoptics.colorimetry import blackbody_spectral
+    from lts.trace.from_model import _sample_source_wl
+    class S:
+        spectral = blackbody_spectral(6000.0)
+        blackbody_temp = 6000.0
+        spectral_angle_shift_k = 800.0
+    rng = np.random.default_rng(1)
+    def mean_wl(cos):
+        return float(np.mean([_sample_source_wl(S(), float(rng.random()), 550.0,
+                                                cos_theta=cos) for _ in range(2000)]))
+    on = mean_wl(1.0)
+    off = mean_wl(0.0)
+    # 离轴有效色温更高 (shift>0) -> Wien 峰更短 -> 采样波长更蓝
+    assert off < on, (off, on)
+
+def test_spectral_angular_shift_needs_blackbody():
+    from lts.trace.from_model import _sample_source_wl
+    class S:
+        spectral = [(450.0, 1.0), (550.0, 1.0), (650.0, 1.0)]
+        blackbody_temp = 0.0
+        spectral_angle_shift_k = 800.0
+    # 无黑体温度: 角向移不生效, 结果与 cos 无关
+    a = _sample_source_wl(S(), 0.5, 550.0, cos_theta=1.0)
+    b = _sample_source_wl(S(), 0.5, 550.0, cos_theta=0.0)
+    assert a == b
+
+def test_bind_sources_reads_angular_shift():
+    from lts_model import LTSModel
+    import lts_insert, lts_optics_bind as ob
+    m = LTSModel()
+    src = lts_insert.create_source(m, "cylinder", name="LED",
+                                   blackbody_temp=6000.0,
+                                   spectral_angle_shift_k=500.0)
+    spec = ob.bind_sources(m.objects)[0]
+    assert abs(spec.spectral_angle_shift_k - 500.0) < 1e-9
+
+
 def test_create_source_electrical_with_blackbody_efficacy():
     from lts_model import LTSModel
     import lts_insert, lts_optics_bind as ob
