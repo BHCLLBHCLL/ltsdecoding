@@ -1078,16 +1078,25 @@ def format_trace_report(pack: dict) -> str:
         "  absorbed      : %.6g" % res.absorbed,
         "  escaped       : %.6g" % res.escaped,
         "  conservation  : %.6g  (absorbed+escaped)" % cons,
-        "  fluo check    : re-emitted %.6g is conserved within absorbed+escaped" % getattr(res, "fluo_weight", 0.0),
         "  bounces       : %d" % res.n_bounces,
         "  scatters      : %d" % getattr(res, "n_scatter", 0),
-        "  fluoresc      : %d events  (emitted %.6g)" % (
-            getattr(res, "n_fluo", 0), getattr(res, "fluo_weight", 0.0)),
         "  paths drawn   : %d" % len(pack.get("paths") or []),
     ]
     if res.launched > 0:
         lines.append("  collection    : %.2f%% escaped / launched" % (
             100.0 * res.escaped / res.launched))
+    fw = getattr(res, "fluo_weight", 0.0)
+    nf = getattr(res, "n_fluo", 0)
+    if fw > 0 or nf:
+        fmed = getattr(res, "fluo_med", 0.0)
+        fsurf = getattr(res, "fluo_surf", 0.0)
+        lines.append("  luminescence  : %d events   emitted %.6g  = medium %.6g + surface %.6g" % (
+            nf, fw, fmed, fsurf))
+        if res.launched > 0:
+            lines.append("      fraction  : %.2f%% of launched" % (100.0 * fw / res.launched))
+        lines.append("      balance   : absorbed %.6g + escaped %.6g = launched %.6g  "
+                     "(fluorescent re-emission conserved inside, not double-counted)" % (
+                         res.absorbed, res.escaped, res.launched))
     srcs = pack.get("sources") or []
     if srcs:
         n_emit = sum(1 for s in srcs

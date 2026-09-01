@@ -55,7 +55,7 @@ def test_report_includes_fluoresc():
             "meta": {}, "paths": [], "n_rays": 1, "sources": None,
             "receivers": []}
     txt = format_trace_report(pack)
-    assert "fluoresc      : 3" in txt
+    assert "luminescence  : 3 events" in txt
 
 def test_spectral_sampling_varies():
     from lts.trace.from_model import _sample_source_wl

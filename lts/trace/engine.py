@@ -43,8 +43,9 @@ def _scatter_dir(d, ct, rng):
 class TraceResult:
     __slots__ = ("absorbed", "escaped", "launched", "face_flux",
                  "n_rays", "n_bounces", "n_scatter", "n_fluo",
-                 "fluo_weight", "hits", "escaped_dirs", "plane_hits",
-                 "escaped_states", "plane_states")
+                 "fluo_weight", "fluo_med", "fluo_surf", "hits",
+                 "escaped_dirs", "plane_hits", "escaped_states",
+                 "plane_states")
 
     def __init__(self, n_faces):
         self.absorbed = 0.0
@@ -55,6 +56,8 @@ class TraceResult:
         self.n_scatter = 0
         self.n_fluo = 0
         self.fluo_weight = 0.0
+        self.fluo_med = 0.0
+        self.fluo_surf = 0.0
         self.face_flux = np.zeros(n_faces, dtype=float)
         self.hits = []          # (x, y, z, weight)
         self.escaped_dirs = []  # (dx, dy, dz, weight)
@@ -195,6 +198,7 @@ class Engine:
                                               em_wl))
                                 res.n_fluo += 1
                                 res.fluo_weight += em
+                                res.fluo_med += em
                         except Exception:
                             res.absorbed += ab
                     else:
@@ -218,6 +222,7 @@ class Engine:
                 cw = float(cfrac) * w
                 if ckind == "fluorescent":
                     res.fluo_weight += cw
+                    res.fluo_surf += cw
                     res.n_fluo += 1
                 if cw <= 0:
                     continue

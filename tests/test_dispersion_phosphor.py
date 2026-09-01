@@ -66,8 +66,8 @@ def test_fluo_energy_cross_check():
             "meta": {}, "paths": [], "n_rays": 1, "sources": None,
             "receivers": []}
     txt = format_trace_report(pack)
-    assert "fluoresc      : 3 events" in txt and "emitted 0.5" in txt
-    assert "fluo check" in txt
+    assert "luminescence  : 3 events" in txt and "emitted 0.5" in txt
+    assert "balance" in txt and "= medium 0 + surface 0" in txt
 
 
 def test_phosphor_surface_emits():
