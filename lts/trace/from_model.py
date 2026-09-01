@@ -907,8 +907,8 @@ def color_shift_grid(stk) -> dict:
     macadam = None
     n_out3 = 0
     if ref is not None:
-        from ltsoptics.colorimetry import MacAdamEllipse
-        ell = MacAdamEllipse(ref[5], ref[6])
+        from ltsoptics.colorimetry import macadam_ellipse_for_color
+        ell = macadam_ellipse_for_color(ref[2], ref[3])
         macadam = np.full((rows, cols), np.nan)
         for i in range(rows):
             for j in range(cols):

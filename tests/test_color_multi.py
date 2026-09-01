@@ -103,6 +103,26 @@ def test_macadam_grid_n_outside_3step():
     assert cs["macadam"] is not None
     assert cs["n_outside_3step"] > 0   # 离轴蓝相对轴心暖 >3-step
 
+
+def test_macadam_ellipse_for_color_selects():
+    import ltsoptics.colorimetry as cm
+    from ltsoptics.colorimetry import macadam_ellipse_for_color, uv_prime
+    ell = macadam_ellipse_for_color(0.333, 0.377)
+    u, v = uv_prime(0.333, 0.377)
+    assert abs(ell.u0 - u) < 1e-9 and abs(ell.v0 - v) < 1e-9
+    assert ell.steps(u, v) < 0.01        # 参考色在椭圆中心
+
+def test_macadam_custom_table():
+    import ltsoptics.colorimetry as cm
+    orig = list(cm._MACADAM_25)
+    try:
+        cm.set_macadam_table([(0.3, 0.3, 0.006, 0.004, 0.0)])
+        ell = cm.macadam_ellipse_for_color(0.3, 0.3)
+        assert ell.a >= 0.003            # 使用了自定义表的更大半轴
+    finally:
+        cm.set_macadam_table(orig)
+
+
 def test_format_colorshift_has_macadam():
     from lts.trace.from_model import color_shift_grid, format_colorshift
     line = format_colorshift(color_shift_grid(_stoked()))
