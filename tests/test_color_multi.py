@@ -86,6 +86,29 @@ def test_render_colorshift_png():
     assert os.path.exists(out) and os.path.getsize(out) > 1000
 
 
+
+def test_macadam_ellipse_steps():
+    from ltsoptics.colorimetry import MacAdamEllipse
+    ell = MacAdamEllipse(0.0, 0.0, a=0.0010, b=0.0005, theta_deg=0.0)
+    assert ell.steps(0.0, 0.0) == pytest.approx(0.0)
+    assert ell.steps(0.0010, 0.0) == pytest.approx(1.0)   # 1-step 长轴
+    assert ell.steps(0.0030, 0.0) == pytest.approx(3.0)   # 3-step
+    assert ell.within(0.0025, 0.0, 3) is True
+    assert ell.within(0.0035, 0.0, 3) is False
+    assert ell.steps(0.0, 0.0005) == pytest.approx(1.0)   # 短轴
+
+def test_macadam_grid_n_outside_3step():
+    from lts.trace.from_model import color_shift_grid
+    cs = color_shift_grid(_stoked())
+    assert cs["macadam"] is not None
+    assert cs["n_outside_3step"] > 0   # 离轴蓝相对轴心暖 >3-step
+
+def test_format_colorshift_has_macadam():
+    from lts.trace.from_model import color_shift_grid, format_colorshift
+    line = format_colorshift(color_shift_grid(_stoked()))
+    assert "macadam" in line
+
+
 def test_receiver_spectrum_aggregates_and_filters():
     recv = type("R", (), {"angular_bounds": (0.0, 360.0, 80.0, 100.0),
                           "rot": np.eye(3)})()

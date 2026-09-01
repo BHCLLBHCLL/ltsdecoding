@@ -310,7 +310,8 @@ def render_colorshift_png(cs: dict, path: str, *, dpi: int = 110) -> str:
     X = np.asarray(cs.get("x"), dtype=float)
     Y = np.asarray(cs.get("y"), dtype=float)
     ref = cs.get("reference")
-    fig, (ax0, ax1, ax2) = plt.subplots(1, 3, figsize=(12.5, 4.2))
+    mac = np.asarray(cs.get("macadam"), dtype=float)
+    fig, (ax0, ax1, ax2, ax3) = plt.subplots(1, 4, figsize=(16.0, 4.2))
     # CIE xy 彩色图
     m = np.isfinite(X) & np.isfinite(Y)
     if m.any():
@@ -338,6 +339,15 @@ def render_colorshift_png(cs: dict, path: str, *, dpi: int = 110) -> str:
     cb2.set_label("Delta u'v'")
     ax2.set_title("Chromaticity shift (duv)", fontsize=10)
     ax2.set_xlabel("col"); ax2.set_ylabel("row")
+    im3 = ax3.imshow(np.where(np.isfinite(mac), mac, 0.0), origin="upper",
+                     aspect="auto", cmap="viridis",
+                     vmin=0.0, vmax=max(float(mac[np.isfinite(mac)].max()), 1.0))
+    cb3 = plt.colorbar(im3, ax=ax3, fraction=0.046, pad=0.04)
+    cb3.set_label("MacAdam steps")
+    ax3.contour(np.where(np.isfinite(mac), mac, 0.0), levels=[3.0],
+                colors="red", linewidths=1.2)
+    ax3.set_title("MacAdam tolerance (3-step outline)", fontsize=10)
+    ax3.set_xlabel("col"); ax3.set_ylabel("row")
     fig.tight_layout()
     fig.savefig(path, dpi=dpi, bbox_inches="tight")
     plt.close(fig)

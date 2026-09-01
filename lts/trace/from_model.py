@@ -903,7 +903,21 @@ def color_shift_grid(stk) -> dict:
                 if np.isfinite(CCT[i, j]) and np.isfinite(U[i, j]):
                     dCCT[i, j] = CCT[i, j] - cr
                     duv[i, j] = math.hypot(U[i, j] - ur, V[i, j] - vr)
+    # MacAdam 椭圆 (轴心参考为中心) -> 逐格步骤与 N-step 判定
+    macadam = None
+    n_out3 = 0
+    if ref is not None:
+        from ltsoptics.colorimetry import MacAdamEllipse
+        ell = MacAdamEllipse(ref[5], ref[6])
+        macadam = np.full((rows, cols), np.nan)
+        for i in range(rows):
+            for j in range(cols):
+                if np.isfinite(U[i, j]) and np.isfinite(V[i, j]):
+                    macadam[i, j] = ell.steps(U[i, j], V[i, j])
+        f = np.isfinite(macadam)
+        n_out3 = int((macadam[f] > 3.0).sum()) if f.any() else 0
     return {"x": X, "y": Y, "cct": CCT, "dCCT": dCCT, "duv": duv,
+            "macadam": macadam, "n_outside_3step": n_out3,
             "reference": ref, "rows": rows, "cols": cols,
             "bounds": stk.get("bounds")}
 
@@ -917,8 +931,14 @@ def format_colorshift(cs) -> str:
     f = np.isfinite(dCCT) & np.isfinite(duv)
     if not f.any():
         return ""
-    return "      color shift: max |dCCT|=%.0f K   max duv=%.4f  (vs on-axis)" % (
+    mac = np.asarray(cs.get("macadam"), dtype=float)
+    fm = np.isfinite(mac)
+    out = "      color shift: max |dCCT|=%.0f K   max duv=%.4f  (vs on-axis)" % (
         float(np.abs(dCCT[f]).max()), float(duv[f].max()))
+    if fm.any():
+        out += "\n      macadam     : max=%.1f steps   outside 3-step: %d" % (
+            float(mac[fm].max()), int(cs.get("n_outside_3step", 0)))
+    return out
 
 
 def stokes_to_rows(stk, *, coord="index", bounds=None) -> tuple:

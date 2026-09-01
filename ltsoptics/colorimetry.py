@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from ltsoptics.spectrum import (interp_cie, spd_to_XYZ, xyY_from_XYZ,
@@ -317,6 +318,35 @@ def uv_prime(x, y):
     if abs(den) < 1e-12:
         return 0.0, 0.0
     return 4.0 * x / den, 9.0 * y / den
+
+
+
+@dataclass
+class MacAdamEllipse:
+    """CIE u'v' 空间的 MacAdam 椭圆 (色容差).  steps = sqrt((u'/a)^2+(v'/b)^2).
+
+    1-step 椭圆边界=1; within(point, N) 判定是否在 N-step 内 (如 3-step).
+    """
+    u0: float = 0.0
+    v0: float = 0.0
+    a: float = 0.0011          # 1-step 半长轴 (u'v')
+    b: float = 0.0008          # 1-step 半短轴
+    theta_deg: float = 0.0     # 长轴方位角 (度)
+
+    def steps(self, u, v) -> float:
+        th = math.radians(self.theta_deg)
+        du, dv = u - self.u0, v - self.v0
+        u1 = du * math.cos(th) + dv * math.sin(th)
+        v1 = -du * math.sin(th) + dv * math.cos(th)
+        return math.sqrt((u1 / self.a) ** 2 + (v1 / self.b) ** 2)
+
+    def within(self, u, v, steps: float = 3.0) -> bool:
+        return self.steps(u, v) <= steps
+
+
+def default_macadam_white(u=0.1978, v=0.4683, a=0.0011, b=0.0008) -> MacAdamEllipse:
+    """白光点默认 MacAdam 椭圆 (D65 u'v' 附近)."""
+    return MacAdamEllipse(u, v, a, b, 0.0)
 
 
 def render_xyz(spd, rho_fn=None):
