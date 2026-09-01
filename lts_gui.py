@@ -2481,6 +2481,12 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         fields = [
             ("name", "Name", "%sSource" % kind.title(), "text"),
             ("lamp_power", "Lamp power (lm)", 25.0, "float"),
+            ("blackbody_temp", "Blackbody temp (K, 0=off)",
+             (0, 0, 3000, 50), "slider"),
+            ("current", "Current (A)", 0.0, "float"),
+            ("forward_voltage", "Forward voltage (V)", 0.0, "float"),
+            ("efficiency", "Wall-plug efficiency", 0.0, "float"),
+            ("spectrum", "Emission spectrum", "blackbody_temp", "spectrum"),
             ("apodizer", "Direction apodizer",
              ("Lambertian", ["Lambertian", "Uniform", "Power"]), "combo"),
             ("emit_surface", "Emitting surface",
@@ -2495,7 +2501,9 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             write_back = dlg.write_back.isChecked()
         else:
             p = {"name": "%sSource" % kind.title(), "lamp_power": 25.0,
-                 "apodizer": "Lambertian", "emit_surface": default_surf}
+                 "apodizer": "Lambertian", "emit_surface": default_surf,
+                 "blackbody_temp": 0.0, "current": 0.0,
+                 "forward_voltage": 0.0, "efficiency": 0.0}
             write_back = False
         try:
             oid = lts_insert.create_source(
@@ -2503,7 +2511,11 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                 position=self._current_point,
                 lamp_power=float(p.get("lamp_power", 25.0)),
                 apodizer=p.get("apodizer", "Lambertian"),
-                emit_surface=p.get("emit_surface", default_surf))
+                emit_surface=p.get("emit_surface", default_surf),
+                blackbody_temp=float(p.get("blackbody_temp", 0.0)),
+                current=float(p.get("current", 0.0)),
+                forward_voltage=float(p.get("forward_voltage", 0.0)),
+                efficiency=float(p.get("efficiency", 0.0)))
         except Exception as e:
             self.log("Insert source failed: %s" % e, "ERROR")
             return

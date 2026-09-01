@@ -29,6 +29,24 @@ def test_media_panel_builds():
     assert t is not None and t.count() >= 2   # Media + Luminescence
 
 
+
+def test_insert_wizard_slider_and_spectrum():
+    import lts_dialogs
+    fields = [
+        ("name", "Name", "S1", "text"),
+        ("lamp_power", "Lamp power", 25.0, "float"),
+        ("blackbody_temp", "BB temp (K)", (2800, 0, 3000, 50), "slider"),
+        ("efficiency", "efficiency", 0.3, "float"),
+        ("spectrum", "Emission spectrum", "blackbody_temp", "spectrum"),
+    ]
+    dlg = lts_dialogs.InsertWizardDialog("Insert Source", fields)
+    v = dlg.values()
+    assert v["blackbody_temp"] == 2800.0
+    assert v["efficiency"] == pytest.approx(0.3)
+    assert "spectrum" not in v           # 预览键不入 values
+    assert dlg._spectrum_label is not None
+
+
 def test_ray_report_dialog_accepts_media():
     import lts_views
     stats = {"launched": 1.0, "absorbed": 0.5, "escaped": 0.5,

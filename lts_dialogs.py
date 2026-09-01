@@ -281,12 +281,18 @@ class InsertWizardDialog(QDialog):
 
     def __init__(self, title: str, fields: list, parent=None):
         super().__init__(parent)
+        from PyQt5.QtWidgets import (QFormLayout, QDoubleSpinBox, QComboBox,
+                                     QLineEdit, QCheckBox, QDialogButtonBox,
+                                     QLabel, QHBoxLayout, QSlider, QVBoxLayout)
+        from PyQt5.QtCore import Qt
         self.setWindowTitle(title)
-        self.resize(360, 200 if len(fields) < 6 else 340)
+        self.resize(400, 200 if len(fields) < 6 else 400)
         v = QVBoxLayout(self)
         form = QFormLayout()
         self._w: dict[str, QWidget] = {}
         self._kind: dict[str, str] = {}
+        self._sp_key = None
+        self._spectrum_label = None
         for key, label, default, kind in fields:
             self._kind[key] = kind
             if kind == "float":
@@ -294,6 +300,8 @@ class InsertWizardDialog(QDialog):
                 w.setRange(-1e6, 1e6)
                 w.setDecimals(4)
                 w.setValue(float(default))
+                form.addRow(label, w)
+                self._w[key] = w
             elif kind == "combo":
                 w = QComboBox(self)
                 if isinstance(default, tuple):
@@ -303,10 +311,35 @@ class InsertWizardDialog(QDialog):
                     w.setCurrentIndex(i)
                 else:
                     w.addItems(list(default))
+                form.addRow(label, w)
+                self._w[key] = w
+            elif kind == "slider":
+                val, lo, hi, step = default
+                row = QWidget(self)
+                lay = QHBoxLayout(row)
+                lay.setContentsMargins(0, 0, 0, 0)
+                w = QSlider(Qt.Horizontal, self)
+                w.setRange(int(lo), int(hi))
+                w.setSingleStep(max(int(step), 1))
+                w.setValue(int(val))
+                lbl = QLabel(str(int(val)), self)
+                lbl.setMinimumWidth(48)
+                w.valueChanged.connect(lambda val_, l=lbl: l.setText(str(int(val_))))
+                lay.addWidget(w, 1)
+                lay.addWidget(lbl)
+                form.addRow(label, row)
+                self._w[key] = w
+            elif kind == "spectrum":
+                self._sp_key = default
+                prev = QLabel("spectrum preview", self)
+                prev.setMinimumSize(280, 170)
+                form.addRow(label, prev)
+                self._spectrum_label = prev
+                self._w[key] = None
             else:
                 w = QLineEdit(str(default), self)
-            form.addRow(label, w)
-            self._w[key] = w
+                form.addRow(label, w)
+                self._w[key] = w
         v.addLayout(form)
         self.write_back = QCheckBox("Write .lts on apply", self)
         self.write_back.setChecked(True)
@@ -315,12 +348,41 @@ class InsertWizardDialog(QDialog):
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         v.addWidget(bb)
+        # 黑体温度滑杆 -> 发射谱预览联动
+        if self._spectrum_label is not None and self._sp_key in self._w and self._w.get(self._sp_key) is not None:
+            self._render_spectrum()
+            self._w[self._sp_key].valueChanged.connect(lambda _v: self._render_spectrum())
+
+    def _render_spectrum(self) -> None:
+        key = self._sp_key
+        w = self._w.get(key)
+        if w is None or self._spectrum_label is None:
+            return
+        try:
+            import tempfile, os
+            from ltsoptics.colorimetry import blackbody_spectral
+            from lts_charts import render_spectrum_png
+            from PyQt5.QtGui import QPixmap
+            T = float(w.value())
+            spd = dict(blackbody_spectral(T)) if T > 0 else {590.0: 1.0}
+            d = tempfile.mkdtemp(prefix="ltsp_")
+            p = os.path.join(d, "s.png")
+            render_spectrum_png(spd, p)
+            pm = QPixmap(p)
+            if not pm.isNull():
+                self._spectrum_label.setPixmap(pm.scaled(280, 170))
+        except Exception:
+            pass
 
     def values(self) -> dict:
         out = {}
         for key, w in self._w.items():
             kind = self._kind[key]
+            if kind == "spectrum":
+                continue
             if kind == "float":
+                out[key] = float(w.value())
+            elif kind == "slider":
                 out[key] = float(w.value())
             elif kind == "combo":
                 out[key] = w.currentText()
