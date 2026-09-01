@@ -442,59 +442,84 @@ def make_mesh_result_dialog(grid, *, title="Mesh Results", parent=None):
     return dlg
 
 
-def make_stokes_dialog(stk, *, title="Stokes", parent=None):
-    """Stokes 网格结果: S0..S3/DOP 表 + PNG 导出 (无模态)."""
+def make_stokes_dialog(stk, *, title="Stokes", parent=None, states=None, recv=None):
+    """Stokes 结果: 数据表 / 色图 / Poincaré / 光谱 四个可切换 tab (无模态)."""
     from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
-                                 QLabel, QPushButton, QTableWidget,
-                                 QTableWidgetItem, QVBoxLayout)
-    from lts_charts import render_stokes_png
-    from lts.trace.from_model import stokes_to_rows
+                                 QLabel, QTabWidget, QTableWidget,
+                                 QTableWidgetItem, QVBoxLayout, QWidget)
+    from PyQt5.QtGui import QPixmap
+    import tempfile, os
+    from lts_charts import (render_stokes_png, render_poincare_png,
+                            render_color_png, render_spectrum_png)
+    from lts.trace.from_model import stokes_to_rows, receiver_spectrum
     header, data = stokes_to_rows(stk)
     dlg = QDialog(parent)
     dlg.setWindowTitle(title)
-    dlg.resize(760, 520)
+    dlg.resize(780, 540)
     v = QVBoxLayout(dlg)
     v.addWidget(QLabel("%s: S0=%.4g  DOP_max=%.3f  samples=%d" % (
         title, float(stk.get("total", 0.0)),
         float(np.max(stk.get("dop"))) if np.size(stk.get("dop")) else 0.0,
         stk.get("n_samples", 0)), dlg))
+    tabs = QTabWidget(dlg)
+
+    # 数据 tab
     tbl = QTableWidget(len(data), len(header), dlg)
     tbl.setHorizontalHeaderLabels(header)
     for i, row in enumerate(data):
         for j, cell in enumerate(row):
             tbl.setItem(i, j, QTableWidgetItem(str(cell)))
     tbl.setEditTriggers(QTableWidget.NoEditTriggers)
-    v.addWidget(tbl, 1)
+    tabs.addTab(tbl, "Data")
 
-    def save_png():
-        path, _ = QFileDialog.getSaveFileName(dlg, "Save Stokes PNG",
-                                              "stokes.png", "PNG (*.png)")
+    def png_tab(render_fn, arg, name, size=(640, 420)):
+        w = QWidget(dlg)
+        lay = QVBoxLayout(w)
+        lbl = QLabel("rendering…", w)
+        lay.addWidget(lbl)
+        try:
+            d = tempfile.mkdtemp(prefix="ltstab_")
+            p = os.path.join(d, "t.png")
+            render_fn(arg, p)
+            pm = QPixmap(p)
+            if not pm.isNull():
+                lbl.setPixmap(pm.scaled(*size))
+            else:
+                lbl.setText("chart unavailable")
+        except Exception as e:
+            lbl.setText("chart error: %s" % e)
+        tabs.addTab(w, name)
+        return w
+
+    if "mean_wl" in stk and np.size(stk.get("mean_wl")):
+        png_tab(render_color_png, stk, "Color")
+    png_tab(render_poincare_png, stk, "Poincaré")
+
+    if states:
+        spd = receiver_spectrum(states, recv=recv) if recv is not None else receiver_spectrum(states)
+        if spd:
+            png_tab(render_spectrum_png, spd, "Spectrum")
+        else:
+            w = QWidget(dlg); lay = QVBoxLayout(w)
+            lay.addWidget(QLabel("no wavelength data"), w)
+            tabs.addTab(w, "Spectrum")
+    v.addWidget(tabs, 1)
+
+    def save_as(render_fn, arg, name, default):
+        path, _ = QFileDialog.getSaveFileName(dlg, name, default, "PNG (*.png)")
         if path:
-            render_stokes_png(stk, path)
+            render_fn(arg, path)
     bb = QDialogButtonBox(QDialogButtonBox.Close, dlg)
     bb.rejected.connect(dlg.close)
-    png = QPushButton("Save PNG…")
-    png.clicked.connect(save_png)
-    bb.addButton(png, QDialogButtonBox.ActionRole)
-
-    def save_poincare():
-        from lts_charts import render_poincare_png
-        path, _ = QFileDialog.getSaveFileName(dlg, "Save Poincare PNG",
-                                              "poincare.png", "PNG (*.png)")
-        if path:
-            render_poincare_png(stk, path)
-    poi = QPushButton("Poincaré…")
-    poi.clicked.connect(save_poincare)
-    bb.addButton(poi, QDialogButtonBox.ActionRole)
-
-    def save_color():
-        from lts_charts import render_color_png
-        path, _ = QFileDialog.getSaveFileName(dlg, "Save Color map PNG",
-                                              "color.png", "PNG (*.png)")
-        if path:
-            render_color_png(stk, path)
-    col = QPushButton("Color…")
-    col.clicked.connect(save_color)
-    bb.addButton(col, QDialogButtonBox.ActionRole)
+    from PyQt5.QtWidgets import QPushButton
+    for label, render_fn, arg, default in (
+        ("Save Color…", render_color_png, stk, "color.png"),
+        ("Save Poincaré…", render_poincare_png, stk, "poincare.png"),
+        ("Save Spectrum…", render_spectrum_png,
+         (receiver_spectrum(states, recv=recv) if states and recv is not None else
+          (receiver_spectrum(states) if states else stk)), "spectrum.png")):
+        b = QPushButton(label)
+        b.clicked.connect(lambda _=False, r=render_fn, a=arg, n=label, de=default: save_as(r, a, n, de))
+        bb.addButton(b, QDialogButtonBox.ActionRole)
     v.addWidget(bb)
     return dlg

@@ -664,6 +664,10 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
                 grid = far_field_grid(res.escaped_dirs, recv)
                 try:
                     grid["stokes"] = stokes_grid(res.escaped_states, recv)
+                    grid["spectrum"] = receiver_spectrum(res.escaped_states, recv=recv)
+                    if grid["spectrum"]:
+                        from ltsoptics.colorimetry import colour_temperature
+                        grid["color"] = colour_temperature(grid["spectrum"])
                 except Exception:
                     pass
             receivers.append({"spec": recv, "grid": grid})
@@ -1132,6 +1136,11 @@ def format_trace_report(pack: dict) -> str:
                              pk[1], pk[2]))
             lines.append("                   collected=%.6g  samples=%d" % (
                 grid.get("total_intensity", 0.0), grid.get("n_samples", 0)))
+            color = grid.get("color")
+            if color is not None:
+                x, y, cct = color
+                lines.append("                   color      : xy=(%.4f, %.4f)   CCT=%.0f K" % (
+                    x, y, cct if cct is not None else float("nan")))
             if grid.get("reference") is not None:
                 lines.append("                   LT reference: ratio=%.4f  "
                              "rms=%.3f" % (grid.get("ref_ratio", float("nan")),

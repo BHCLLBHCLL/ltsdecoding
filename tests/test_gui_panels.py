@@ -45,8 +45,12 @@ def test_stokes_dialog_builds():
            "s2": np.array([[0.0, 0.1]], dtype=float),
            "s3": np.array([[0.3, 0.0]], dtype=float),
            "dop": np.array([[0.95, 0.2]], dtype=float),
+           "mean_wl": np.array([[550.0, 600.0]], dtype=float),
            "rows": 1, "cols": 2, "total": 1.5, "n_samples": 2,
            "bounds": (0.0, 1.0, 0.0, 1.0)}
     dlg = lts_views.make_stokes_dialog(stk, title="Stokes")
     assert dlg.windowTitle() == "Stokes"
     assert dlg is not None
+    from PyQt5.QtWidgets import QTabWidget, QLabel
+    t = dlg.findChild(QTabWidget)
+    assert t is not None and t.count() >= 3   # Data + Color + Poincare (mean_wl present)

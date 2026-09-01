@@ -190,7 +190,7 @@ class Engine:
                                 de = isotropic_dir(self.rng)
                                 em_wl = emission_wavelength(md, self.rng)
                                 stack.append((np.asarray(hit, dtype=float),
-                                              de, em, med, depth + 1, jones,
+                                              de, em, med, depth + 1, None,
                                               em_wl))
                                 res.n_fluo += 1
                         except Exception:
