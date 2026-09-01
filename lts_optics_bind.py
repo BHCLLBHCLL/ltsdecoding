@@ -713,6 +713,11 @@ class SourceSpec:
     weight_factor: float = 1.0
     spectral: list = field(default_factory=list)      # [(nm, weight)]
     spectral_oid: str = ""
+    blackbody_temp: float = 0.0                         # K (0=非黑体)
+    electrical_power: float = 0.0                       # W (输入电功率)
+    efficiency: float = 0.0                             # 壁插效率 (0..1)
+    current_A: float = 0.0
+    forward_voltage: float = 0.0
     solid_oid: str = ""                               # 发射体实体
     emitters: list = field(default_factory=list)      # [EmitterSpec]
     aim_cos_upper: float = 1.0
@@ -842,10 +847,28 @@ def bind_sources(objects: dict) -> List[SourceSpec]:
                                             "Whole Sphere"),
                           power_units=_str(obj, "setPowerUnits", "Photometric"),
                           flux_units=_str(obj, "setFluxUnits", "Lumen"),
-                          weight_factor=_float(obj, "setWeightFactor", 1.0))
+                          weight_factor=_float(obj, "setWeightFactor", 1.0),
+                          blackbody_temp=_float(obj, "setBlackbodyTemperature", 0.0),
+                          electrical_power=_float(obj, "setElectricalPower", 0.0),
+                          efficiency=_float(obj, "setEfficiency", 0.0),
+                          current_A=_float(obj, "setCurrent", 0.0),
+                          forward_voltage=_float(obj, "setForwardVoltage", 0.0))
         spec.solid_oid = _edge(obj, "setSolid") or ""
         spec.spectral_oid = _edge(obj, "setSpectralRegion") or ""
         spec.spectral = _spectral_weights(objects, spec.spectral_oid)
+        # 电致发光/热辐射: 无显式光谱且为黑体时按普朗克生成 (Wien 峰)
+        if spec.blackbody_temp > 0 and not spec.spectral:
+            try:
+                from ltsoptics.colorimetry import blackbody_spectral
+                spec.spectral = blackbody_spectral(spec.blackbody_temp)
+            except Exception:
+                pass
+        # 电功率来源: 电流*电压 (若未显式给电功率), 未显式给灯功率时由效率折算光学功率
+        elec = spec.electrical_power
+        if elec <= 0 and spec.current_A > 0 and spec.forward_voltage > 0:
+            elec = spec.current_A * spec.forward_voltage
+        if spec.efficiency > 0 and spec.lamp_power <= 0 and elec > 0:
+            spec.lamp_power = elec * spec.efficiency
         aim = _edge(obj, "setAimObj")
         aim_obj = objects.get(aim) if aim else None
         if aim_obj is not None:

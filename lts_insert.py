@@ -141,6 +141,9 @@ def create_source(model, kind: str, *, name: Optional[str] = None,
                   apodizer: str = "Lambertian",
                   surface_apodizer: str = "Uniform",
                   emit_surface: str = "CylinderSurface",
+                  blackbody_temp: float = 0.0, current: float = 0.0,
+                  forward_voltage: float = 0.0, efficiency: float = 0.0,
+                  electrical_power: float = 0.0,
                   **geom) -> str:
     """创建表面光源: 实体 + 光源对象(灯功率/apodizer/aim) + 各面发射器.
 
@@ -155,6 +158,13 @@ def create_source(model, kind: str, *, name: Optional[str] = None,
     solid_oid = create_solid(model, solid_kind, name=name or kind + "_source",
                              position=position, material=SOURCE_MATERIAL,
                              optical=True, **geom)
+
+    # 电致发光/热辐射: 由电功率*效率折算光学灯功率 (未显式给 lamp_power 时)
+    elec = electrical_power
+    if elec <= 0 and current > 0 and forward_voltage > 0:
+        elec = current * forward_voltage
+    if elec > 0 and efficiency > 0:
+        lamp_power = elec * efficiency
 
     src_oid = lts_create.next_oid("ORACylinderSourceObj", set(model.objects))
     src = LTSObject(src_oid)
@@ -171,6 +181,11 @@ def create_source(model, kind: str, *, name: Optional[str] = None,
         "setPowerUnits": "Photometric",
         "setFluxUnits": "Lumen",
         "setWeightFactor": 1.0,
+        "setBlackbodyTemperature": blackbody_temp,
+        "setCurrent": current,
+        "setForwardVoltage": forward_voltage,
+        "setEfficiency": efficiency,
+        "setElectricalPower": electrical_power,
     }
     # 瞄准球 (全向)
     aim_oid = lts_create.next_oid("ORAAimSphereDirObj",

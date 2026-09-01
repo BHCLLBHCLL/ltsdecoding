@@ -244,6 +244,32 @@ def colorize_grid(mean_wl, intensity=None):
     return out
 
 
+
+
+
+def wien_peak_nm(T: float) -> float:
+    """Wien 位移: 黑体峰值波长 (nm). b = 2.898e6 nm·K."""
+    return 2.898e6 / T if T > 0 else 0.0
+
+
+def planckian_spd(T: float, wl_nm=None, step: float = 10.0,
+                  lo: float = 350.0, hi: float = 780.0) -> Dict[float, float]:
+    """黑体光谱 (相对) 归一, 供光源光谱使用."""
+    if wl_nm is None:
+        wl_nm = [lo + i * step for i in range(int(round((hi - lo) / step)) + 1)]
+    spd = planckian_spectrum(T, wl_nm)
+    mx = max(spd.values()) if spd else 1.0
+    if mx > 0:
+        spd = {w: v / mx for w, v in spd.items()}
+    return spd
+
+
+def blackbody_spectral(T: float, step: float = 10.0) -> list:
+    """黑体光谱 -> [(nm, relative_weight)] (供 emitter.spectral)."""
+    spd = planckian_spd(T, step=step)
+    return sorted((w, v) for w, v in spd.items())
+
+
 def render_xyz(spd, rho_fn=None):
     """(可选) 供上层调用: 由光谱+反射率求 XYZ."""
     return spd_to_XYZ(spd)

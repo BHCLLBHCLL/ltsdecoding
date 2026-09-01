@@ -1123,6 +1123,14 @@ def format_trace_report(pack: dict) -> str:
                          ", ".join(aps) or "-",
                          ("  wl=%d pts" % len(srcs[0].spectral))
                          if srcs and srcs[0].spectral else ""))
+    bb = [("bb=%.0fK" % s.blackbody_temp) for s in srcs
+          if getattr(s, "blackbody_temp", 0) > 0]
+    el = [("%s=%.3gW eff=%.2f" % ("elec", getattr(s, "electrical_power", 0.0),
+                                   getattr(s, "efficiency", 0.0)))
+          for s in srcs if getattr(s, "efficiency", 0.0) > 0
+          or getattr(s, "electrical_power", 0.0) > 0]
+    if bb or el:
+        lines.append("  source mode   : %s" % ("  ".join(bb + el)))
     media = meta.get("media") or {}
     if media:
         lines.append("  media         : %d  (alpha/mu_s/g averaged by index)" % len(media))
