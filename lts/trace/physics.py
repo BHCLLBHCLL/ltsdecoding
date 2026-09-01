@@ -93,6 +93,29 @@ def surface_event(d, n, prop, cur, rng, jones=None, wl_nm=None):
         n1, other = n_in, n_out      # 射线在内部, 进入外部 n_out
     kind = prop.kind
 
+    period = float(getattr(prop, "grating_period", 0.0) or 0.0)
+    if period > 0:
+        # 衍射光栅: 按光栅方程向各衍射级传播 (角向光谱)
+        try:
+            from ltsoptics.diffraction import diffract
+            axis = getattr(prop, "grating_axis", None)
+            if axis is None:
+                up = np.array([0.0, 0.0, 1.0])
+                axis = np.cross(up, np.asarray(n, float))
+                if float(np.linalg.norm(axis)) < 1e-9:
+                    axis = np.cross(np.array([1.0, 0.0, 0.0]), np.asarray(n, float))
+                axis = axis / (np.linalg.norm(axis) + 1e-12)
+            else:
+                axis = np.asarray(axis, dtype=float)
+            omax = int(getattr(prop, "grating_order_max", 2) or 2)
+            duty = float(getattr(prop, "grating_duty", 0.5) or 0.5)
+            wl = wl_nm if wl_nm is not None else getattr(prop, "wavelength", 550.0)
+            orders = diffract(d, n, axis, period, wl, n_med=cur,
+                              order_max=omax, duty=duty, transmission=True)
+            return [(dirout, w, cur, "diffract_order%d" % m) for m, dirout, w in orders]
+        except Exception:
+            pass
+
     if kind == "mirror":
         return [(reflect_ray(d, n), prop.reflectivity or 1.0, cur, "reflect")]
 

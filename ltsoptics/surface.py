@@ -186,6 +186,10 @@ class SurfaceOpt:
     phos_qe: float = 0.0              # 磷光涂层量子效率 (0..1)
     phos_emit_wl: float = 0.0         # 磷光发射波长 (nm, 0=继承)
     phos_tau: float = 0.0              # 荧光寿命 (ns, 0=无延迟)
+    grating_period: float = 0.0        # 衍射光栅周期 (nm, 0=无光栅)
+    grating_axis: object = None        # 面内光栅方向 (3 矢量, None=自动)
+    grating_order_max: int = 2         # 衍射级范围 [-N, N]
+    grating_duty: float = 0.5          # 占空比
     disp_in: object = None            # 可选 callable wl->n (内部材质色散)
     disp_out: object = None           # 可选 callable wl->n (外部介质色散)
 
