@@ -273,6 +273,32 @@ def render_spectrum_png(spd: dict, path: str, *, dpi: int = 110) -> str:
     return path
 
 
+
+
+
+def render_decay_png(times, path: str, *, dpi: int = 110) -> str:
+    """荧光到达时间分布 (指数衰减) -> PNG. 无 GUI 测试路径."""
+    from ltsoptics.phosphor import decay_histogram
+    plt = _import_pyplot()
+    hist = decay_histogram(times)
+    if hist is None:
+        fig, ax = plt.subplots(figsize=(6.0, 4.0))
+        ax.text(0.5, 0.5, "no emission time data", ha="center", va="center")
+        ax.axis("off")
+    else:
+        edges, counts = hist
+        ctr = 0.5 * (edges[:-1] + edges[1:])
+        w = edges[1] - edges[0]
+        fig, ax = plt.subplots(figsize=(6.0, 4.0))
+        ax.bar(ctr, counts, width=0.9 * w, color="#2b8cbe", alpha=0.85)
+        ax.set_xlabel("emission delay (ns)"); ax.set_ylabel("counts")
+        ax.set_title("Fluorescence decay / arrival-time distribution", fontsize=10)
+        ax.grid(True, alpha=0.3)
+    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def make_chart_dialog(title: str, report: str, data: dict, parent=None):
     """创建 QDialog (PyQt5 + matplotlib canvas). 无 PyQt5 时回退纯报告."""
     try:

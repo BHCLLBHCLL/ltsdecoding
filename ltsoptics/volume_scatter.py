@@ -113,6 +113,43 @@ def scatter_polarization(jones, d0, d1, depol: float = 0.0, rng=None):
     return j1
 
 
+
+
+
+def alpha_at(wl: float, alpha_ref: float = 0.0, ref_wl: float = 550.0,
+             power: float = 0.0, table=None) -> float:
+    """波长相关吸收系数: 幂律 alpha_ref*(ref_wl/wl)^power 或实测表.
+
+    table: [(wl, alpha), ...] 线性插值 (优先于幂律).
+    """
+    if table:
+        try:
+            wl = float(wl)
+            pts = sorted((float(a), float(b)) for a, b in table)
+            if wl <= pts[0][0]:
+                return pts[0][1]
+            if wl >= pts[-1][0]:
+                return pts[-1][1]
+            for (w0, a0), (w1, a1) in zip(pts, pts[1:]):
+                if w0 <= wl <= w1:
+                    t = (wl - w0) / (w1 - w0) if w1 > w0 else 0.0
+                    return a0 + t * (a1 - a0)
+            return pts[-1][1]
+        except Exception:
+            pass
+    if alpha_ref <= 0 or abs(power) < 1e-12:
+        return float(alpha_ref or 0.0)
+    return float(alpha_ref) * (float(ref_wl) / float(wl)) ** power
+
+
+def mu_s_at(wl: float, mu_ref: float = 0.0, ref_wl: float = 550.0,
+            power: float = 0.0) -> float:
+    """波长相关散射系数 (幂律)."""
+    if mu_ref <= 0 or abs(power) < 1e-12:
+        return float(mu_ref or 0.0)
+    return float(mu_ref) * (float(ref_wl) / float(wl)) ** power
+
+
 def scatter_albedo(mu_a: float, mu_s: float) -> float:
     """单次散射反照率."""
     s = mu_a + mu_s

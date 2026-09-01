@@ -333,12 +333,16 @@ def scene_from_model(model, *, max_tris: int = 24000, wl_nm: float = 550.0,
             alphas[mat.n_at_nm(wl_nm)] = mat.alpha
         mu_s = float(getattr(mat, "mu_s", 0.0) or 0.0)
         if mat.alpha > 0 or mu_s > 0:
-            media[mat.n_at_nm(wl_nm)] = {"alpha": mat.alpha, "mu_s": mu_s,
+            media[mat.n_at_nm(wl_nm)] = {"alpha": mat.alpha,
+                                        "alpha_power": float(getattr(mat, "alpha_power", 0.0) or 0.0),
+                                        "alpha_ref_wl": float(getattr(mat, "alpha_ref_wl", 550.0) or 550.0),
+                                        "mu_s": mu_s,
                                         "g": float(getattr(mat, "g", 0.0) or 0.0),
                                         "depol": float(getattr(mat, "depol", 0.0) or 0.0),
                                         "qe": float(getattr(mat, "qe", 0.0) or 0.0),
                                         "emit_wl": float(getattr(mat, "emit_wl", 0.0) or 0.0),
-                                        "emit_spectral": list(getattr(mat, "emit_spectral", []) or [])}
+                                        "emit_spectral": list(getattr(mat, "emit_spectral", []) or []),
+                                        "tau": float(getattr(mat, "lifetime", 0.0) or 0.0)}
     meta["alphas"] = alphas
     meta["media"] = media
     return scene, meta
@@ -1097,6 +1101,14 @@ def format_trace_report(pack: dict) -> str:
         lines.append("      balance   : absorbed %.6g + escaped %.6g = launched %.6g  "
                      "(fluorescent re-emission conserved inside, not double-counted)" % (
                          res.absorbed, res.escaped, res.launched))
+        ft = getattr(res, "fluorescence_times", None) or []
+        if ft:
+            try:
+                from ltsoptics.phosphor import estimate_lifetime
+                lines.append("      lifetime  : mean %.3f ns  (%d emission times)" % (
+                    estimate_lifetime(ft), len(ft)))
+            except Exception:
+                pass
     srcs = pack.get("sources") or []
     if srcs:
         n_emit = sum(1 for s in srcs

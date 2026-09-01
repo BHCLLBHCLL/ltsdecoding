@@ -153,12 +153,15 @@ class BoundMaterial:
     cls: str
     dispersion: DispersionModel
     alpha: float = 0.0
+    alpha_power: float = 0.0
+    alpha_ref_wl: float = 550.0
     mu_s: float = 0.0
     g: float = 0.0
     depol: float = 0.0
     qe: float = 0.0
     emit_wl: float = 0.0
     emit_spectral: list = field(default_factory=list)
+    lifetime: float = 0.0
     samples: list = field(default_factory=list)
     family: str = "glass"  # glass | metal | air | opaque
 
@@ -211,11 +214,14 @@ def bind_materials(objects: dict) -> Dict[str, BoundMaterial]:
         if cls in METAL_CLASSES and disp.kind == "constant" and disp.n == 1.0:
             disp = DispersionModel(kind="constant", n=1.0)
         alpha = _alpha_from_absorption(objects, _edge(obj, "restoreAbsorptionObj"))
+        alpha_power = _float(obj, "setAlphaPower", 0.0)
+        alpha_ref_wl = _float(obj, "setAlphaRefWavelength", 550.0) or 550.0
         mu_s = _float(obj, "setScatteringCoefficient", 0.0)
         g = _float(obj, "setScatterAsymmetryFactor", 0.0)
         depol = _float(obj, "setDepolarization", 0.0)
         qe = _float(obj, "setQuantumEfficiency", 0.0)
         emit_wl = _float(obj, "setEmissionWavelength", 0.0)
+        lifetime = _float(obj, "setLifetime", 0.0)
         emit_spectral = []
         emit_oid = _edge(obj, "restoreEmissionObj")
         if emit_oid and objects.get(emit_oid):
@@ -228,9 +234,10 @@ def bind_materials(objects: dict) -> Dict[str, BoundMaterial]:
             samples = _wavelength_samples(objects, objects.get(abs_oid))
         out[oid] = BoundMaterial(
             oid=oid, name=name, cls=cls, dispersion=disp,
-            alpha=alpha, mu_s=mu_s, g=g, depol=depol,
+            alpha=alpha, alpha_power=alpha_power, alpha_ref_wl=alpha_ref_wl,
+            mu_s=mu_s, g=g, depol=depol,
             qe=qe, emit_wl=emit_wl, emit_spectral=emit_spectral,
-            samples=samples, family=fam)
+            lifetime=lifetime, samples=samples, family=fam)
     return out
 
 

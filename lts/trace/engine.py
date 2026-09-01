@@ -16,11 +16,14 @@ from .physics import beer_absorption, surface_event
 
 try:
     from ltsoptics.volume_scatter import (random_free_path, sample_hg,
-                                          scatter_polarization)
+                                          scatter_polarization, alpha_at,
+                                          mu_s_at)
 except Exception:  # pragma: no cover
     random_free_path = None
     sample_hg = None
     scatter_polarization = None
+    alpha_at = None
+    mu_s_at = None
 
 
 def _scatter_dir(d, ct, rng):
@@ -43,8 +46,8 @@ def _scatter_dir(d, ct, rng):
 class TraceResult:
     __slots__ = ("absorbed", "escaped", "launched", "face_flux",
                  "n_rays", "n_bounces", "n_scatter", "n_fluo",
-                 "fluo_weight", "fluo_med", "fluo_surf", "hits",
-                 "escaped_dirs", "plane_hits", "escaped_states",
+                 "fluo_weight", "fluo_med", "fluo_surf", "fluorescence_times",
+                 "hits", "escaped_dirs", "plane_hits", "escaped_states",
                  "plane_states")
 
     def __init__(self, n_faces):
@@ -58,6 +61,7 @@ class TraceResult:
         self.fluo_weight = 0.0
         self.fluo_med = 0.0
         self.fluo_surf = 0.0
+        self.fluorescence_times = []
         self.face_flux = np.zeros(n_faces, dtype=float)
         self.hits = []          # (x, y, z, weight)
         self.escaped_dirs = []  # (dx, dy, dz, weight)
@@ -150,8 +154,21 @@ class Engine:
                                              float(dd[2]), float(w)))
                 continue
             md = self.media.get(med, {})
-            alpha = float(md.get("alpha", 0.0) or 0.0)
-            mu_s = float(md.get("mu_s", 0.0) or 0.0)
+            alpha_v = float(md.get("alpha", 0.0) or 0.0)
+            mu_v = float(md.get("mu_s", 0.0) or 0.0)
+            if alpha_at is not None:
+                alpha = alpha_at(wl, alpha_ref=alpha_v,
+                                 ref_wl=float(md.get("alpha_ref_wl", 550.0) or 550.0),
+                                 power=float(md.get("alpha_power", 0.0) or 0.0),
+                                 table=md.get("alpha_table"))
+            else:
+                alpha = alpha_v
+            if mu_s_at is not None:
+                mu_s = mu_s_at(wl, mu_ref=mu_v,
+                               ref_wl=float(md.get("alpha_ref_wl", 550.0) or 550.0),
+                               power=float(md.get("mu_s_power", 0.0) or 0.0))
+            else:
+                mu_s = mu_v
             gg = float(md.get("g", 0.0) or 0.0)
             depol = float(md.get("depol", 0.0) or 0.0)
             mu_t = alpha + mu_s
@@ -199,6 +216,12 @@ class Engine:
                                 res.n_fluo += 1
                                 res.fluo_weight += em
                                 res.fluo_med += em
+                                try:
+                                    from ltsoptics.phosphor import lifetime_delay
+                                    res.fluorescence_times.append(
+                                        lifetime_delay(float(md.get("tau", 0.0) or 0.0), self.rng))
+                                except Exception:
+                                    pass
                         except Exception:
                             res.absorbed += ab
                     else:
@@ -224,6 +247,12 @@ class Engine:
                     res.fluo_weight += cw
                     res.fluo_surf += cw
                     res.n_fluo += 1
+                    try:
+                        from ltsoptics.phosphor import lifetime_delay
+                        res.fluorescence_times.append(
+                            lifetime_delay(float(getattr(prop, "phos_tau", 0.0) or 0.0), self.rng))
+                    except Exception:
+                        pass
                 if cw <= 0:
                     continue
                 out_w_sum += cw

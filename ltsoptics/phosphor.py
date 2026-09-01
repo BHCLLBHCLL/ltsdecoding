@@ -28,6 +28,37 @@ def isotropic_dir(rng) -> np.ndarray:
     return np.array([st * math.cos(az), st * math.sin(az), ct], dtype=float)
 
 
+
+
+
+def lifetime_delay(tau: float, rng=None) -> float:
+    """荧光寿命延迟: 指数分布采样 (均值=tau). tau<=0 或 None -> 0."""
+    if tau <= 0 or rng is None:
+        return 0.0
+    return -tau * math.log(max(1.0 - rng.next1(), 1e-12))
+
+
+def decay_histogram(times, nbins: int = 24):
+    """到达时间分布直方图 (bin_edges, counts). 无数据返回 None."""
+    if not times:
+        return None
+    import numpy as np
+    t = np.asarray(times, dtype=float)
+    tmax = float(t.max())
+    if tmax <= 0:
+        return None
+    edges = np.linspace(0.0, tmax, nbins + 1)
+    counts, _e = np.histogram(t, bins=edges)
+    return edges, counts
+
+
+def estimate_lifetime(times) -> float:
+    """由采样时延估计寿命均值 (= 均值)."""
+    if not times:
+        return 0.0
+    return float(np.mean(times)) if "np" in globals() else (sum(times) / len(times))
+
+
 def emission_wavelength(md, rng=None) -> float:
     """按介质描述符 md 采样发射波长 (nm).
 

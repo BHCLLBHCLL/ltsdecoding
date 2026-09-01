@@ -47,6 +47,80 @@ def _plane_scene():
 
 
 
+
+def test_lifetime_delay_mean():
+    from ltsoptics.phosphor import lifetime_delay
+    rng = R(9)
+    tau = 3.0
+    vals = [lifetime_delay(tau, rng) for _ in range(20000)]
+    assert abs(np.mean(vals) - tau) < 0.05*tau, np.mean(vals)
+    assert lifetime_delay(tau, None) == 0.0    # 无 rng 无延迟
+
+def test_decay_histogram_monotonic():
+    from ltsoptics.phosphor import decay_histogram, lifetime_delay
+    rng = R(11)
+    times = [lifetime_delay(2.0, rng) for _ in range(2000)]
+    hist = decay_histogram(times, nbins=12)
+    assert hist is not None
+    edges, counts = hist
+    # 指数衰减: 近 0 时延 bin 计数高, 随 t 递减
+    assert counts[0] > counts[-1]
+    # 总体负斜率 (指数衰减); 允许尾部统计噪声
+    slope = np.polyfit(np.arange(len(counts), dtype=float), counts.astype(float), 1)[0]
+    assert slope < 0, slope
+    assert counts[:3].mean() > counts[-3:].mean()
+
+def test_alpha_at_powerlaw_and_table():
+    from ltsoptics.volume_scatter import alpha_at
+    # 幂律: 短波吸收更高
+    assert alpha_at(450.0, alpha_ref=1.0, power=2.0) > alpha_at(700.0, alpha_ref=1.0, power=2.0)
+    assert alpha_at(550.0, alpha_ref=1.0, power=0.0) == pytest.approx(1.0)
+    # 实测表插值
+    t = [(400.0, 0.1), (550.0, 0.5), (700.0, 0.9)]
+    assert alpha_at(475.0, table=t) == pytest.approx(0.3)
+    assert alpha_at(700.0, table=t) == pytest.approx(0.9)
+    assert alpha_at(350.0, table=t) == pytest.approx(0.1)   # 外推钳位
+
+
+
+def test_engine_wavelength_dependent_absorption():
+    from lts.trace.scene import Scene, TriMesh
+    from lts.trace.engine import Engine
+    from ltsoptics.surface import SurfaceOpt
+    verts = np.array([[-1,-1,0],[1,-1,0],[1,1,0],[-1,1,0]], dtype=np.float32)
+    tris = np.array([[0,1,2],[0,2,3]], dtype=np.int32)
+    scene = Scene([TriMesh(verts, tris, props=[SurfaceOpt(kind="transmitting",
+                                                          n_in=1.0, n_out=1.0),
+                                               SurfaceOpt(kind="transmitting",
+                                                          n_in=1.0, n_out=1.0)])]).build()
+    def run(wl):
+        eng = Engine(scene, max_bounces=8, seed=5)
+        eng.set_volume_media({1.0: {"alpha": 1.0, "alpha_power": 2.0,
+                                    "alpha_ref_wl": 550.0, "mu_s": 0.0}})
+        ray = {"p": np.array([0.0,0.0,5.0]), "d": np.array([0.0,0.0,-1.0]),
+               "weight": 1.0, "medium": 1.0, "wl_nm": wl, "jones": None}
+        r = eng.trace([ray])
+        return r.escaped
+    e450 = run(450.0)
+    e700 = run(700.0)
+    # 短波 alpha 更高 -> 吸收更多 -> 逃逸更少
+    assert e450 < e700, (e450, e700)
+
+
+
+def test_report_lifetime_line():
+    from lts.trace.from_model import format_trace_report
+    pack = {"result": type("R", (), {"absorbed": 0.4, "escaped": 0.6,
+                                     "launched": 1.0, "n_bounces": 1,
+                                     "n_scatter": 0, "n_fluo": 2,
+                                     "fluo_weight": 0.5, "fluo_med": 0.5,
+                                     "fluo_surf": 0.0,
+                                     "fluorescence_times": [2.0, 4.0]})(),
+            "meta": {}, "paths": [], "n_rays": 1, "sources": None, "receivers": []}
+    txt = format_trace_report(pack)
+    assert "lifetime  : mean 3.000 ns" in txt
+
+
 def test_report_includes_fluoresc():
     from lts.trace.from_model import format_trace_report
     pack = {"result": type("R", (), {"absorbed": 0.4, "escaped": 0.6,

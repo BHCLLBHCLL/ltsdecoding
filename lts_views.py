@@ -293,6 +293,8 @@ def make_media_dialog(stats, media, parent=None):
         body.append("balance    : absorbed %.6g + escaped %.6g = launched %.6g" % (
             stats.get("absorbed", 0.0), stats.get("escaped", 0.0), launched))
         body.append("           (fluorescent re-emission conserved inside, not double-counted)")
+        if stats.get("lifetime_mean", 0.0) > 0:
+            body.append("lifetime   : mean %.3f ns" % stats.get("lifetime_mean", 0.0))
     else:
         body.append("(no fluorescence observed in this trace)")
     te = QPlainTextEdit(wt)
@@ -351,6 +353,8 @@ def ray_report_stats(pack) -> dict:
         "fluo_weight": float(getattr(res, "fluo_weight", 0.0)),
         "fluo_med": float(getattr(res, "fluo_med", 0.0)),
         "fluo_surf": float(getattr(res, "fluo_surf", 0.0)),
+        "lifetime_mean": (float(np.mean(res.fluorescence_times))
+                           if getattr(res, "fluorescence_times", None) else 0.0),
     }
     receivers = []
     for rr in (pack.get("receivers") or []):
