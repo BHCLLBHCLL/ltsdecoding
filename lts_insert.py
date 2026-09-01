@@ -159,12 +159,13 @@ def create_source(model, kind: str, *, name: Optional[str] = None,
                              position=position, material=SOURCE_MATERIAL,
                              optical=True, **geom)
 
-    # 电致发光/热辐射: 由电功率*效率折算光学灯功率 (未显式给 lamp_power 时)
+    # 电致发光/热辐射: 由电功率*效率折算光学灯功率, 交由 bind_sources 按光谱光视效能
+    # 换算 (lm = elec*eff*K). 电参数给定时置 lamp_power=0, 避免直接覆盖.
     elec = electrical_power
     if elec <= 0 and current > 0 and forward_voltage > 0:
         elec = current * forward_voltage
     if elec > 0 and efficiency > 0:
-        lamp_power = elec * efficiency
+        lamp_power = 0.0
 
     src_oid = lts_create.next_oid("ORACylinderSourceObj", set(model.objects))
     src = LTSObject(src_oid)

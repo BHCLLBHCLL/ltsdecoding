@@ -270,6 +270,35 @@ def blackbody_spectral(T: float, step: float = 10.0) -> list:
     return sorted((w, v) for w, v in spd.items())
 
 
+
+
+
+_KM = 683.0          # 555nm 单色峰值光视效能 (lm/W)
+
+
+def luminous_efficacy(spd) -> float:
+    """光谱的光视效能 (lm/W): 683 * ∫V(λ)S(λ) / ∫S(λ). 输入 dict 或 [(nm,w)]."""
+    if hasattr(spd, "items"):
+        items = sorted(spd.items())
+    else:
+        items = sorted((float(w), float(v)) for w, v in (spd or []))
+    if not items:
+        return 0.0
+    from ltsoptics.spectrum import v_lambda
+    num = 0.0
+    den = 0.0
+    for wl, s in items:
+        v = v_lambda(float(wl))
+        num += v * max(float(s), 0.0)
+        den += max(float(s), 0.0)
+    return _KM * (num / den) if den > 1e-12 else 0.0
+
+
+def luminous_flux(radiant_power_w, spd) -> float:
+    """辐射功率 (W) + 光谱 -> 光通量 (lm)."""
+    return float(radiant_power_w) * luminous_efficacy(spd)
+
+
 def render_xyz(spd, rho_fn=None):
     """(可选) 供上层调用: 由光谱+反射率求 XYZ."""
     return spd_to_XYZ(spd)

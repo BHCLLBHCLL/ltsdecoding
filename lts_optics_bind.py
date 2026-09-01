@@ -718,6 +718,7 @@ class SourceSpec:
     efficiency: float = 0.0                             # 壁插效率 (0..1)
     current_A: float = 0.0
     forward_voltage: float = 0.0
+    luminous_efficacy: float = 0.0                      # lm/W (光谱光度效能)
     solid_oid: str = ""                               # 发射体实体
     emitters: list = field(default_factory=list)      # [EmitterSpec]
     aim_cos_upper: float = 1.0
@@ -863,12 +864,21 @@ def bind_sources(objects: dict) -> List[SourceSpec]:
                 spec.spectral = blackbody_spectral(spec.blackbody_temp)
             except Exception:
                 pass
-        # 电功率来源: 电流*电压 (若未显式给电功率), 未显式给灯功率时由效率折算光学功率
+        # 电功率来源: 电流*电压 (若未显式给电功率), 未显式给灯功率时折算光学灯功率
         elec = spec.electrical_power
         if elec <= 0 and spec.current_A > 0 and spec.forward_voltage > 0:
             elec = spec.current_A * spec.forward_voltage
         if spec.efficiency > 0 and spec.lamp_power <= 0 and elec > 0:
-            spec.lamp_power = elec * spec.efficiency
+            # 光视效能换算: 光学辐射功率 (W) -> 光通量 (lm) = elec*eff*K(spectral)
+            if spec.spectral:
+                try:
+                    from ltsoptics.colorimetry import luminous_efficacy
+                    spec.luminous_efficacy = luminous_efficacy(spec.spectral)
+                    spec.lamp_power = elec * spec.efficiency * spec.luminous_efficacy
+                except Exception:
+                    spec.lamp_power = elec * spec.efficiency
+            else:
+                spec.lamp_power = elec * spec.efficiency
         aim = _edge(obj, "setAimObj")
         aim_obj = objects.get(aim) if aim else None
         if aim_obj is not None:

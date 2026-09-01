@@ -35,6 +35,33 @@ def test_create_source_electrical_efficiency():
     assert abs(spec.lamp_power - 0.315) < 1e-6, spec.lamp_power
     assert abs(spec.efficiency - 0.3) < 1e-9
 
+
+def test_luminous_efficacy_peak555():
+    from ltsoptics.colorimetry import luminous_efficacy
+    assert luminous_efficacy({555.0: 1.0}) == pytest.approx(683.0, rel=1e-6)
+
+def test_luminous_efficacy_blackbody_trend():
+    from ltsoptics.colorimetry import luminous_efficacy, blackbody_spectral
+    e6500 = luminous_efficacy(blackbody_spectral(6500.0))
+    e2500 = luminous_efficacy(blackbody_spectral(2500.0))
+    assert e6500 > e2500, (e6500, e2500)     # 冷白更接近明视觉峰值
+    assert 0 < e6500 < 683
+
+def test_create_source_electrical_with_blackbody_efficacy():
+    from lts_model import LTSModel
+    import lts_insert, lts_optics_bind as ob
+    from ltsoptics.colorimetry import luminous_efficacy, blackbody_spectral
+    m = LTSModel()
+    src = lts_insert.create_source(m, "cylinder", name="LED",
+                                   blackbody_temp=6500.0,
+                                   current=1.0, forward_voltage=3.0,
+                                   efficiency=0.5)
+    spec = ob.bind_sources(m.objects)[0]
+    assert spec.luminous_efficacy > 0
+    exp = 1.0 * 3.0 * 0.5 * luminous_efficacy(blackbody_spectral(6500.0))
+    assert abs(spec.lamp_power - exp) / exp < 0.01, (spec.lamp_power, exp)
+
+
 def test_create_source_blackbody_spectral():
     from lts_model import LTSModel
     import lts_insert, lts_optics_bind as ob
