@@ -24,6 +24,9 @@ def test_media_panel_builds():
     dlg = lts_views.make_media_dialog(stats, media)
     assert dlg.windowTitle() == "Media & Scatter"
     assert dlg is not None
+    from PyQt5.QtWidgets import QTabWidget
+    t = dlg.findChild(QTabWidget)
+    assert t is not None and t.count() >= 2   # Media + Luminescence
 
 
 def test_ray_report_dialog_accepts_media():

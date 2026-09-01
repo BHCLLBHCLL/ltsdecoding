@@ -244,17 +244,20 @@ def make_glass_catalog_dialog(catalog, on_apply=None, parent=None):
 
 
 def make_media_dialog(stats, media, parent=None):
-    """媒体与散射独立面板: 介质表 (alpha/mu_s/g/depol) + 散射统计."""
-    from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QLabel,
-                                 QTableWidget, QTableWidgetItem, QVBoxLayout)
+    """媒体与散射独立面板: 介质表 + 散射/发光守恒 (2 个可切换 tab)."""
+    from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QLabel, QTabWidget,
+                                 QPlainTextEdit, QVBoxLayout, QWidget)
     media = media or {}
     dlg = QDialog(parent)
     dlg.setWindowTitle("Media & Scatter")
-    dlg.resize(620, 440)
+    dlg.resize(640, 440)
     v = QVBoxLayout(dlg)
     v.addWidget(QLabel("Volume media: %d   scatters: %d   bounces: %d   fluoresc: %d" % (
         len(media), stats.get("n_scatter", 0), stats.get("n_bounces", 0),
         stats.get("n_fluo", 0)), dlg))
+    tabs = QTabWidget(dlg)
+
+    # Media tab
     header = ["n (index)", "alpha(1/m)", "mu_s(1/m)", "g", "depol", "qe", "emit_wl"]
     rows = []
     for idx in sorted(media):
@@ -264,13 +267,41 @@ def make_media_dialog(stats, media, parent=None):
                      ("%.3f" % m.get("g", 0.0)), ("%.2f" % m.get("depol", 0.0)),
                      ("%.3f" % m.get("qe", 0.0)),
                      ("%.1f" % m.get("emit_wl", 0.0))])
+    from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
     tbl = QTableWidget(len(rows), len(header), dlg)
     tbl.setHorizontalHeaderLabels(header)
     for i, row in enumerate(rows):
         for j, cell in enumerate(row):
             tbl.setItem(i, j, QTableWidgetItem(str(cell)))
     tbl.setEditTriggers(QTableWidget.NoEditTriggers)
-    v.addWidget(tbl, 1)
+    tabs.addTab(tbl, "Media")
+
+    # Luminescence tab
+    wt = QWidget(dlg)
+    wl = QVBoxLayout(wt)
+    fw = stats.get("fluo_weight", 0.0)
+    nf = stats.get("n_fluo", 0)
+    fmed = stats.get("fluo_med", 0.0)
+    fsurf = stats.get("fluo_surf", 0.0)
+    launched = stats.get("launched", 0.0)
+    body = []
+    if fw > 0 or nf:
+        body.append("luminescence : %d events   emitted %.6g  = medium %.6g + surface %.6g" % (
+            nf, fw, fmed, fsurf))
+        if launched > 0:
+            body.append("fraction   : %.2f%% of launched" % (100.0 * fw / launched))
+        body.append("balance    : absorbed %.6g + escaped %.6g = launched %.6g" % (
+            stats.get("absorbed", 0.0), stats.get("escaped", 0.0), launched))
+        body.append("           (fluorescent re-emission conserved inside, not double-counted)")
+    else:
+        body.append("(no fluorescence observed in this trace)")
+    te = QPlainTextEdit(wt)
+    te.setReadOnly(True)
+    te.setPlainText("\n".join(body))
+    wl.addWidget(te, 1)
+    tabs.addTab(wt, "Luminescence")
+
+    v.addWidget(tabs, 1)
     bb = QDialogButtonBox(QDialogButtonBox.Close, dlg)
     bb.rejected.connect(dlg.close)
     v.addWidget(bb)
@@ -317,6 +348,9 @@ def ray_report_stats(pack) -> dict:
         "n_bounces": int(res.n_bounces),
         "n_scatter": int(getattr(res, "n_scatter", 0)),
         "n_fluo": int(getattr(res, "n_fluo", 0)),
+        "fluo_weight": float(getattr(res, "fluo_weight", 0.0)),
+        "fluo_med": float(getattr(res, "fluo_med", 0.0)),
+        "fluo_surf": float(getattr(res, "fluo_surf", 0.0)),
     }
     receivers = []
     for rr in (pack.get("receivers") or []):
