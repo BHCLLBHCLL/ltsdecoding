@@ -280,12 +280,13 @@ def surface_opt_for_name(name: Optional[str],
 
 
 def summarize_catalog(catalog: Dict[str, BoundMaterial], wl_nm: float = 550.0) -> str:
-    lines = ["Materials  n(@%.0fnm)  Vd     alpha(1/m)  family" % wl_nm]
+    lines = ["Materials  n@450   n@550   n@650   Vd     alpha(1/m)  family"]
     for mat in sorted(catalog.values(), key=lambda m: m.name.lower()):
         vd = mat.abbe()
         vd_s = ("%6.1f" % vd) if vd is not None else "     -"
-        lines.append("  %-22s  %7.5f  %s  %8.3g  %s" % (
-            mat.name[:22], mat.n_at_nm(wl_nm), vd_s, mat.alpha, mat.family))
+        lines.append("  %-22s  %7.5f %7.5f %7.5f  %s  %8.3g  %s" % (
+            mat.name[:22], mat.n_at_nm(450.0), mat.n_at_nm(550.0),
+            mat.n_at_nm(650.0), vd_s, mat.alpha, mat.family))
     return "\n".join(lines)
 
 

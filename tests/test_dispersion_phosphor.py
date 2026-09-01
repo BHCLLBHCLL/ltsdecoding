@@ -27,6 +27,49 @@ def test_dispersion_interface_reflects_shortwaves_more():
     assert abs(R450 - R700) < 0.01
 
 
+
+def test_zone_dispersion_propagates():
+    from types import SimpleNamespace
+    from lts.trace.from_model import _merge_zone_into
+    base = SurfaceOpt(kind="transmitting", n_in=1.52, n_out=1.0,
+                      disp_in=lambda w: 1.52, disp_out=lambda w: 1.0)
+    zp = SimpleNamespace(name="Z", amplitude="fresnel", oid="z1", prop=None)
+    p = _merge_zone_into(zp, base)
+    assert p.disp_in is base.disp_in and p.disp_out is base.disp_out
+    # opaque 区同样继承
+    zp2 = SimpleNamespace(name="Z2", amplitude="rt", oid="z2",
+                          prop=SimpleNamespace(kind="opaque", reflectivity=0.5,
+                                               transmission=0.0, specular_frac=0.5,
+                                               scatter_side="both", refract_mode="refract"))
+    p2 = _merge_zone_into(zp2, base)
+    assert p2.disp_in is base.disp_in
+
+def test_summarize_catalog_has_dispersion():
+    from types import SimpleNamespace
+    from lts_optics_bind import summarize_catalog
+    def mk(n450, n550, n650):
+        return SimpleNamespace(name="G", cls="ORAUserGlassObj", alpha=0.0,
+                               family="glass", abbe=lambda: 60.0,
+                               n_at_nm=lambda wl: {450: n450, 550: n550, 650: n650}.get(wl, n550))
+    s = summarize_catalog({"oid": mk(1.523, 1.520, 1.516)})
+    assert "n@450" in s and "n@650" in s
+    assert "1.523" in s and "1.516" in s
+
+
+
+def test_fluo_energy_cross_check():
+    from lts.trace.from_model import format_trace_report
+    pack = {"result": type("R", (), {"absorbed": 0.4, "escaped": 0.6,
+                                     "launched": 1.0, "n_bounces": 2,
+                                     "n_scatter": 0, "n_fluo": 3,
+                                     "fluo_weight": 0.5})(),
+            "meta": {}, "paths": [], "n_rays": 1, "sources": None,
+            "receivers": []}
+    txt = format_trace_report(pack)
+    assert "fluoresc      : 3 events" in txt and "emitted 0.5" in txt
+    assert "fluo check" in txt
+
+
 def test_phosphor_surface_emits():
     n = np.array([0.0, 0.0, 1.0])
     d = np.array([0.0, 0.0, -1.0])

@@ -2831,7 +2831,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         for mat in sorted(cat.values(), key=lambda m: m.name.lower()):
             vd = mat.abbe()
             rows.append((
-                mat.name, mat.cls, "%.6f" % mat.n_at_nm(550.0),
+                mat.name, mat.cls, "%.6f" % mat.n_at_nm(450.0),
+                "%.6f" % mat.n_at_nm(550.0), "%.6f" % mat.n_at_nm(650.0),
                 ("%.2f" % vd) if vd is not None else "-",
                 "%.4g" % mat.alpha, mat.family))
         MaterialsManagerDialog(rows, self).exec_()

@@ -239,13 +239,14 @@ def _merge_zone_into(zp, material_prop):
         return SurfaceOpt(name=zp.name or base.name, kind="transmitting",
                           n_in=base.n_in, n_out=base.n_out,
                           specular_frac=1.0, zone=zp.oid,
-                          transmission=1.0)
+                          transmission=1.0, disp_in=base.disp_in,
+                          disp_out=base.disp_out)
     p2 = SurfaceOpt(
         name=zp.name or base.name, kind=p.kind,
         reflectivity=p.reflectivity, transmission=p.transmission,
         specular_frac=p.specular_frac, n_in=base.n_in, n_out=base.n_out,
         scatter_side=p.scatter_side, refract_mode=p.refract_mode,
-        zone=zp.oid)
+        zone=zp.oid, disp_in=base.disp_in, disp_out=base.disp_out)
     return p2
 
 
@@ -1077,9 +1078,11 @@ def format_trace_report(pack: dict) -> str:
         "  absorbed      : %.6g" % res.absorbed,
         "  escaped       : %.6g" % res.escaped,
         "  conservation  : %.6g  (absorbed+escaped)" % cons,
+        "  fluo check    : re-emitted %.6g is conserved within absorbed+escaped" % getattr(res, "fluo_weight", 0.0),
         "  bounces       : %d" % res.n_bounces,
         "  scatters      : %d" % getattr(res, "n_scatter", 0),
-        "  fluoresc      : %d" % getattr(res, "n_fluo", 0),
+        "  fluoresc      : %d events  (emitted %.6g)" % (
+            getattr(res, "n_fluo", 0), getattr(res, "fluo_weight", 0.0)),
         "  paths drawn   : %d" % len(pack.get("paths") or []),
     ]
     if res.launched > 0:

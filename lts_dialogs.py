@@ -341,9 +341,10 @@ class MaterialsManagerDialog(QDialog):
             "Materials bound from the .lts User Material Manager "
             "(Laurent / Constant / Schott index + absorption)."))
         table = QTableWidget(self)
-        table.setColumnCount(6)
+        table.setColumnCount(8)
         table.setHorizontalHeaderLabels(
-            ["Name", "Class", "n @ 550 nm", "Abbe Vd", "alpha (1/m)", "Family"])
+            ["Name", "Class", "n@450", "n@550", "n@650", "Abbe Vd",
+             "alpha (1/m)", "Family"])
         table.setRowCount(len(rows))
         table.horizontalHeader().setStretchLastSection(True)
         for i, row in enumerate(rows):
