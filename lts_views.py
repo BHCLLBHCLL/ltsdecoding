@@ -488,7 +488,8 @@ def make_stokes_dialog(stk, *, title="Stokes", parent=None, states=None, recv=No
     from PyQt5.QtGui import QPixmap
     import tempfile, os
     from lts_charts import (render_stokes_png, render_poincare_png,
-                            render_color_png, render_spectrum_png)
+                            render_color_png, render_spectrum_png,
+                            render_colorshift_png)
     from lts.trace.from_model import stokes_to_rows, receiver_spectrum
     header, data = stokes_to_rows(stk)
     dlg = QDialog(parent)
@@ -531,6 +532,13 @@ def make_stokes_dialog(stk, *, title="Stokes", parent=None, states=None, recv=No
 
     if "mean_wl" in stk and np.size(stk.get("mean_wl")):
         png_tab(render_color_png, stk, "Color")
+    if "mean_wl" in stk and np.size(stk.get("mean_wl")):
+        from lts.trace.from_model import color_shift_grid
+        try:
+            cs = color_shift_grid(stk)
+            png_tab(render_colorshift_png, cs, "Color shift")
+        except Exception:
+            pass
     png_tab(render_poincare_png, stk, "Poincaré")
 
     if states:

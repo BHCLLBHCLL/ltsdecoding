@@ -299,6 +299,26 @@ def luminous_flux(radiant_power_w, spd) -> float:
     return float(radiant_power_w) * luminous_efficacy(spd)
 
 
+
+
+
+def wl_to_xy(wl_nm: float):
+    """单色波长 -> CIE 1931 xy (用于角向色偏计算)."""
+    x, y, z = interp_cie(wl_nm)
+    s = x + y + z
+    if s <= 0:
+        return 0.0, 0.0
+    return x / s, y / s
+
+
+def uv_prime(x, y):
+    """CIE 1976 u'v'."""
+    den = -2.0 * x + 12.0 * y + 3.0
+    if abs(den) < 1e-12:
+        return 0.0, 0.0
+    return 4.0 * x / den, 9.0 * y / den
+
+
 def render_xyz(spd, rho_fn=None):
     """(可选) 供上层调用: 由光谱+反射率求 XYZ."""
     return spd_to_XYZ(spd)

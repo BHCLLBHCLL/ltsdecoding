@@ -682,6 +682,8 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
                 grid = far_field_grid(res.escaped_dirs, recv)
                 try:
                     grid["stokes"] = stokes_grid(res.escaped_states, recv)
+                    if np.size(grid["stokes"].get("mean_wl")):
+                        grid["stokes"]["colorshift"] = color_shift_grid(grid["stokes"])
                     grid["spectrum"] = receiver_spectrum(res.escaped_states, recv=recv)
                     if grid["spectrum"]:
                         from ltsoptics.colorimetry import colour_temperature
@@ -861,6 +863,62 @@ def poincare_points(stk) -> dict:
             "points": xs,
             "rows": stk.get("rows"), "cols": stk.get("cols"),
             "bounds": stk.get("bounds")}
+
+
+
+
+def color_shift_grid(stk) -> dict:
+    """Stokes mean_wl 网格 -> 逐格 CIE xy/CCT 及相对轴心色的 ΔCCT、Δu'v' 色偏."""
+    from ltsoptics.colorimetry import wl_to_xy, uv_prime, cct_from_xy
+    mw = np.asarray(stk["mean_wl"], dtype=float)
+    rows, cols = mw.shape
+    X = np.full((rows, cols), np.nan)
+    Y = np.full((rows, cols), np.nan)
+    CCT = np.full((rows, cols), np.nan)
+    U = np.full((rows, cols), np.nan)
+    V = np.full((rows, cols), np.nan)
+    for i in range(rows):
+        for j in range(cols):
+            if mw[i, j] > 0:
+                x, y = wl_to_xy(mw[i, j])
+                X[i, j], Y[i, j] = x, y
+                cc = cct_from_xy(x, y)
+                CCT[i, j] = cc if cc is not None else float("nan")
+                u, v = uv_prime(x, y)
+                U[i, j], V[i, j] = u, v
+    # 参考 = 最大 S0 元 (轴心暖斑)
+    s0 = np.asarray(stk["s0"], dtype=float)
+    ref = None
+    if s0.size:
+        ip, jp = np.unravel_index(int(np.argmax(s0)), s0.shape)
+        if np.isfinite(CCT[ip, jp]):
+            ref = (int(ip), int(jp), float(X[ip, jp]), float(Y[ip, jp]),
+                   float(CCT[ip, jp]), float(U[ip, jp]), float(V[ip, jp]))
+    dCCT = np.full((rows, cols), np.nan)
+    duv = np.full((rows, cols), np.nan)
+    if ref:
+        _ip, _jp, _xr, _yr, cr, ur, vr = ref
+        for i in range(rows):
+            for j in range(cols):
+                if np.isfinite(CCT[i, j]) and np.isfinite(U[i, j]):
+                    dCCT[i, j] = CCT[i, j] - cr
+                    duv[i, j] = math.hypot(U[i, j] - ur, V[i, j] - vr)
+    return {"x": X, "y": Y, "cct": CCT, "dCCT": dCCT, "duv": duv,
+            "reference": ref, "rows": rows, "cols": cols,
+            "bounds": stk.get("bounds")}
+
+
+
+
+def format_colorshift(cs) -> str:
+    """角向色偏报表行 (max |dCCT|, max duv)."""
+    dCCT = np.asarray(cs.get("dCCT"), dtype=float)
+    duv = np.asarray(cs.get("duv"), dtype=float)
+    f = np.isfinite(dCCT) & np.isfinite(duv)
+    if not f.any():
+        return ""
+    return "      color shift: max |dCCT|=%.0f K   max duv=%.4f  (vs on-axis)" % (
+        float(np.abs(dCCT[f]).max()), float(duv[f].max()))
 
 
 def stokes_to_rows(stk, *, coord="index", bounds=None) -> tuple:
@@ -1195,6 +1253,11 @@ def format_trace_report(pack: dict) -> str:
                 x, y, cct = color
                 lines.append("                   color      : xy=(%.4f, %.4f)   CCT=%.0f K" % (
                     x, y, cct if cct is not None else float("nan")))
+            cs = (grid.get("stokes") or {}).get("colorshift")
+            if cs is not None:
+                line = format_colorshift(cs)
+                if line:
+                    lines.append(line)
             if grid.get("reference") is not None:
                 lines.append("                   LT reference: ratio=%.4f  "
                              "rms=%.3f" % (grid.get("ref_ratio", float("nan")),

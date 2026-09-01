@@ -299,6 +299,51 @@ def render_decay_png(times, path: str, *, dpi: int = 110) -> str:
     return path
 
 
+
+
+
+def render_colorshift_png(cs: dict, path: str, *, dpi: int = 110) -> str:
+    """角向色偏: CIE xy 图 + ΔCCT + Δu'v' 三面板 -> PNG."""
+    plt = _import_pyplot()
+    dCCT = np.asarray(cs.get("dCCT"), dtype=float)
+    duv = np.asarray(cs.get("duv"), dtype=float)
+    X = np.asarray(cs.get("x"), dtype=float)
+    Y = np.asarray(cs.get("y"), dtype=float)
+    ref = cs.get("reference")
+    fig, (ax0, ax1, ax2) = plt.subplots(1, 3, figsize=(12.5, 4.2))
+    # CIE xy 彩色图
+    m = np.isfinite(X) & np.isfinite(Y)
+    if m.any():
+        c = np.where(np.isfinite(duv), duv, 0.0)
+        sc = ax0.scatter(X[m], Y[m], c=c[m], cmap="viridis", s=18, alpha=0.85)
+        cb0 = plt.colorbar(sc, ax=ax0, fraction=0.046, pad=0.04)
+        cb0.set_label("Delta u'v'")
+        ax0.set_xlabel("x"); ax0.set_ylabel("y")
+        ax0.set_title("CIE xy (color shift)", fontsize=10)
+        ax0.set_xlim(0.2, 0.55); ax0.set_ylim(0.2, 0.5)
+    if ref is not None:
+        ax0.plot([ref[2]], [ref[3]], marker="x", color="red", ms=10, mew=2)
+        ax0.annotate("on-axis ref", ref[2:4], color="red", fontsize=8)
+    # ΔCCT
+    im1 = ax1.imshow(np.where(np.isfinite(dCCT), dCCT, 0.0), origin="upper",
+                     aspect="auto", cmap="RdBu")
+    cb1 = plt.colorbar(im1, ax=ax1, fraction=0.046, pad=0.04)
+    cb1.set_label("Delta CCT (K)")
+    ax1.set_title("Off-axis color shift (dCCT)", fontsize=10)
+    ax1.set_xlabel("col"); ax1.set_ylabel("row")
+    # Δu'v'
+    im2 = ax2.imshow(np.where(np.isfinite(duv), duv, 0.0), origin="upper",
+                     aspect="auto", cmap="inferno")
+    cb2 = plt.colorbar(im2, ax=ax2, fraction=0.046, pad=0.04)
+    cb2.set_label("Delta u'v'")
+    ax2.set_title("Chromaticity shift (duv)", fontsize=10)
+    ax2.set_xlabel("col"); ax2.set_ylabel("row")
+    fig.tight_layout()
+    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def make_chart_dialog(title: str, report: str, data: dict, parent=None):
     """创建 QDialog (PyQt5 + matplotlib canvas). 无 PyQt5 时回退纯报告."""
     try:

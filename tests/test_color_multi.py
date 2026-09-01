@@ -41,6 +41,51 @@ def test_render_spectrum_png():
     out = lts_charts.render_spectrum_png(spd, p)
     assert os.path.exists(out) and os.path.getsize(out) > 1000
 
+
+def _stoked():
+    from lts.trace.from_model import stokes_grid
+    recv = type("R", (), {"angular_bounds": (0.0, 360.0, 0.0, 90.0),
+                          "mesh_rows": 9, "mesh_cols": 18, "rot": np.eye(3),
+                          "data_bounds": None, "mesh_values": None})()
+    states = []
+    for i in range(600):
+        off = i % 2 == 1
+        th = math.radians((40.0 if off else 5.0))
+        wl = 460.0 if off else 580.0
+        wgt = 1.0 if off else 2.0
+        d = np.array([math.sin(th), 0.0, math.cos(th)])
+        states.append((float(d[0]), float(d[1]), float(d[2]), wgt,
+                       pol.emission_jones(d, "linear", 20.0), wl))
+    return stokes_grid(states, recv)
+
+def test_color_shift_grid_offaxis():
+    from lts.trace.from_model import color_shift_grid
+    g = _stoked()
+    cs = color_shift_grid(g)
+    assert cs["reference"] is not None
+    duv = cs["duv"]
+    dCCT = cs["dCCT"]
+    f = np.isfinite(duv) & np.isfinite(dCCT)
+    assert f.any()
+    # 离轴(蓝) vs 轴心(暖) 有 >0 的 duv (对饱和色也可靠)
+    assert np.nanmax(duv) > 0.005, np.nanmax(duv)
+
+def test_format_colorshift():
+    from lts.trace.from_model import color_shift_grid, format_colorshift
+    cs = color_shift_grid(_stoked())
+    line = format_colorshift(cs)
+    assert "color shift" in line
+
+def test_render_colorshift_png():
+    import lts_charts
+    from lts.trace.from_model import color_shift_grid
+    cs = color_shift_grid(_stoked())
+    d = tempfile.mkdtemp(prefix="cs_")
+    p = os.path.join(d, "cs.png")
+    out = lts_charts.render_colorshift_png(cs, p)
+    assert os.path.exists(out) and os.path.getsize(out) > 1000
+
+
 def test_receiver_spectrum_aggregates_and_filters():
     recv = type("R", (), {"angular_bounds": (0.0, 360.0, 80.0, 100.0),
                           "rot": np.eye(3)})()
