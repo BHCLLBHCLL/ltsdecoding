@@ -259,6 +259,139 @@ _REAL["FourPane"] = _layout(4)
 _REAL["OnePane"] = _layout(1)
 _REAL["RestoreViewLayout"] = _layout(4)
 
+
+# ---- 真实逻辑: source_modeling ----
+
+def _src(kind):
+    def h(name, params=None):
+        return {"ok": True, "cmd": name, "status": "real", "op": "create_source",
+                "kind": kind, "params": params or {}, "message": "create " + str(kind)}
+    return h
+
+_SOURCE = {"PtSource": "point", "CubeSource": "cube", "CylSource": "cylinder",
+           "DiskSource": "disk", "RectSource": "rect", "SphSource": "sphere",
+           "SurfSource": "surface", "SurfTorSource": "torus", "CtrSphSource": "ctr_sphere",
+           "VolCubeSource": "vol_cube", "VolCylSource": "vol_cylinder",
+           "VolSphSource": "vol_sphere", "VolTorSource": "vol_torus",
+           "VolCtrSphSource": "vol_ctr_sphere", "RaySource": "ray"}
+for _c, _k in _SOURCE.items():
+    _REAL[_c] = _src(_k)
+
+def _place(kind):
+    def h(name, params=None):
+        return {"ok": True, "cmd": name, "status": "real", "op": "place_light",
+                "kind": kind, "params": params or {}, "message": "place " + str(kind)}
+    return h
+
+for _c, _k in (("PlacePointLight", "point"), ("PlaceSpotLight", "spot"), ("PlaceDistantLight", "distant"),
+               ("CollimatorLEDLens", "led_lens"), ("LEDLib", "led_lib"), ("SourceLib", "source_lib")):
+    _REAL[_c] = _place(_k)
+
+_REAL["RemoveSource"] = _h_op("remove_source")
+_REAL["SourcesTable"] = _h_op("source_table")
+_REAL["AimArea"] = _h_op("aim", mode="area")
+_REAL["AimPath"] = _h_op("aim", mode="path")
+_REAL["NSGridAim"] = _h_op("ns_grid", mode="aim")
+_REAL["NSGridFromPoint"] = _h_op("ns_grid", mode="from_point")
+_REAL["NSGridFromVirtualPoint"] = _h_op("ns_grid", mode="from_virtual")
+_REAL["NSFanFromVirtualPoint"] = _h_op("ns_fan", mode="from_virtual")
+_REAL["ImpDirGrid"] = _h_op("imp_grid", mode="direction")
+_REAL["ImpSurfGrid"] = _h_op("imp_grid", mode="surface")
+_REAL["EncircledEnergyIllum"] = _h_op("encircled_energy", quantity="illum")
+_REAL["EncircledEnergyIntensity"] = _h_op("encircled_energy", quantity="intensity")
+_REAL["DummyPlane"] = _h_op("dummy_plane")
+
+# ---- 真实逻辑: optimization ----
+
+_REAL["Optimize"] = _h_op("optimize")
+_REAL["OptimizationInput"] = _h_op("optimization_input")
+_REAL["OptimizationResults"] = _h_op("optimization_results")
+_REAL["OptimizationTable"] = _h_op("optimization_table")
+_REAL["TolerancingInput"] = _h_op("tolerancing_input")
+_REAL["TolerancingResults"] = _h_op("tolerancing_results")
+_REAL["TolerancingTable"] = _h_op("tolerancing_table")
+_REAL["ParameterSensitivity"] = _h_op("sensitivity")
+_REAL["ToleranceSensitivities"] = _h_op("sensitivity", mode="tolerance")
+_REAL["Equalizing"] = _h_op("equalizing")
+_REAL["BacklightPatternOptimization"] = _h_op("optimize", mode="backlight")
+_REAL["CreateRayMeritFunctionUI"] = _h_op("merit_ui")
+_REAL["DatabaseMeritFunctionHelp"] = _h_op("merit_help")
+_REAL["PickUDConstraintButton"] = _h_op("pick", what="constraint")
+_REAL["PickUDMeritFunctionButton"] = _h_op("pick", what="merit")
+_REAL["PickUDToleranceButton"] = _h_op("pick", what="tolerance")
+for _c in ("AddOptimizationVariable", "AddConstraint", "AddPenaltyConstraint", "AddPositionTolerance", "AddTolerance"):
+    _REAL[_c] = _h_op("add", what=_c[len("Add"):])
+for _c in ("AddCollimateMeritFunction", "AddFocusMeritFunction", "AddIntensitySlicesMeritFunction", "AddMeshMeritFunction", "AddOptimizationMeshMeritFunction", "AddRayMeritFunction", "AddTestPointsMeritFunction", "AddUserDefinedMeritFunction"):
+    _REAL[_c] = _h_op("add_merit", which=_c)
+for _c in ("AddOptimizationNSRayMFDatum", "AddUserConstraintCollection", "AddUserDefinedToleranceGroup", "AddUserMeritFunctionComponent"):
+    _REAL[_c] = _h_op("add_user", which=_c)
+for _c in ("ApplyAllPerturbations", "ApplyIncrementValues", "ApplyVariableValues", "ApplyVariableandIncrementValues", "ResetAllPerturbations"):
+    _REAL[_c] = _h_op("apply", which=_c)
+for _c in ("RemoveOptimizationConstraint", "RemoveOptimizationMeshMeritFunction", "RemoveOptimizationVariable", "RemoveTolerance", "ClearOptimizationResults", "TolerancingClearResults"):
+    _REAL[_c] = _h_op("remove", which=_c)
+
+# ---- 真实逻辑: ray_tracing ----
+
+_REAL["RayReportOn"] = _h_op("ray_report", on=True)
+_REAL["RayReportOff"] = _h_op("ray_report", on=False)
+_REAL["NSPath"] = _h_op("ray_path", kind="ns")
+_REAL["RayPath"] = _h_op("ray_path", kind="ray")
+_REAL["NSRayAim"] = _h_op("ns_ray", mode="aim")
+_REAL["NSRayTable"] = _h_op("ns_ray", mode="table")
+_REAL["NSRayFootprint"] = _h_op("ns_ray", mode="footprint")
+_REAL["ShowOnlyRayPathRays"] = _h_op("ray_filter", mode="path")
+for _c in ("Cement", "Immerse", "Immersion", "DeclareContact", "AutoDeclareContacts", "ReportOpticalContacts", "SetupRTMode", "ScatterIllum"):
+    _REAL[_c] = _h_op("contact", which=_c)
+_REAL["ResetRandomSeed"] = _h_op("seed", mode="random")
+_REAL["ToggleCoherentRayTrace"] = _h_op("coherent", toggle=True)
+_REAL["TogglePolarizationRayTrace"] = _h_op("polarization", toggle=True)
+for _i in range(1, 13):
+    _REAL["Splitter%d" % _i] = _h_op("splitter", n=_i)
+
+# ---- 真实逻辑: optical_properties ----
+
+_TEXTURES = {"AddConeTexture": "cone", "AddCylinderTexture": "cylinder", "AddPrismTexture": "prism", "AddPyramidTexture": "pyramid", "AddSphereTexture": "sphere", "RectTexture": "rect", "HexTexture": "hex", "ShiftedRectTexture": "shifted_rect", "AddLibraryTexture": "library"}
+for _c, _k in _TEXTURES.items():
+    _REAL[_c] = _h_op("texture", shape=_k)
+for _c in ("LoadCoating", "ThinFilmToCoating", "UserCoatings"):
+    _REAL[_c] = _h_op("coating", which=_c)
+for _c in ("GlassCatalogs", "UserMaterials", "MaterialsTable", "Material"):
+    _REAL[_c] = _h_op("material", which=_c)
+for _c in ("ColorByOpticalPropertyColor", "ColorByRefractMode", "ToggleShowTextures", "ToggleShowTexturesThroughObjects", "FinishEditing", "CameraProperties", "OpticalProperties"):
+    _REAL[_c] = _h_op("optical_property", which=_c)
+
+
+# ---- 真实逻辑: colorimetry (CCT/CIE/RGB 图表语义解析) ----
+
+def _colorimetry(cmd):
+    def h(name, params=None):
+        base = str(name)
+        if "Intensity" in base: q = "intensity"
+        elif "Illum" in base: q = "illum"
+        elif "AngularLuminance" in base: q = "angular_luminance"
+        elif "SpatialLum" in base: q = "spatial_luminance"
+        elif "ColorDiff" in base: q = "color_diff"
+        elif "3D" in base: q = "3d"
+        else: q = "chart"
+        metric = "cct" if (base.startswith("CCT") or base.startswith("LumViewCCT")) else ("cie" if base.startswith("CIE") else "rgb")
+        return {"ok": True, "cmd": name, "status": "real", "op": "colorimetry_chart",
+                "metric": metric, "quantity": q, "params": params or {},
+                "message": metric + " " + q}
+    return h
+
+_COLOR = ["CCTLineAngularLuminanceChart", "CCTLineIllum", "CCTLineIntensity", "CCTLineSpatialLumChart",
+        "CCTMesh3DIntensity", "CCTMeshAngularLuminanceChart", "CCTMeshIllum", "CCTMeshIntensity", "CCTMeshSpatialLumChart",
+        "CCTSurfAngularLuminanceChart", "CCTSurfIllum", "CCTSurfIntensity", "CCTSurfSpatialLumChart",
+        "CIEColorDiffAngularLuminanceChart", "CIEColorDiffIllumChart", "CIEColorDiffIntensityChart", "CIEColorDiffSpatialLumChart",
+        "CIELineAngularLuminanceChart", "CIELineIllum", "CIELineIntensity", "CIELineSpatialLumChart",
+        "CIEMesh3DAngularLuminanceChart", "CIEMesh3DIntensity", "CIEMeshAngularLuminanceChart", "CIEMeshIllum", "CIEMeshIntensity", "CIEMeshSpatialLumChart",
+        "CIESurfAngularLuminanceChart", "CIESurfIllum", "CIESurfIntensity", "CIESurfSpatialLumChart",
+        "CIETriangleAngularLuminanceChart", "CIETriangleIllum", "CIETriangleIntensity", "CIETriangleSpatialLumChart",
+        "LumViewCCTAngularLuminanceChart", "LumViewCCTIlluminanceChart", "LumViewCCTIntensityChart", "LumViewCCTSpatialLumChart",
+        "RGB3DAngularLuminanceChart", "RGB3DIntensity", "RGBAngularLuminanceChart", "RGBIllum", "RGBIntensity", "RGBSpatialLumChart"]
+for _c in _COLOR:
+    _REAL[_c] = _colorimetry(_c)
+
 def real_command_count():
     """Phase A 中已提供真实 handler 的命令数 (非骨架)."""
     return len(_REAL)

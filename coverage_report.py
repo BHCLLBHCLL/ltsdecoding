@@ -111,6 +111,16 @@ def main():
         print("GATE command coverage %.2f%% >= %.2f%% -> %s" % (pct_cmd, target, "OK" if ok else "FAIL"))
         print("  [raise --gate target as Phase A raises coverage]")
         return 0 if ok else 1
+    if "--depth-gate" in sys.argv:
+        try:
+            dt = float(sys.argv[sys.argv.index("--depth-gate") + 1])
+        except Exception:
+            dt = 0.0
+        dpct = 100.0 * depth_total / max(n_cmds, 1)
+        okd = round(dpct, 2) >= dt
+        print("GATE command depth %.2f%% (real %d/%d) >= %.2f%% -> %s" % (dpct, depth_total, n_cmds, dt, "OK" if okd else "FAIL"))
+        print("  [raise --depth-gate target as Phase A fills real handlers]")
+        return 0 if okd else 1
     if "--json" in sys.argv:
         print(json.dumps(report, ensure_ascii=False, indent=2)); return 0
     print("Coverage vs LT reference surfaces")
