@@ -28,9 +28,20 @@ def test_phase_a_run_unknown_graceful():
     assert r.get("ok") is True   # 不崩溃, 结构化结果
 
 
+
+def test_phase_a_depth_real():
+    import lts_phase_a
+    d = lts_phase_a.depth_stats()
+    assert d["real"] >= 50, d          # 已有 50+ 条 Phase A 真实 handler
+    r = lts_phase_a.run("Collapse", {})
+    assert r.get("status") == "real", r
+    from ltsoptics.colorimetry import MacAdamEllipse  # 确保依赖可导入
+
+
 def test_coverage_command_now_100():
     subprocess.run([sys.executable, os.path.join(ROOT, "coverage_report.py"), "--json"],
                    cwd=ROOT, capture_output=True, text=True, check=True)
     gap = json.load(open(os.path.join(ROOT, "coverage_gap.json"), encoding="utf-8"))
     assert gap["report"]["surfaces"]["command"]["pct"] == 100.0
+    assert gap["report"]["surfaces"]["command"]["depth"]["real"] >= 200
     assert not gap["gap"]["command"]       # 命令面无缺口

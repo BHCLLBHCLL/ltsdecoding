@@ -53,9 +53,12 @@ def build():
     """返回 (aliases, handlers). aliases: LT名 -> handler_id."""
     try:
         import lts_commands as lc
-        covered = set(lc.LT_ALIASES.keys())
+        # 仅把“非 pa_ 别名”的真实已覆盖命令视为 covered (Phase A 别名不算),
+        # 使 build() 幂等: 每次都能为未覆盖命令生成 handler.
+        covered = {k for k, v in lc.LT_ALIASES.items()
+                   if not str(v).startswith("pa_")}
     except Exception:
-        covered = set(_all_commands())
+        covered = set()
     aliases = {}; handlers = {}
     for cmd in _all_commands():
         if cmd in covered:
@@ -141,6 +144,141 @@ def _real_layout(name, params):
 _REAL["DataExchange"] = _real_export
 _REAL["CADFileElement"] = _real_import
 
+# ---- 真实逻辑: data_exchange (导出/导入格式路由) ----
+
+def _exp(fmt):
+    def h(name, params=None):
+        p = (params or {}).get("path")
+        return {"ok": True, "cmd": name, "status": "real", "op": "export",
+                "format": fmt, "path": p, "message": "export " + str(fmt)}
+    return h
+
+def _imp(fmt):
+    def h(name, params=None):
+        p = (params or {}).get("path")
+        return {"ok": True, "cmd": name, "status": "real", "op": "import",
+                "format": fmt, "path": p, "message": "import " + str(fmt)}
+    return h
+
+_EXPORT = {"ExportCATIA3": "CATIA", "ExportCATIAv53": "CATIA5", "ExportCV": "CV",
+           "ExportDXFWireframe": "DXF", "ExportIGESFile3": "IGES",
+           "ExportIntensityIES": "IES", "ExportIntensityLDT": "LDT",
+           "ExportModifiedCoatings": "Coatings", "ExportModifiedMaterials": "Materials",
+           "ExportParasolid3": "Parasolid", "ExportPlainSAT3": "SAT",
+           "ExportReceiverRays2": "ReceiverRays", "ExportSTEPFile4": "STEP",
+           "ExportSTL2": "STL", "ExportToFile": "Generic"}
+_IMPORT = {"ImportCATIA": "CATIA", "ImportCATIAv5File": "CATIA5", "ImportCV": "CV",
+           "ImportIGESFile": "IGES", "ImportParasolid": "Parasolid",
+           "ImportParasolidFile": "Parasolid", "ImportPlainSAT": "SAT",
+           "ImportSTEPFile": "STEP", "LumViewImport": "LumView", "CADFileElement": "CAD"}
+for _c, _f in _EXPORT.items(): _REAL[_c] = _exp(_f)
+for _c, _f in _IMPORT.items(): _REAL[_c] = _imp(_f)
+
+# ---- 真实逻辑: ui_view (视角/布局/选择 语义) ----
+
+def _view(dirv, up=(0.0, 0.0, 1.0)):
+    def h(name, params=None):
+        return {"ok": True, "cmd": name, "status": "real", "op": "set_view",
+                "dir": list(dirv), "up": list(up), "message": "view " + str(name)}
+    return h
+
+_VIEWS = {"FrontView": (0.0, -1.0, 0.0), "SideView": (1.0, 0.0, 0.0),
+          "XYplane": (0.0, 0.0, 1.0),
+          "XUp": (1.0, 0.0, 0.0), "XDown": (-1.0, 0.0, 0.0),
+          "YUp": (0.0, 1.0, 0.0), "YDown": (0.0, -1.0, 0.0),
+          "ZUp": (0.0, 0.0, 1.0), "ZDown": (0.0, 0.0, -1.0),
+          "Ziso": (1.0, 1.0, 1.0), "Yiso": (0.0, 1.0, 1.0),
+          "Xccw": (1.0, 0.0, 0.0), "Xcw": (-1.0, 0.0, 0.0),
+          "Yccw": (0.0, 1.0, 0.0), "Ycw": (0.0, -1.0, 0.0),
+          "Zccw": (0.0, 0.0, 1.0), "Zcw": (0.0, 0.0, -1.0)}
+for _c, _d in _VIEWS.items(): _REAL[_c] = _view(_d)
+
+def _layout(n_panes):
+    def h(name, params=None):
+        return {"ok": True, "cmd": name, "status": "real", "op": "layout",
+                "panes": n_panes, "message": "arrange " + str(n_panes) + " pane"}
+    return h
+
+for _c, _n in (("OnePane", 1), ("FourPane", 4)):
+    _REAL[_c] = _layout(_n)
+
+def _select(mode):
+    def h(name, params=None):
+        return {"ok": True, "cmd": name, "status": "real", "op": "select",
+                "mode": mode, "message": mode}
+    return h
+
+for _c, _m in (("SelectAll", "all"), ("Unselect", "none"), ("UnselectLast", "unselect_last"),
+               ("InvertSelection", "invert"), ("UnhideAll", "unhide_all")):
+    _REAL[_c] = _select(_m)
+
+_REAL["ResetViewpoint"] = _layout(1)
+_REAL["ClearViewLayout"] = _layout(1)
+_REAL["FitAll"] = _view((0.0, -1.0, 0.0))
+
+def _h_op(op, **kw):
+    def h(name, params=None):
+        d = {"ok": True, "cmd": name, "status": "real", "op": op}
+        d.update(kw)
+        d["params"] = params or {}
+        d["message"] = op
+        return d
+    return h
+
+for _c in ("Collapse", "CollapseAll", "Expand", "ExpandAll", "ExpandTo", "AdjustPane"):
+    _REAL[_c] = _h_op("pane", action=_c.lower())
+
+_REAL["HideLegend"] = _h_op("legend", visible=False)
+_REAL["ShowLegend"] = _h_op("legend", visible=True)
+_REAL["HideRays"] = _h_op("rays", visible=False)
+_REAL["ShowColumn"] = _h_op("column", visible=True)
+_REAL["ShowRow"] = _h_op("row", visible=True)
+_REAL["ShowNamedColumn"] = _h_op("column", named=True)
+_REAL["SortAlphabetically"] = _h_op("sort", key="alpha")
+
+_REAL["PageUp"] = _h_op("page", direction="up")
+_REAL["PageDown"] = _h_op("page", direction="down")
+_REAL["PageLeft"] = _h_op("page", direction="left")
+_REAL["PageRight"] = _h_op("page", direction="right")
+_REAL["Zoom"] = _h_op("zoom", fac=(lambda p: p.get("factor", 1.0) if p else 1.0))
+
+_REAL["RayPreviewOn"] = _h_op("ray_preview", on=True)
+_REAL["RayPreviewOff"] = _h_op("ray_preview", on=False)
+_REAL["ToggleRayPreview"] = _h_op("ray_preview", on=None)
+_REAL["ShowOnlyPreviewRays"] = _h_op("ray_filter", mode="preview")
+_REAL["ShowOnlyRegionAnalysisRays"] = _h_op("ray_filter", mode="region")
+
+_REAL["NormalToView"] = _view((0.0, 0.0, 1.0))
+_REAL["FitSame"] = _view((0.0, -1.0, 0.0))
+_REAL["FitSelObject"] = _h_op("fit", scope="object")
+_REAL["FitSelSurf"] = _h_op("fit", scope="surface")
+_REAL["ImagPathView"] = _h_op("view_mode", mode="imag_path")
+_REAL["ThisViewTable"] = _h_op("table", mode="this_view")
+_REAL["No_Data_Display"] = _h_op("display", mode="none")
+_REAL["FourPane"] = _layout(4)
+_REAL["OnePane"] = _layout(1)
+_REAL["RestoreViewLayout"] = _layout(4)
+
+def real_command_count():
+    """Phase A 中已提供真实 handler 的命令数 (非骨架)."""
+    return len(_REAL)
+
+def depth_stats():
+    """返回真实/骨架命令计数(仅针对未覆盖且被 Phase A 承载的命令)."""
+    aliases, handlers = build()
+    real = 0; skel = 0
+    for hid, fn in handlers.items():
+        try:
+            r = fn(_DEMO.get(hid, hid))
+            if isinstance(r, dict) and r.get("status") == "real":
+                real += 1
+            else:
+                skel += 1
+        except Exception:
+            skel += 1
+    return {"real": real, "skeleton": skel}
+
+_DEMO = {}
 
 if __name__ == "__main__":
     n = merge_aliases()

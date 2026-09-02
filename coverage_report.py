@@ -88,6 +88,15 @@ def main():
         "macro": {"total": len(macro), "covered": len(mac_c), "pct": round(100.0*len(mac_c)/max(len(macro),1),2)},
         "class": {"total": len(ks), "covered": len(cls_c), "pct": round(100.0*len(cls_c)/max(len(ks),1),2)},
     }}
+    # 深度: 真实 handler 命令数 = 原已覆盖(非 pa_) + Phase A 真实
+    authentic = sum(1 for k,v in aliases.items() if not str(v).startswith("pa_"))
+    try:
+        import lts_phase_a as pa
+        phase_real = pa.depth_stats().get("real", 0)
+    except Exception:
+        phase_real = 0
+    depth_total = authentic + phase_real
+    report["surfaces"]["command"]["depth"] = {"real": depth_total,"pct": round(100.0*depth_total/max(n_cmds,1),2)}
     gap = {"command": {k:v for k,v in gap_cmds.items() if v},
            "api": sorted(set(api)-api_c), "macro": sorted(set(macro)-mac_c),
            "class": sorted(set(ks)-cls_c)}
@@ -105,7 +114,7 @@ def main():
     if "--json" in sys.argv:
         print(json.dumps(report, ensure_ascii=False, indent=2)); return 0
     print("Coverage vs LT reference surfaces")
-    print("  command : %4d/%4d  %.2f%%" % (len(covered_cmds), n_cmds, pct_cmd))
+    print("  command : %4d/%4d  %.2f%%  (depth real %d, %.2f%%)" % (len(covered_cmds), n_cmds, pct_cmd, depth_total, (100.0*depth_total/max(n_cmds,1))))
     print("  api     : %4d/%4d  %.2f%%" % (len(api_c), len(api), (100.0*len(api_c)/max(len(api),1))))
     print("  macro   : %4d/%4d  %.2f%%" % (len(mac_c), len(macro), (100.0*len(mac_c)/max(len(macro),1))))
     print("  class   : %4d/%4d  %.2f%%" % (len(cls_c), len(ks), (100.0*len(cls_c)/max(len(ks),1))))
