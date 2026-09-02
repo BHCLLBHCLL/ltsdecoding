@@ -243,8 +243,8 @@ def make_glass_catalog_dialog(catalog, on_apply=None, parent=None):
 
 
 
-def make_media_dialog(stats, media, parent=None):
-    """媒体与散射独立面板: 介质表 + 散射/发光守恒 (2 个可切换 tab)."""
+def make_media_dialog(stats, media, parent=None, sources=None):
+    """媒体与散射独立面板: 介质表 + 散射/发光守恒 + 相干/光栅 (可切换 tab)."""
     from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QLabel, QTabWidget,
                                  QPlainTextEdit, QVBoxLayout, QWidget)
     media = media or {}
@@ -303,6 +303,25 @@ def make_media_dialog(stats, media, parent=None):
     wl.addWidget(te, 1)
     tabs.addTab(wt, "Luminescence")
 
+
+    # Coherence/Grating tab (source coherence / grating params)
+    if sources is not None:
+        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
+        wt = QWidget(dlg)
+        wl_ = QVBoxLayout(wt)
+        cgt = QTableWidget(len(sources), 4, dlg)
+        cgt.setHorizontalHeaderLabels(["Name", "Coherence (nm)", "Grating period", "Orders"])
+        for i, s in enumerate(sources):
+            cl = getattr(s, "coherence_length", float("inf"))
+            cl_s = "inf" if cl == float("inf") else ("%.3g" % cl)
+            gp = getattr(s, "grating_period", 0.0)
+            cgt.setItem(i, 0, QTableWidgetItem(str(getattr(s, "name", "") or "?")))
+            cgt.setItem(i, 1, QTableWidgetItem(cl_s))
+            cgt.setItem(i, 2, QTableWidgetItem(("%.3g" % gp) if gp > 0 else "-"))
+            cgt.setItem(i, 3, QTableWidgetItem(str(getattr(s, "grating_order_max", 2))))
+        cgt.setEditTriggers(QTableWidget.NoEditTriggers)
+        wl_.addWidget(cgt, 1)
+        tabs.addTab(wt, "Coherence/Grating")
     v.addWidget(tabs, 1)
     bb = QDialogButtonBox(QDialogButtonBox.Close, dlg)
     bb.rejected.connect(dlg.close)
@@ -310,7 +329,7 @@ def make_media_dialog(stats, media, parent=None):
     return dlg
 
 
-def make_ray_report_dialog(stats, text, parent=None, media=None, scatters=0):
+def make_ray_report_dialog(stats, text, parent=None, media=None, scatters=0, sources=None):
     """Ray Report 汇总对话框 (文本明细)."""
     from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QLabel,
                                  QPlainTextEdit, QVBoxLayout)
@@ -330,7 +349,7 @@ def make_ray_report_dialog(stats, text, parent=None, media=None, scatters=0):
     if media is not None:
         from PyQt5.QtWidgets import QPushButton
         sm = QPushButton("Media…")
-        sm.clicked.connect(lambda: make_media_dialog(stats, media, parent=dlg))
+        sm.clicked.connect(lambda: make_media_dialog(stats, media, parent=dlg, sources=sources))
         bb.addButton(sm, QDialogButtonBox.ActionRole)
     v.addWidget(bb)
     return dlg

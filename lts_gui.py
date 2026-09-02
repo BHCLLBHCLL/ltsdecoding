@@ -1336,7 +1336,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                 nz, float(res.face_flux.max()) if res.face_flux.size else 0.0)
         media = (self._last_trace.get("meta") or {}).get("media") or {}
         scat = int(getattr(res, "n_scatter", 0))
-        dlg = make_ray_report_dialog(stats, text, self, media=media, scatters=scat)
+        dlg = make_ray_report_dialog(stats, text, self, media=media, scatters=scat,
+                                      sources=(self._last_trace.get("sources") or []))
         dlg.exec_()
         self.log("Ray Report")
 
@@ -2487,6 +2488,9 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             ("forward_voltage", "Forward voltage (V)", 0.0, "float"),
             ("efficiency", "Wall-plug efficiency", 0.0, "float"),
             ("spectral_angle_shift", "Angular spectrum shift (K)", 0.0, "float"),
+            ("coherence_length", "Coherence length (nm, 0=incoh)", 1.0e6, "float"),
+            ("grating_period", "Grating period (nm, 0=off)", 0.0, "float"),
+            ("grating_order_max", "Grating orders +/-N", 2, "float"),
             ("spectrum", "Emission spectrum", "blackbody_temp", "spectrum"),
             ("apodizer", "Direction apodizer",
              ("Lambertian", ["Lambertian", "Uniform", "Power"]), "combo"),
@@ -2505,7 +2509,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                  "apodizer": "Lambertian", "emit_surface": default_surf,
                  "blackbody_temp": 0.0, "current": 0.0,
                  "forward_voltage": 0.0, "efficiency": 0.0,
-                 "spectral_angle_shift": 0.0}
+                 "spectral_angle_shift": 0.0, "coherence_length": 1.0e6,
+                 "grating_period": 0.0, "grating_order_max": 2}
             write_back = False
         try:
             oid = lts_insert.create_source(
@@ -2518,7 +2523,10 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                 current=float(p.get("current", 0.0)),
                 forward_voltage=float(p.get("forward_voltage", 0.0)),
                 efficiency=float(p.get("efficiency", 0.0)),
-                spectral_angle_shift_k=float(p.get("spectral_angle_shift", 0.0)))
+                spectral_angle_shift_k=float(p.get("spectral_angle_shift", 0.0)),
+                coherence_length=float(p.get("coherence_length", 1.0e6)),
+                grating_period=float(p.get("grating_period", 0.0)),
+                grating_order_max=int(p.get("grating_order_max", 2)))
         except Exception as e:
             self.log("Insert source failed: %s" % e, "ERROR")
             return

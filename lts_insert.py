@@ -146,6 +146,7 @@ def create_source(model, kind: str, *, name: Optional[str] = None,
                   electrical_power: float = 0.0,
                   spectral_angle_shift_k: float = 0.0,
                   coherence_length: float = float("inf"),
+                  grating_period: float = 0.0, grating_order_max: int = 2,
                   **geom) -> str:
     """创建表面光源: 实体 + 光源对象(灯功率/apodizer/aim) + 各面发射器.
 
@@ -191,6 +192,8 @@ def create_source(model, kind: str, *, name: Optional[str] = None,
         "setElectricalPower": electrical_power,
         "setSpectralAngleShiftK": spectral_angle_shift_k,
         "setCoherenceLength": coherence_length,
+        "setGratingPeriod": grating_period,
+        "setGratingOrderMax": grating_order_max,
     }
     # 瞄准球 (全向)
     aim_oid = lts_create.next_oid("ORAAimSphereDirObj",

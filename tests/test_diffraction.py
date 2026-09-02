@@ -48,6 +48,30 @@ def test_diffraction_report_line():
     assert "diffract      : 6 events" in txt
 
 
+
+def test_bind_sources_reads_grating():
+    from lts_model import LTSModel
+    import lts_insert, lts_optics_bind as ob
+    m = LTSModel()
+    lts_insert.create_source(m, "cylinder", name="G", grating_period=800.0,
+                             grating_order_max=3)
+    spec = ob.bind_sources(m.objects)[0]
+    assert abs(spec.grating_period - 800.0) < 1e-9
+    assert spec.grating_order_max == 3
+
+def test_source_grating_applied_to_scene():
+    from lts_model import LTSModel
+    import lts_insert
+    from lts.trace.from_model import scene_from_model
+    m = LTSModel()
+    lts_insert.create_source(m, "cylinder", name="GS", grating_period=1000.0,
+                             grating_order_max=2)
+    scene, _meta = scene_from_model(m)
+    found = [mesh for mesh in scene.meshes
+             if any(getattr(p, "grating_period", 0.0) > 0 for p in mesh.props)]
+    assert found, "source grating should be applied to the source solid surface"
+
+
 def test_grating_dispersion_nonzero():
     assert grating_dispersion(1000.0, 450.0, 650.0, order=1) != 0.0
 

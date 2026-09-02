@@ -326,6 +326,19 @@ def scene_from_model(model, *, max_tris: int = 24000, wl_nm: float = 550.0,
         used += len(tris)
         meta["n_parts"] += 1
     meta["n_tris"] = used
+    # 衍射光栅源: 把源实体表面设为光栅 (surface_event grating 分支生效)
+    try:
+        from lts_optics_bind import bind_sources as _bs
+        for _src in _bs(model.objects):
+            if float(getattr(_src, "grating_period", 0.0) or 0.0) > 0 and _src.solid_oid:
+                for _m in meshes:
+                    if getattr(_m, "solid_oid", None) == _src.solid_oid:
+                        for _mp in (getattr(_m, "props", None) or []):
+                            _mp.grating_period = float(_src.grating_period)
+                            _mp.grating_order_max = int(getattr(_src, "grating_order_max", 2) or 2)
+                            _mp.grating_axis = None
+    except Exception:
+        pass
     scene = Scene(meshes).build()
     alphas = {}
     media = {}

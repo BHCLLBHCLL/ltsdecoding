@@ -729,6 +729,8 @@ class SourceSpec:
     luminous_efficacy: float = 0.0                      # lm/W (光谱光度效能)
     spectral_angle_shift_k: float = 0.0                 # 角向谱移 (K 每单位 (1-cos theta))
     coherence_length: float = float("inf")              # 相干长度 (nm; inf 相干, 0 非相干)
+    grating_period: float = 0.0                          # 衍射光栅周期 (nm; 0=无)
+    grating_order_max: int = 2
     solid_oid: str = ""                               # 发射体实体
     emitters: list = field(default_factory=list)      # [EmitterSpec]
     aim_cos_upper: float = 1.0
@@ -865,7 +867,9 @@ def bind_sources(objects: dict) -> List[SourceSpec]:
                           current_A=_float(obj, "setCurrent", 0.0),
                           forward_voltage=_float(obj, "setForwardVoltage", 0.0),
                           spectral_angle_shift_k=_float(obj, "setSpectralAngleShiftK", 0.0),
-                          coherence_length=_coherence_length(obj))
+                          coherence_length=_coherence_length(obj),
+                          grating_period=_float(obj, "setGratingPeriod", 0.0),
+                          grating_order_max=int(_float(obj, "setGratingOrderMax", 2.0)))
 
         spec.solid_oid = _edge(obj, "setSolid") or ""
         spec.spectral_oid = _edge(obj, "setSpectralRegion") or ""

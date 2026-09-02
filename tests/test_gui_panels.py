@@ -47,6 +47,22 @@ def test_insert_wizard_slider_and_spectrum():
     assert dlg._spectrum_label is not None
 
 
+
+def test_media_dialog_coherence_tab():
+    import lts_views
+    from types import SimpleNamespace
+    sources = [SimpleNamespace(name="L", coherence_length=float("inf"),
+                               grating_period=1000.0, grating_order_max=2),
+               SimpleNamespace(name="M", coherence_length=0.0,
+                               grating_period=0.0, grating_order_max=2)]
+    stats = {"n_scatter": 0, "n_bounces": 0, "launched": 1.0,
+             "absorbed": 0.5, "escaped": 0.5, "n_fluo": 0, "lifetime_mean": 0}
+    dlg = lts_views.make_media_dialog(stats, {}, sources=sources)
+    from PyQt5.QtWidgets import QTabWidget
+    t = dlg.findChild(QTabWidget)
+    assert t is not None and t.count() >= 3   # Media + Luminescence + Coherence/Grating
+
+
 def test_ray_report_dialog_accepts_media():
     import lts_views
     stats = {"launched": 1.0, "absorbed": 0.5, "escaped": 0.5,
