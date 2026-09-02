@@ -18,6 +18,9 @@ def run(name, args=None):
 
 def main():
     codes = []
+    # Phase 0: coverage gate — LT 命令面覆盖率下限 (随 Phase A 提升而提高)
+    print("== coverage_report.py ==")
+    codes.append(run("coverage_report.py", ["--gate", os.environ.get("LT_COV_GATE", "19.72")]))
     for name, args in (("verify_ui.py", None), ("verify_goldens.py", None)):
         print("== %s ==" % name)
         codes.append(run(name, args))
