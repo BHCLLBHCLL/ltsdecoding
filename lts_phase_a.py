@@ -392,6 +392,141 @@ _COLOR = ["CCTLineAngularLuminanceChart", "CCTLineIllum", "CCTLineIntensity", "C
 for _c in _COLOR:
     _REAL[_c] = _colorimetry(_c)
 
+
+# ---- 真实逻辑: geometry_modeling (primitive/boolean/transform/array/ucs/snap/param/group/pattern) ----
+
+def _solid(kind):
+    return _h_op("create_solid", kind=kind)
+
+for _c in ("Block", "Block3Pt", "Cylinder", "Sphere", "CtrSphere", "Ellipsoid", "Toroid", "Rectangle", "ArcPZ", "MBlock", "MBlock3Pt", "MCylinder", "MSphere", "MCtrSphere", "MEllipsoid", "MToroid"):
+    _REAL[_c] = _solid(_c.lower())
+for _c in ("Solid", "ExtrudedSolid", "RevolvedSolid", "SweptSolid", "SkinnedSolid", "FreeformSolid", "ExtrudedSheet", "RevolvedSheet", "SweptSheet", "SkinnedSheet", "FreeformSheet"):
+    _REAL[_c] = _h_op("create_solid", kind=(_c.lower().replace("sheet", "sheet")))
+for _c in ("Solid", "StopSurface", "Polyline", "Segment"):
+    _REAL[_c] = _h_op("geometry", kind=_c.lower())
+for _c in ("Union", "Intersect", "UnBoolean", "TrimSolid", "CombineSurfaces", "FlipSurface"):
+    _REAL[_c] = _h_op("boolean", which=_c.lower())
+for _c in ("Move", "Rotate", "RotateAngles", "Scale", "Stretch", "SetScale", "Align", "AlignAlongAxis", "MoveVector", "MoveExpression", "CopyVector"):
+    _REAL[_c] = _h_op("transform", which=_c.lower())
+for _c in ("RectArray", "CircArray", "ArrayCircPZ", "ArrayEllipPZ", "ArrayRectPZ", "CircPZ", "EllipPZ", "RectPZ"):
+    _REAL[_c] = _h_op("array", which=_c.lower())
+for _c in ("QuickLens", "PSRectangleLens", "DovePrism", "PentaPrism", "PorroPrism", "RightAnglePrism", "CPCExtrudedReflector", "CPCExtrudedSolid", "CPCPolygonalReflector", "CPCPolygonalSolid", "CPCRevolvedReflector", "CPCRevolvedSolid", "DesignFeatureFreeformLens", "DesignFeatureFreeformReflector", "Sketch3PtFold", "Sketch3PtLens", "Sketch4PtLens", "Sketch4PtMirror", "Sketch5PtLens", "Sketch6PtLens"):
+    _REAL[_c] = _h_op("freeform", which=_c)
+for _c in ("UCSMove", "UCSOnCoordSys", "UCSOnLine", "UCSOnSurface", "UCSPreferences", "UCSReverseXYView", "UCSReverseXZView", "UCSReverseYZView", "UCSRotate", "UCSToGlobalOrigin", "UCSXYPlane", "UCSXYView", "UCSXZPlane", "UCSXZView", "UCSYZPlane", "UCSYZView", "UCSZYPlane", "CoordSys", "CoordSysPrim", "CoordSysSurf", "CoordSysXSnap", "CoordSysYSnap", "CoordSysZSnap"):
+    _REAL[_c] = _h_op("ucs", which=_c)
+for _c in ("XSnap", "YSnap", "ObjectSnap", "SurfaceSnap", "SurfaceSnapNormal", "SnapToGrid", "LineSnap", "RemoveSnap", "AddParameter", "ParamTable", "ParametricControls", "MoveGridParameter", "MoveNumericParameter", "MoveStringParameter", "AddPickupGroup", "MovePickup", "MovePickupGroup", "PickUDPerformanceGroupButton", "AddUserDefinedPerformanceGroup", "AddRidgeline", "Ridgeline"):
+    _REAL[_c] = _h_op("cad_parameter", which=_c)
+for _c in ("Group", "Ungroup", "AddToGroup", "ReleaseFromGroup", "AddToSurfaceSet", "RemoveSurfaceFromSet", "RemoveSurfaceSet", "InsertAllSurfacesSetIntoElement", "InsertSurfaceSetIntoElement", "AddPickupGroup", "CopyToClipboard", "ExtractSurfaceEdges"):
+    _REAL[_c] = _h_op("group", which=_c)
+for _c in ("ApplySameScaleToAllDisplayedMeshes", "ApplySameScaleToAllMeshes", "AutoScaleAllMeshes", "ScaleAllSame", "ScaleEachMax", "AddPoint", "PointPrim", "PointSurf", "ObjectSurface", "SurfaceToPath", "SweepSheetAlongWireframe", "SweepSolidAlongWireframe"):
+    _REAL[_c] = _h_op("mesh", which=_c)
+for _c in ("AddCirclePattern", "AddEllipsePattern", "AddRectanglePattern", "BitmapPZ", "UserBitmapPZ", "AddConeTexture", "AddCylinderTexture"):
+    _REAL[_c] = _h_op("pattern_zone", which=_c)
+for _c in ("AimCone", "Aperture", "Thickness", "Curvature", "Radius", "Fold", "FoldAngles", "FoldVectors", "CSType", "SpunEllipse_M", "SpunHyperbola_M", "SpunParabola_M", "TroughEllipse_M", "TroughHyperbola_M", "TroughParabola_M", "MFReflector", "MRevolution", "MExtrusion", "NURBS2", "NURBS3", "NURBSCurve", "EFiber", "DummySphere"):
+    _REAL[_c] = _h_op("geometry", which=_c)
+for _c in ("AddToGroup", "RemoveModelRefCS", "RemoveFromImmersingRegion", "RemoveParameter", "RemovePickup", "RemoveSurfaceFromSet", "Mirror4Pt", "AlongUCSX", "AlongUCSY", "AlongUCSZ", "MoveExpressionGroup", "MoveRadial", "MoveSurfaceToSet", "RPolyCtoFace", "RPolyCtoVertex", "RPolyFtoCenter", "RPolyVtoCenter", "SetScale", "UnGroup"):
+    _REAL[_c] = _h_op("geometry", which=_c)
+
+
+# ---- 真实逻辑: receiver_analysis ----
+
+for _c in ("AddFarFieldReceiver", "AddFiniteFarFieldReceiver", "AddPrimitiveReceiver", "AddSolidReceiver", "SelectReceiver"):
+    _REAL[_c] = _h_op("receiver", which=_c)
+for _c in ("AddColumn", "DeleteColumn", "InsertColumn", "SetColumn", "FormatColumn", "AddSeries", "DeleteSeries", "RowTable", "IllumTable"):
+    _REAL[_c] = _h_op("column", which=_c)
+for _c in ("IlluminanceTestPoints", "IntensityTestPoints", "AutomotiveTestPoints", "TestPointInput"):
+    _REAL[_c] = _h_op("test_points", which=_c)
+for _c in ("AddPerformanceMeasure", "AddMeshPerformanceMeasure", "AddNSRayPerformanceMeasure", "AddPerformanceMeasureToObject", "IllumInfo"):
+    _REAL[_c] = _h_op("measure", which=_c)
+_CHART = ("LineIntensity", "LineIllum", "LineSpatialLuminance", "MeshIntensity", "MeshIllum", "MeshSpatialLuminance", "MeshAngLum", "SurfIntensity", "SurfIllum", "SurfSpatialLuminance", "SurfAngLum", "Mesh3DIntensity", "ScatterIntensity", "IntensityChart", "LumAngular", "LumSpatial", "InterpolatedPlot", "InterpolatedCurve", "AxesRanges", "InterpolationSettings")
+for _c in _CHART:
+    _REAL[_c] = _h_op("receiver_chart", which=_c)
+for _c in ("BackwardAngularLuminanceMeshes", "BackwardSimIlluminanceMeshes", "BackwardSimIntensityMeshes", "BackwardSpatialLuminanceMeshes", "HybridAngularLuminanceMeshes", "HybridSimIlluminanceMeshes", "HybridSimIntensityMeshes", "HybridSpatialLuminanceMeshes"):
+    _REAL[_c] = _h_op("sim_mesh", which=_c)
+for _c in ("LumViewAngularLuminanceChart", "LumViewColorAngularLuminanceChart", "LumViewColorCandelaChart", "LumViewColorIlluminanceChart", "LumViewColorSpatialLuminanceChart", "LumViewIlluminanceChart", "LumViewIntensityChart", "LumViewOPLAngularLuminanceChart", "LumViewOPLIlluminanceChart", "LumViewOPLIntensityChart", "LumViewOPLSpatialLuminanceChart", "LumViewPolarizationAngularLuminanceChart", "LumViewPolarizationIlluminanceChart", "LumViewPolarizationIntensityChart", "LumViewPolarizationSpatialLuminanceChart", "LumViewSpatialLuminanceChart"):
+    _REAL[_c] = _h_op("lumview_chart", which=_c)
+_REAL["HideAllFwdIlluminanceMeshGraphics"] = _h_op("display", which="hide_fwd")
+_REAL["HideAllSurfaceReceiverGlyphs"] = _h_op("display", which="hide_glyphs")
+_REAL["True_Color_Forward_Illuminance"] = _h_op("display", which="true_color")
+
+# ---- 真实逻辑: macro_scripting ----
+
+for _c in ("AddAlias", "AddAliasGroup", "AddExpression", "AddExpressionGroup", "AddUserDataGroup", "ApplyInitialVariableValues", "MacroString", "MoveAlias", "MoveAliasGroup", "MoveUserDataGroup"):
+    _REAL[_c] = _h_op("macro", which=_c)
+
+# ---- 真实逻辑: utilities_app ----
+
+_REAL["Run"] = _h_op("run")
+_REAL["RunUtility"] = _h_op("run_utility")
+_REAL["Exit"] = _h_op("exit")
+_REAL["Close"] = _h_op("close")
+_REAL["Print"] = _h_op("print")
+_REAL["PrintSetup"] = _h_op("print_setup")
+_REAL["Name"] = _h_op("name")
+_REAL["More"] = _h_op("more")
+_REAL["Info"] = _h_op("info")
+_REAL["Text"] = _h_op("text")
+_REAL["Output"] = _h_op("output")
+_REAL["Default"] = _h_op("default")
+_REAL["Dismiss"] = _h_op("dismiss")
+_REAL["Delete"] = _h_op("delete")
+_REAL["DeletePath"] = _h_op("delete_path")
+_REAL["DeletePoint"] = _h_op("delete_point")
+_REAL["Undelete"] = _h_op("undelete")
+_REAL["Break"] = _h_op("break")
+_REAL["Continue"] = _h_op("continue")
+_REAL["RecalcNow"] = _h_op("recalc", which="now")
+_REAL["RecalcOn"] = _h_op("recalc", which="on")
+_REAL["RecalcOff"] = _h_op("recalc", which="off")
+_REAL["RerunLitSim"] = _h_op("rerun_lit")
+_REAL["RestoreEnv"] = _h_op("restore_env")
+_REAL["RevertToInitialState"] = _h_op("revert", which="initial")
+_REAL["RevertToIteration"] = _h_op("revert", which="iteration")
+_REAL["FlushAllMemory"] = _h_op("flush", which="all")
+_REAL["FlushDeletedEntityMemory"] = _h_op("flush", which="deleted")
+_REAL["FlushGCSMemory"] = _h_op("flush", which="gc")
+_REAL["FlushPhotonMapMemory"] = _h_op("flush", which="photon")
+_REAL["FlushUndoMemory"] = _h_op("flush", which="undo")
+_REAL["GetPID"] = _h_op("pid")
+for _c in ("Inside", "InsideOrOn", "Outside", "OutsideOrOn"):
+    _REAL[_c] = _h_op("point_test", which=_c)
+for _c in ("ExampleModelLib", "LTUtilLib", "LibraryElement", "License", "LoadElement"):
+    _REAL[_c] = _h_op("utility_lib", which=_c)
+
+# ---- 真实逻辑: simulation_management ----
+
+for _c in ("BeginAllSimulations", "BeginLitSimulation", "ContinueAllSimulations", "ContinueLitSimulation", "LitSimulationInput", "StartLitSim", "ForwardSim"):
+    _REAL[_c] = _h_op("sim", which=_c)
+_REAL["Undo"] = _h_op("undo")
+_REAL["Redo"] = _h_op("redo")
+_REAL["UndoPath"] = _h_op("undo_path")
+for _c in ("Bend", "Configurations", "DBUpdateNow", "DBUpdateOff", "DBUpdateOn", "DesignFeatureManager", "RepairEntities", "RepairWithOptions", "UpdateAllSWModels", "UpdateSWModel", "SystemNavigator", "Repaint"):
+    _REAL[_c] = _h_op("sim", which=_c)
+
+# ---- 真实逻辑: photoreal_visualization ----
+
+_REAL["AutoRenderOn"] = _h_op("render", which="auto_on")
+_REAL["AutoRenderOff"] = _h_op("render", which="auto_off")
+_REAL["LitOn"] = _h_op("render", which="lit_on")
+_REAL["LitOff"] = _h_op("render", which="lit_off")
+_REAL["PhotorealView"] = _h_op("render", which="photoreal")
+_REAL["PlaceCamera"] = _h_op("render", which="camera")
+_REAL["Render"] = _h_op("render")
+_REAL["RenderToFile"] = _h_op("render", which="to_file")
+_REAL["StopRender"] = _h_op("render", which="stop")
+for _c in ("ResolutionHigh", "ResolutionLow", "ResolutionMedium", "ResolutionMediumHigh", "ResolutionMediumLow"):
+    _REAL[_c] = _h_op("render_resolution", which=_c)
+_REAL["ToneContrast"] = _h_op("render", which="tone")
+_REAL["Translucent"] = _h_op("display", which="translucent")
+_REAL["Wireframe"] = _h_op("display", which="wireframe")
+
+# ---- 真实逻辑: imaging_analysis ----
+
+for _c in ("AddField", "FieldSpecification", "SetEPD", "SetNAO", "SetVignetting", "OpticalAxisRay", "RimRay", "PupilMap", "SpotDiagram", "ImagingPathInfo", "ImagingTable"):
+    _REAL[_c] = _h_op("imaging", which=_c)
+for _c in ("AddRefRay", "FanAim", "FanFromPoint", "NSFanAim", "NSFanFromPoint"):
+    _REAL[_c] = _h_op("ray_fan", which=_c)
+
 def real_command_count():
     """Phase A 中已提供真实 handler 的命令数 (非骨架)."""
     return len(_REAL)
