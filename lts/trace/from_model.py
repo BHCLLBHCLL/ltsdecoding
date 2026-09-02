@@ -6,6 +6,7 @@ surface optics. Source aiming follows LightTools local +Z.
 """
 from __future__ import annotations
 
+import cmath
 import math
 from typing import List, Optional, Tuple
 
@@ -416,9 +417,14 @@ def rays_from_sources(model, n_per_source: int = 40, *,
                         weight = per_ray * wfrac
                         jones = (emission_jones(d, e.polarization, e.pol_angle)
                                  if emission_jones is not None else None)
+                        try:
+                            from ltsoptics.coherence import random_phase
+                            phase = random_phase(rng, getattr(spec, "coherence_length", float("inf")), wl)
+                        except Exception:
+                            phase = None
                         rays.append({"p": origin, "d": d, "weight": weight,
                                      "medium": 1.0, "wl_nm": wl,
-                                     "jones": jones})
+                                     "jones": jones, "phase": phase})
                         rs.add(origin, d, weight=weight, wl_nm=wl,
                                kind="primary")
                 continue
@@ -684,6 +690,7 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
                     grid["stokes"] = stokes_grid(res.escaped_states, recv)
                     if np.size(grid["stokes"].get("mean_wl")):
                         grid["stokes"]["colorshift"] = color_shift_grid(grid["stokes"])
+                    grid["coherence"] = coherent_grid(res.escaped_states, recv)
                     grid["spectrum"] = receiver_spectrum(res.escaped_states, recv=recv)
                     if grid["spectrum"]:
                         from ltsoptics.colorimetry import colour_temperature
@@ -939,6 +946,63 @@ def format_colorshift(cs) -> str:
         out += "\n      macadam     : max=%.1f steps   outside 3-step: %d" % (
             float(mac[fm].max()), int(cs.get("n_outside_3step", 0)))
     return out
+
+
+
+
+def coherent_grid(escaped_states, recv, n_rows: int = 0, n_cols: int = 0) -> dict:
+    """相干接收网格: 每格按复振幅累加 E=sum sqrt(w)e^{i phi} -> S0_coh=|E|^2.
+
+    相对非相干 S0_incoh=sum(w) 给出可见度 (相干为正, 部分相干 0..1, 非相干≈0).
+    escaped_states: (dx,dy,dz,weight,jones,wl_or_None,phase_or_None).
+    """
+    p0, p1, t0, t1 = (recv.angular_bounds
+                      if recv.angular_bounds is not None else (0.0, 360.0, 0.0, 180.0))
+    rows = n_rows or recv.mesh_rows or 18
+    cols = n_cols or recv.mesh_cols or 36
+    if recv.data_bounds is not None and recv.mesh_values is not None:
+        p0, p1, t0, t1 = (recv.data_bounds[0], recv.data_bounds[1],
+                          recv.data_bounds[2], recv.data_bounds[3])
+    E = np.zeros((rows, cols), dtype=complex)
+    I = np.zeros((rows, cols), dtype=float)
+    r = np.asarray(recv.rot, dtype=float)
+    dth = (t1 - t0) / rows
+    dph = (p1 - p0) / cols
+    n_used = 0
+    for st in (escaped_states or []):
+        dx, dy, dz, w = st[0], st[1], st[2], st[3]
+        phase = st[6] if len(st) > 6 else None
+        d = np.array([dx, dy, dz], dtype=float)
+        nrm = float(np.linalg.norm(d)) or 1.0
+        dl = (r.T @ (d / nrm))
+        th = math.degrees(math.acos(min(max(float(dl[2]), -1.0), 1.0)))
+        ph = math.degrees(math.atan2(float(dl[1]), float(dl[0]))) % 360.0
+        if ph < p0 or ph > p1 or th < t0 or th > t1:
+            continue
+        i = min(int((th - t0) / dth), rows - 1)
+        j = min(int((ph - p0) / dph), cols - 1)
+        if i < 0 or j < 0:
+            continue
+        w = float(w)
+        I[i, j] += w
+        if phase is not None:
+            E[i, j] += math.sqrt(w) * cmath.exp(1j * float(phase))
+        n_used += 1
+    Scoh = np.abs(E) ** 2
+    vis = np.divide(Scoh - I, I, out=np.zeros_like(I), where=I > 1e-12)
+    return {"s0_coherent": Scoh, "s0_incoherent": I, "visibility": vis,
+            "rows": rows, "cols": cols, "bounds": (p0, p1, t0, t1),
+            "n_samples": n_used}
+
+
+def format_coherence(cg) -> str:
+    """相干/可见度报表行."""
+    vis = np.asarray(cg.get("visibility"), dtype=float)
+    f = np.isfinite(vis)
+    if not f.any():
+        return ""
+    return "      coherence  : max visibility=%.3f   mean=%.3f  (coherent excess)" % (
+        float(vis[f].max()), float(vis[f].mean()))
 
 
 def stokes_to_rows(stk, *, coord="index", bounds=None) -> tuple:
@@ -1278,6 +1342,11 @@ def format_trace_report(pack: dict) -> str:
                 line = format_colorshift(cs)
                 if line:
                     lines.append(line)
+            cg = grid.get("coherence")
+            if cg is not None:
+                cl = format_coherence(cg)
+                if cl:
+                    lines.append(cl)
             if grid.get("reference") is not None:
                 lines.append("                   LT reference: ratio=%.4f  "
                              "rms=%.3f" % (grid.get("ref_ratio", float("nan")),

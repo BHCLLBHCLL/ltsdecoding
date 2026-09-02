@@ -76,6 +76,14 @@ def _edge(obj, method: str) -> Optional[str]:
     return None
 
 
+def _coherence_length(obj) -> float:
+    """相干长度 (nm): setCoherenceLength; 缺失(默认 nan)->相干(inf), 显式 0 -> 非相干."""
+    v = _float(obj, "setCoherenceLength", float("nan"))
+    if v != v:            # NaN -> 未设置 -> 相干
+        return float("inf")
+    return float(v) if v > 0 else 0.0
+
+
 def _edges(obj, method: str) -> list:
     if obj is None:
         return []
@@ -720,6 +728,7 @@ class SourceSpec:
     forward_voltage: float = 0.0
     luminous_efficacy: float = 0.0                      # lm/W (光谱光度效能)
     spectral_angle_shift_k: float = 0.0                 # 角向谱移 (K 每单位 (1-cos theta))
+    coherence_length: float = float("inf")              # 相干长度 (nm; inf 相干, 0 非相干)
     solid_oid: str = ""                               # 发射体实体
     emitters: list = field(default_factory=list)      # [EmitterSpec]
     aim_cos_upper: float = 1.0
@@ -855,7 +864,8 @@ def bind_sources(objects: dict) -> List[SourceSpec]:
                           efficiency=_float(obj, "setEfficiency", 0.0),
                           current_A=_float(obj, "setCurrent", 0.0),
                           forward_voltage=_float(obj, "setForwardVoltage", 0.0),
-                          spectral_angle_shift_k=_float(obj, "setSpectralAngleShiftK", 0.0))
+                          spectral_angle_shift_k=_float(obj, "setSpectralAngleShiftK", 0.0),
+                          coherence_length=_coherence_length(obj))
 
         spec.solid_oid = _edge(obj, "setSolid") or ""
         spec.spectral_oid = _edge(obj, "setSpectralRegion") or ""

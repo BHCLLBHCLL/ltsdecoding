@@ -121,14 +121,14 @@ class Engine:
               max_hits=50000):
         res = TraceResult(self.scene.n_tri)
         stack = [(r["p"], r["d"], r["weight"], r.get("medium", 1.0), 0,
-                  r.get("jones"), r.get("wl_nm", 550.0))
+                  r.get("jones"), r.get("wl_nm", 550.0), r.get("phase"))
                  for r in initial_rays]
         for r in initial_rays:
             res.launched += r["weight"]
         total = 0
         while stack and total < self.max_rays:
             total += 1
-            p, d, w, med, depth, jones, wl = stack.pop()
+            p, d, w, med, depth, jones, wl, phase = stack.pop()
             if w <= 0:
                 continue
             res.n_rays += 1
@@ -143,12 +143,12 @@ class Engine:
                     if c is not None:
                         wf = float(w)
                         res.plane_hits.append((ri, c[0], c[1], wf))
-                        res.plane_states.append((ri, c[0], c[1], wf, jones, wl))
+                        res.plane_states.append((ri, c[0], c[1], wf, jones, wl, phase))
             if tri is None:
                 res.escaped += w
                 dd = np.asarray(d, dtype=float)
                 res.escaped_states.append((float(dd[0]), float(dd[1]),
-                                           float(dd[2]), float(w), jones, wl))
+                                           float(dd[2]), float(w), jones, wl, phase))
                 if record_escaped:
                     res.escaped_dirs.append((float(dd[0]), float(dd[1]),
                                              float(dd[2]), float(w)))
@@ -188,7 +188,7 @@ class Engine:
                         j2 = (scatter_polarization(jones, d, d2, depol, self.rng)
                               if scatter_polarization is not None else jones)
                         stack.append((np.asarray(p, dtype=float) + np.asarray(d, dtype=float) * fp,
-                                      d2, w2, med, depth + 1, j2, wl))
+                                      d2, w2, med, depth + 1, j2, wl, phase))
                         continue
                     # 未散射到面: Beer 总衰减
                     trans = math.exp(-mu_t * tt)
@@ -212,7 +212,7 @@ class Engine:
                                 em_wl = emission_wavelength(md, self.rng)
                                 stack.append((np.asarray(hit, dtype=float),
                                               de, em, med, depth + 1, None,
-                                              em_wl))
+                                              em_wl, None))
                                 res.n_fluo += 1
                                 res.fluo_weight += em
                                 res.fluo_med += em
@@ -262,7 +262,7 @@ class Engine:
                     else:
                         continue
                 cwl_use = cwl if cwl is not None else wl
-                stack.append((hit, cd, cw, cmed, depth + 1, cj, cwl_use))
+                stack.append((hit, cd, cw, cmed, depth + 1, cj, cwl_use, phase))
             res.absorbed += max(w - out_w_sum, 0.0)
         res.n_rays = total
         return res

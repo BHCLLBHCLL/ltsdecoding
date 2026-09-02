@@ -46,7 +46,7 @@ def test_engine_carries_jones_through_transmit():
            "weight": 1.0, "medium": 1.0, "wl_nm": 550.0, "jones": jc}
     res = eng.trace([ray], record_escaped=True)
     assert len(res.escaped_states) >= 1
-    dx, dy, dz, w, j, _wl = res.escaped_states[0]
+    dx, dy, dz, w, j, _wl, _phase = res.escaped_states[0]
     assert j is not None
     S = pol.stokes(j)
     assert abs(S[3]) > 0.9, S    # 透射后圆偏振基本保留
@@ -67,7 +67,7 @@ def test_engine_plane_states_carries_jones():
            "weight": 1.0, "medium": 1.0, "wl_nm": 550.0, "jones": jc}
     res = eng.trace([ray])
     assert len(res.plane_states) >= 1
-    _ri, x, y, w, j, _wl = res.plane_states[0]
+    _ri, x, y, w, j, _wl, _phase = res.plane_states[0]
     assert j is not None
     assert abs(pol.stokes(j)[3]) > 0.9
 
