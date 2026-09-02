@@ -79,12 +79,20 @@ def main():
     n_cmds = sum(len(v) for v in cbs.values())
     pct_cmd = 100.0*len(covered_cmds)/max(n_cmds,1) if n_cmds else 0.0
     txt = src_text()
-    api_c = ref_cover(api, txt); mac_c = ref_cover(macro, txt)
+    api_c = set(); api_depth = 0
+    try:
+        import lts_api
+        api_c = lts_api.covered_set() & set(api)
+        api_depth = lts_api.depth_stats().get("real", 0)
+    except Exception:
+        pass
+    mac_c = ref_cover(macro, txt)
     ks = list(hist.keys()) if isinstance(hist, dict) else list(hist)
     cls_c = ref_cover(ks, txt)
     report = {"surfaces": {
         "command": {"total": n_cmds, "covered": len(covered_cmds), "pct": round(pct_cmd,2)},
-        "api": {"total": len(api), "covered": len(api_c), "pct": round(100.0*len(api_c)/max(len(api),1),2)},
+        "api": {"total": len(api), "covered": len(api_c), "pct": round(100.0*len(api_c)/max(len(api),1),2),
+                "depth": {"real": api_depth, "pct": round(100.0*api_depth/max(len(api),1),2)}},
         "macro": {"total": len(macro), "covered": len(mac_c), "pct": round(100.0*len(mac_c)/max(len(macro),1),2)},
         "class": {"total": len(ks), "covered": len(cls_c), "pct": round(100.0*len(cls_c)/max(len(ks),1),2)},
     }}
@@ -127,6 +135,24 @@ def main():
         print("GATE command coverage %.2f%% >= %.2f%% -> %s" % (pct_cmd, target, "OK" if ok else "FAIL"))
         print("  [raise --gate target as Phase A raises coverage]")
         return 0 if ok else 1
+    if "--api-gate" in sys.argv:
+        try:
+            ag = float(sys.argv[sys.argv.index("--api-gate") + 1])
+        except Exception:
+            ag = 100.0
+        apc = 100.0 * len(api_c) / max(len(api), 1) if api else 0.0
+        ok = round(apc, 2) >= ag
+        print("GATE api coverage %.2f%% (%d/%d) >= %.2f%% -> %s" % (apc, len(api_c), len(api), ag, "OK" if ok else "FAIL"))
+        return 0 if ok else 1
+    if "--api-depth-gate" in sys.argv:
+        try:
+            at = float(sys.argv[sys.argv.index("--api-depth-gate") + 1])
+        except Exception:
+            at = 0.0
+        ap = 100.0 * api_depth / max(len(api), 1) if api else 0.0
+        okd = round(ap, 2) >= at
+        print("GATE api depth %.2f%% (%d/%d) >= %.2f%% -> %s" % (ap, api_depth, len(api), at, "OK" if okd else "FAIL"))
+        return 0 if okd else 1
     if "--depth-gate" in sys.argv:
         try:
             dt = float(sys.argv[sys.argv.index("--depth-gate") + 1])

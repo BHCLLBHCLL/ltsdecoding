@@ -20,7 +20,8 @@ def test_coverage_report_produces_gap():
     gap = json.load(open(os.path.join(ROOT, "coverage_gap.json"), encoding="utf-8"))["gap"]
     # 命令面 100% 覆盖 -> command 缺口为空 (api/macro/class 仍有缺口)
     assert "command" in gap and not gap["command"]
-    assert "api" in gap and len(gap["api"]) >= 1
+    assert "api" in gap and not gap["api"]        # API 面 290/290 已绑定
+    assert len(gap["macro"]) >= 1 and len(gap["class"]) >= 1
 
 
 def test_coverage_gate_ok_and_fail():
