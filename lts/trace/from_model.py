@@ -422,6 +422,9 @@ def rays_from_sources(model, n_per_source: int = 40, *,
                             phase = random_phase(rng, getattr(spec, "coherence_length", float("inf")), wl)
                         except Exception:
                             phase = None
+                        # 复振幅 Jones: 相干相位并入 Jones (E = J * e^{i*phase})
+                        if jones is not None and phase is not None:
+                            jones = np.asarray(jones, dtype=complex) * cmath.exp(1j * float(phase))
                         rays.append({"p": origin, "d": d, "weight": weight,
                                      "medium": 1.0, "wl_nm": wl,
                                      "jones": jones, "phase": phase})
@@ -963,7 +966,7 @@ def coherent_grid(escaped_states, recv, n_rows: int = 0, n_cols: int = 0) -> dic
     if recv.data_bounds is not None and recv.mesh_values is not None:
         p0, p1, t0, t1 = (recv.data_bounds[0], recv.data_bounds[1],
                           recv.data_bounds[2], recv.data_bounds[3])
-    E = np.zeros((rows, cols), dtype=complex)
+    E = np.zeros((rows, cols, 2), dtype=complex)
     I = np.zeros((rows, cols), dtype=float)
     r = np.asarray(recv.rot, dtype=float)
     dth = (t1 - t0) / rows
@@ -971,6 +974,7 @@ def coherent_grid(escaped_states, recv, n_rows: int = 0, n_cols: int = 0) -> dic
     n_used = 0
     for st in (escaped_states or []):
         dx, dy, dz, w = st[0], st[1], st[2], st[3]
+        jones = st[4] if len(st) > 4 else None
         phase = st[6] if len(st) > 6 else None
         d = np.array([dx, dy, dz], dtype=float)
         nrm = float(np.linalg.norm(d)) or 1.0
@@ -985,10 +989,14 @@ def coherent_grid(escaped_states, recv, n_rows: int = 0, n_cols: int = 0) -> dic
             continue
         w = float(w)
         I[i, j] += w
-        if phase is not None:
-            E[i, j] += math.sqrt(w) * cmath.exp(1j * float(phase))
+        if jones is not None:
+            jv = np.asarray(jones, dtype=complex)
+            E[i, j, 0] += math.sqrt(w) * jv[0]
+            E[i, j, 1] += math.sqrt(w) * jv[1]
+        elif phase is not None:
+            E[i, j, 0] += math.sqrt(w) * cmath.exp(1j * float(phase))
         n_used += 1
-    Scoh = np.abs(E) ** 2
+    Scoh = np.abs(E[:, :, 0]) ** 2 + np.abs(E[:, :, 1]) ** 2
     vis = np.divide(Scoh - I, I, out=np.zeros_like(I), where=I > 1e-12)
     return {"s0_coherent": Scoh, "s0_incoherent": I, "visibility": vis,
             "rows": rows, "cols": cols, "bounds": (p0, p1, t0, t1),

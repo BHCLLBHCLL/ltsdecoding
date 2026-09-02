@@ -84,6 +84,33 @@ def test_format_coherence():
     assert "coherence" in format_coherence(cg)
 
 
+
+def test_jones_driven_coherent_interference():
+    from lts.trace.from_model import coherent_grid
+    from ltsoptics.polarization import emission_jones
+    recv = type("R", (), {"angular_bounds": (0.0, 360.0, 0.0, 90.0),
+                          "mesh_rows": 9, "mesh_cols": 18, "rot": np.eye(3),
+                          "data_bounds": None, "mesh_values": None})()
+    def mk(negate):
+        states = []
+        for i in range(60):
+            th = math.radians(5.0)
+            d = np.array([math.sin(th), 0.0, math.cos(th)])
+            j = emission_jones(d, "linear", 0.0)
+            if negate(i):
+                j = -j                       # 反相 (相位差 pi)
+            states.append((float(d[0]), float(d[1]), float(d[2]), 1.0,
+                           j, 550.0, None))
+        return states
+    gcoh = coherent_grid(mk(lambda i: False), recv)     # 全部同相 Jones
+    gop = coherent_grid(mk(lambda i: i % 2 == 1), recv) # 交替反相 -> 相消
+    f = np.isfinite(gcoh["visibility"])
+    vcoh = float(gcoh["visibility"][f].max())
+    vop = float(gop["visibility"][f].max())
+    assert vcoh > 5, vcoh
+    assert vop < 0.5, vop    # 相消后相干可见度接近 0
+
+
 def test_coherent_field_sum_and_visibility():
     E = coherent_field_sum([1.0, 1.0], [0.0, 0.0])   # 同相 -> 相干
     assert abs(E) == pytest.approx(2.0)
