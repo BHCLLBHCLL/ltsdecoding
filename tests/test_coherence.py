@@ -59,6 +59,27 @@ def test_coherent_grid_visibility():
 
 
 
+
+def test_coherent_grid_has_phase_and_chart():
+    import tempfile, os
+    import lts_charts
+    from lts.trace.from_model import coherent_grid
+    recv = type("R", (), {"angular_bounds": (0.0, 360.0, 0.0, 90.0),
+                          "mesh_rows": 9, "mesh_cols": 18, "rot": np.eye(3),
+                          "data_bounds": None, "mesh_values": None})()
+    states = []
+    for i in range(40):
+        th = math.radians(5.0); d = np.array([math.sin(th), 0.0, math.cos(th)])
+        states.append((float(d[0]), float(d[1]), float(d[2]), 1.0,
+                       None, 550.0, 0.0))
+    cg = coherent_grid(states, recv)
+    assert np.isfinite(cg["phase"]).any()
+    d = tempfile.mkdtemp(prefix="coh_")
+    p = os.path.join(d, "c.png")
+    out = lts_charts.render_coherence_png(cg, p)
+    assert os.path.exists(out) and os.path.getsize(out) > 1000
+
+
 def test_bind_sources_reads_coherence():
     from lts_model import LTSModel
     import lts_insert, lts_optics_bind as ob

@@ -998,9 +998,11 @@ def coherent_grid(escaped_states, recv, n_rows: int = 0, n_cols: int = 0) -> dic
         n_used += 1
     Scoh = np.abs(E[:, :, 0]) ** 2 + np.abs(E[:, :, 1]) ** 2
     vis = np.divide(Scoh - I, I, out=np.zeros_like(I), where=I > 1e-12)
+    ph = np.angle(E[:, :, 0])
+    ph = np.where(np.abs(E[:, :, 0]) > 1e-9, ph, 0.0)
     return {"s0_coherent": Scoh, "s0_incoherent": I, "visibility": vis,
-            "rows": rows, "cols": cols, "bounds": (p0, p1, t0, t1),
-            "n_samples": n_used}
+            "phase": ph, "rows": rows, "cols": cols,
+            "bounds": (p0, p1, t0, t1), "n_samples": n_used}
 
 
 def format_coherence(cg) -> str:
@@ -1247,6 +1249,7 @@ def format_trace_report(pack: dict) -> str:
         "  conservation  : %.6g  (absorbed+escaped)" % cons,
         "  bounces       : %d" % res.n_bounces,
         "  scatters      : %d" % getattr(res, "n_scatter", 0),
+        "  diffract      : %d events" % getattr(res, "n_diffract", 0),
         "  paths drawn   : %d" % len(pack.get("paths") or []),
     ]
     if res.launched > 0:

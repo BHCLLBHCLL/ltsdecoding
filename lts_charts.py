@@ -354,6 +354,37 @@ def render_colorshift_png(cs: dict, path: str, *, dpi: int = 110) -> str:
     return path
 
 
+
+
+
+def render_coherence_png(cg: dict, path: str, *, dpi: int = 110) -> str:
+    """相干可见度 + 相干强度 + 场相位 三面板 -> PNG."""
+    plt = _import_pyplot()
+    vis = np.asarray(cg.get("visibility"), dtype=float)
+    scoh = np.asarray(cg.get("s0_coherent"), dtype=float)
+    ph = np.asarray(cg.get("phase"), dtype=float)
+    fig, (ax0, ax1, ax2) = plt.subplots(1, 3, figsize=(12.5, 4.2))
+    im0 = ax0.imshow(np.where(np.isfinite(vis), vis, 0.0), origin="upper",
+                     aspect="auto", cmap="viridis")
+    cb0 = plt.colorbar(im0, ax=ax0, fraction=0.046, pad=0.04)
+    cb0.set_label("visibility")
+    ax0.set_title("Coherent visibility", fontsize=10); ax0.set_xlabel("col"); ax0.set_ylabel("row")
+    im1 = ax1.imshow(np.where(np.isfinite(scoh), scoh, 0.0), origin="upper",
+                     aspect="auto", cmap="inferno")
+    cb1 = plt.colorbar(im1, ax=ax1, fraction=0.046, pad=0.04)
+    cb1.set_label("S0 coherent")
+    ax1.set_title("Coherent intensity |E|^2", fontsize=10); ax1.set_xlabel("col"); ax1.set_ylabel("row")
+    im2 = ax2.imshow(np.where(np.isfinite(ph), ph, 0.0), origin="upper",
+                     aspect="auto", cmap="hsv")
+    cb2 = plt.colorbar(im2, ax=ax2, fraction=0.046, pad=0.04)
+    cb2.set_label("field phase (rad)")
+    ax2.set_title("Coherent field phase", fontsize=10); ax2.set_xlabel("col"); ax2.set_ylabel("row")
+    fig.tight_layout()
+    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def make_chart_dialog(title: str, report: str, data: dict, parent=None):
     """创建 QDialog (PyQt5 + matplotlib canvas). 无 PyQt5 时回退纯报告."""
     try:

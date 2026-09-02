@@ -47,8 +47,8 @@ class TraceResult:
     __slots__ = ("absorbed", "escaped", "launched", "face_flux",
                  "n_rays", "n_bounces", "n_scatter", "n_fluo",
                  "fluo_weight", "fluo_med", "fluo_surf", "fluorescence_times",
-                 "hits", "escaped_dirs", "plane_hits", "escaped_states",
-                 "plane_states")
+                 "n_diffract", "hits", "escaped_dirs", "plane_hits",
+                 "escaped_states", "plane_states")
 
     def __init__(self, n_faces):
         self.absorbed = 0.0
@@ -62,6 +62,7 @@ class TraceResult:
         self.fluo_med = 0.0
         self.fluo_surf = 0.0
         self.fluorescence_times = []
+        self.n_diffract = 0
         self.face_flux = np.zeros(n_faces, dtype=float)
         self.hits = []          # (x, y, z, weight)
         self.escaped_dirs = []  # (dx, dy, dz, weight)
@@ -247,6 +248,8 @@ class Engine:
                     res.fluo_weight += cw
                     res.fluo_surf += cw
                     res.n_fluo += 1
+                if ckind is not None and str(ckind).startswith("diffract_order"):
+                    res.n_diffract += 1
                     try:
                         from ltsoptics.phosphor import lifetime_delay
                         res.fluorescence_times.append(

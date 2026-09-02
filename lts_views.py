@@ -474,13 +474,16 @@ def make_mesh_result_dialog(grid, *, title="Mesh Results", parent=None):
     if grid.get("stokes"):
         stk = QPushButton("Stokes…")
         stk.clicked.connect(lambda: make_stokes_dialog(grid.get("stokes"),
-                                                       parent=dlg))
+                                                       parent=dlg,
+                                                       coherence=grid.get("coherence"),
+                                                       states=grid.get("states")))
         bb.addButton(stk, QDialogButtonBox.ActionRole)
     v.addWidget(bb)
     return dlg
 
 
-def make_stokes_dialog(stk, *, title="Stokes", parent=None, states=None, recv=None):
+def make_stokes_dialog(stk, *, title="Stokes", parent=None, states=None,
+                       recv=None, coherence=None):
     """Stokes 结果: 数据表 / 色图 / Poincaré / 光谱 四个可切换 tab (无模态)."""
     from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
                                  QLabel, QTabWidget, QTableWidget,
@@ -489,7 +492,7 @@ def make_stokes_dialog(stk, *, title="Stokes", parent=None, states=None, recv=No
     import tempfile, os
     from lts_charts import (render_stokes_png, render_poincare_png,
                             render_color_png, render_spectrum_png,
-                            render_colorshift_png)
+                            render_colorshift_png, render_coherence_png)
     from lts.trace.from_model import stokes_to_rows, receiver_spectrum
     header, data = stokes_to_rows(stk)
     dlg = QDialog(parent)
@@ -539,6 +542,8 @@ def make_stokes_dialog(stk, *, title="Stokes", parent=None, states=None, recv=No
             png_tab(render_colorshift_png, cs, "Color shift")
         except Exception:
             pass
+    if coherence is not None and "visibility" in coherence:
+        png_tab(render_coherence_png, coherence, "Coherence")
     png_tab(render_poincare_png, stk, "Poincaré")
 
     if states:

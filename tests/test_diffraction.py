@@ -36,6 +36,18 @@ def test_diffract_evanescent_omitted():
     # 600nm/200nm -> 高阶 sin>1 倏逝 -> 只剩 m=0
     assert m_vals == {0}, m_vals
 
+
+def test_diffraction_report_line():
+    from lts.trace.from_model import format_trace_report
+    pack = {"result": type("R", (), {"absorbed": 0.5, "escaped": 0.5,
+                                     "launched": 1.0, "n_bounces": 2,
+                                     "n_scatter": 0, "n_fluo": 0,
+                                     "n_diffract": 6})(),
+            "meta": {}, "paths": [], "n_rays": 1, "sources": None, "receivers": []}
+    txt = format_trace_report(pack)
+    assert "diffract      : 6 events" in txt
+
+
 def test_grating_dispersion_nonzero():
     assert grating_dispersion(1000.0, 450.0, 650.0, order=1) != 0.0
 
