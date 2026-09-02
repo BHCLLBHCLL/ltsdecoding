@@ -43,5 +43,5 @@ def test_coverage_command_now_100():
                    cwd=ROOT, capture_output=True, text=True, check=True)
     gap = json.load(open(os.path.join(ROOT, "coverage_gap.json"), encoding="utf-8"))
     assert gap["report"]["surfaces"]["command"]["pct"] == 100.0
-    assert gap["report"]["surfaces"]["command"]["depth"]["real"] >= 650
+    assert gap["report"]["surfaces"]["command"]["depth"]["real"] == 710
     assert not gap["gap"]["command"]       # 命令面无缺口

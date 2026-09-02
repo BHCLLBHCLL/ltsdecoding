@@ -21,7 +21,7 @@ def main():
     # Phase 0: coverage gate — LT 命令面覆盖率下限 (随 Phase A 提升而提高)
     print("== coverage_report.py ==")
     codes.append(run("coverage_report.py", ["--gate", os.environ.get("LT_COV_GATE", "100.0")]))
-    codes.append(run("coverage_report.py", ["--depth-gate", os.environ.get("LT_DEPTH_GATE", "95.0")]))
+    codes.append(run("coverage_report.py", ["--depth-gate", os.environ.get("LT_DEPTH_GATE", "100.0")]))
     for name, args in (("verify_ui.py", None), ("verify_goldens.py", None)):
         print("== %s ==" % name)
         codes.append(run(name, args))

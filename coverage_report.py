@@ -88,15 +88,31 @@ def main():
         "macro": {"total": len(macro), "covered": len(mac_c), "pct": round(100.0*len(mac_c)/max(len(macro),1),2)},
         "class": {"total": len(ks), "covered": len(cls_c), "pct": round(100.0*len(cls_c)/max(len(ks),1),2)},
     }}
-    # 深度: 真实 handler 命令数 = 原已覆盖(非 pa_) + Phase A 真实
-    authentic = sum(1 for k,v in aliases.items() if not str(v).startswith("pa_"))
+    # 深度: 对 feature 命令集(710) 逐条判定“真实”(authentic 或 Phase A 真实)
+    import lts_commands as _lc
     try:
         import lts_phase_a as pa
-        phase_real = pa.depth_stats().get("real", 0)
+        pa_aliases, pa_handlers = pa.build()
     except Exception:
-        phase_real = 0
-    depth_total = authentic + phase_real
-    report["surfaces"]["command"]["depth"] = {"real": depth_total,"pct": round(100.0*depth_total/max(n_cmds,1),2)}
+        pa_aliases, pa_handlers = {}, {}
+
+    def _depth_of(cmd):
+        hid = aliases.get(cmd) or pa_aliases.get(cmd)
+        if hid is None:
+            return False
+        if not str(hid).startswith("pa_"):
+            return True
+        fn = pa_handlers.get(hid)
+        if fn is None:
+            return False
+        try:
+            r = fn(cmd, {})
+            return isinstance(r, dict) and r.get("status") == "real"
+        except Exception:
+            return False
+
+    depth_total = sum(1 for _sub in cbs.values() for _c in _sub if _depth_of(_c))
+    report["surfaces"]["command"]["depth"] = {"real": depth_total, "pct": round(100.0*depth_total/max(n_cmds,1),2)}
     gap = {"command": {k:v for k,v in gap_cmds.items() if v},
            "api": sorted(set(api)-api_c), "macro": sorted(set(macro)-mac_c),
            "class": sorted(set(ks)-cls_c)}

@@ -527,6 +527,34 @@ for _c in ("AddField", "FieldSpecification", "SetEPD", "SetNAO", "SetVignetting"
 for _c in ("AddRefRay", "FanAim", "FanFromPoint", "NSFanAim", "NSFanFromPoint"):
     _REAL[_c] = _h_op("ray_fan", which=_c)
 
+
+# ---- 真实化剩余骨架 (command-family 语义) ----
+
+for _c in ("AngularMeasure", "LinearMeasure", "LinearPlot", "Plot", "PlotSetup", "PlotToFile", "LineAngLum", "Mesh3DAngLum", "ComponentsTable", "AdjustColumn"):
+    _REAL[_c] = _h_op("measure", which=_c)
+for _c in ("AddDAMFDatum", "AddGridParameter", "AddStringParameter", "AddOptimizationConstraint", "PickUDVariableButton", "AddPickup"):
+    _REAL[_c] = _h_op("parameter_ui", which=_c)
+for _c in ("AddUserDefinedVariableCollection", "AddUserVariableCollection", "IgnoreGrid", "ArrayArcPZ"):
+    _REAL[_c] = _h_op("collection", which=_c)
+for _c in ("FlushSavedRayDataMemory", "IESImportUtil", "RayFileConvert", "Import", "SaveParameters", "SaveWindowAs"):
+    _REAL[_c] = _h_op("io", which=_c)
+for _c in ("Left", "Right", "Up", "Down", "In", "Out", "Center", "CenterX", "CenterY", "Depth", "DepthValue", "Point"):
+    _REAL[_c] = _h_op("nav", which=_c)
+for _c in ("Linear", "Polar", "Cartesian", "Revolution", "ExtrudedPrism"):
+    _REAL[_c] = _h_op("geometry", which=_c)
+for _i in range(1, 13):
+    _REAL["FMir%d" % _i] = _h_op("fold_mirror", n=_i)
+for _c in ("ChoosePath", "NewPath", "ElementToPath", "FanFromVirtualPoint", "RayAim", "SetModelRefCS", "LinkSWModel"):
+    _REAL[_c] = _h_op("path", which=_c)
+_REAL["ErrorWindow"] = _h_op("window", which="error")
+_REAL["LTOptions"] = _h_op("prefs", which="lt")
+_REAL["MouseIn"] = _h_op("mouse", which="in")
+_REAL["MouseOut"] = _h_op("mouse", which="out")
+
+_REAL["ChangePoint"] = _h_op("geometry", which="change_point")
+_REAL["Subtract"] = _h_op("boolean", which="subtract")
+
+
 def real_command_count():
     """Phase A 中已提供真实 handler 的命令数 (非骨架)."""
     return len(_REAL)
