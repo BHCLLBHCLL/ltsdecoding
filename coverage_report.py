@@ -10,6 +10,11 @@ def load_checklist():
     return json.load(open(CHK, encoding="utf-8"))
 
 def command_aliases_and_handlers():
+    try:
+        import lts_phase_a
+        lts_phase_a.merge_aliases()
+    except Exception:
+        pass
     import lts_commands as lc
     aliases = dict(lc.LT_ALIASES)
     handlers = set(); commands = set()

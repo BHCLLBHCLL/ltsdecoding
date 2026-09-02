@@ -18,10 +18,12 @@ def test_coverage_report_produces_gap():
     assert rep["command"]["covered"] >= 100
     assert os.path.exists(os.path.join(ROOT, "coverage_gap.json"))
     gap = json.load(open(os.path.join(ROOT, "coverage_gap.json"), encoding="utf-8"))["gap"]
-    assert "command" in gap and len(gap["command"]) >= 1
+    # 命令面 100% 覆盖 -> command 缺口为空 (api/macro/class 仍有缺口)
+    assert "command" in gap and not gap["command"]
     assert "api" in gap and len(gap["api"]) >= 1
 
 
 def test_coverage_gate_ok_and_fail():
     assert _run(["--gate", "0"]).returncode == 0
-    assert _run(["--gate", "100"]).returncode == 1
+    assert _run(["--gate", "100"]).returncode == 0   # 命令面 100%
+    assert _run(["--gate", "100.1"]).returncode == 1  # 超 100% 失败

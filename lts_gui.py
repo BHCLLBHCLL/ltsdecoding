@@ -560,6 +560,13 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             return orig(name, *args)
 
         self.bus.run = run_wrap  # type: ignore
+        # Phase A: 其余 LT 官方命令注册为可执行 handler (真实或骨架)
+        try:
+            import lts_phase_a
+            lts_phase_a.merge_aliases()
+            self._phase_a_count = lts_phase_a.register(self.bus)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------ file I/O
 
