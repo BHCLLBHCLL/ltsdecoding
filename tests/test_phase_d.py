@@ -9,7 +9,7 @@ import lts_class
 def test_class_surface_378():
     assert len(lts_class.covered_set()) == 378
     ds = lts_class.depth_stats()
-    assert ds["real"] >= 30 and ds["total"] == 378
+    assert ds["real"] >= 145 and ds["total"] == 378
 
 
 def test_class_bind():

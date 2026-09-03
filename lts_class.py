@@ -43,9 +43,15 @@ def covered_set():
 
 
 def handled_set():
-    """depth: 引擎有专门 binding 的类 (在处理源码中被引用)."""
+    """depth: 引擎有专门 binding 的类 (处理源码引用 + lts_bind 类族绑定)."""
     txt = _proc_text()
-    return {c for c in _classes() if c in txt}
+    s = {c for c in _classes() if c in txt}
+    try:
+        import lts.lts_bind as _lb
+        s |= _lb.bound_classes()
+    except Exception:
+        pass
+    return s
 
 
 def depth_stats():
