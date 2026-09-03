@@ -21,7 +21,7 @@ def test_coverage_report_produces_gap():
     # 命令面 100% 覆盖 -> command 缺口为空 (api/macro/class 仍有缺口)
     assert "command" in gap and not gap["command"]
     assert "api" in gap and not gap["api"]        # API 面 290/290 已绑定
-    assert not gap["macro"] and len(gap["class"]) >= 1   # macro 84/84 识别, class 仍有缺口
+    assert not gap["macro"] and not gap["class"]   # macro/class 面均 100% 识别 (深度另计)
 
 
 def test_coverage_gate_ok_and_fail():

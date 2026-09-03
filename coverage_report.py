@@ -94,14 +94,21 @@ def main():
     except Exception:
         pass
     ks = list(hist.keys()) if isinstance(hist, dict) else list(hist)
-    cls_c = ref_cover(ks, txt)
+    cls_c = set(); class_depth = 0
+    try:
+        import lts_class
+        cls_c = lts_class.covered_set() & set(ks)
+        class_depth = lts_class.depth_stats().get("real", 0)
+    except Exception:
+        pass
     report = {"surfaces": {
         "command": {"total": n_cmds, "covered": len(covered_cmds), "pct": round(pct_cmd,2)},
         "api": {"total": len(api), "covered": len(api_c), "pct": round(100.0*len(api_c)/max(len(api),1),2),
                 "depth": {"real": api_depth, "pct": round(100.0*api_depth/max(len(api),1),2)}},
         "macro": {"total": len(macro), "covered": len(mac_c), "pct": round(100.0*len(mac_c)/max(len(macro),1),2),
                 "depth": {"real": macro_depth, "pct": round(100.0*macro_depth/max(len(macro),1),2)}},
-        "class": {"total": len(ks), "covered": len(cls_c), "pct": round(100.0*len(cls_c)/max(len(ks),1),2)},
+        "class": {"total": len(ks), "covered": len(cls_c), "pct": round(100.0*len(cls_c)/max(len(ks),1),2),
+                "depth": {"real": class_depth, "pct": round(100.0*class_depth/max(len(ks),1),2)}},
     }}
     # 深度: 对 feature 命令集(710) 逐条判定“真实”(authentic 或 Phase A 真实)
     import lts_commands as _lc
@@ -160,6 +167,24 @@ def main():
         okm = round(mc, 2) >= mg
         print("GATE macro coverage %.2f%% (%d/%d) >= %.2f%% -> %s" % (mc, len(mac_c), len(macro), mg, "OK" if okm else "FAIL"))
         return 0 if okm else 1
+    if "--class-gate" in sys.argv:
+        try:
+            cg = float(sys.argv[sys.argv.index("--class-gate") + 1])
+        except Exception:
+            cg = 100.0
+        cc = 100.0 * len(cls_c) / max(len(ks), 1) if ks else 0.0
+        ok = round(cc, 2) >= cg
+        print("GATE class coverage %.2f%% (%d/%d) >= %.2f%% -> %s" % (cc, len(cls_c), len(ks), cg, "OK" if ok else "FAIL"))
+        return 0 if ok else 1
+    if "--class-depth-gate" in sys.argv:
+        try:
+            ct = float(sys.argv[sys.argv.index("--class-depth-gate") + 1])
+        except Exception:
+            ct = 0.0
+        cp = 100.0 * class_depth / max(len(ks), 1) if ks else 0.0
+        okc = round(cp, 2) >= ct
+        print("GATE class depth %.2f%% (%d/%d) >= %.2f%% -> %s" % (cp, class_depth, len(ks), ct, "OK" if okc else "FAIL"))
+        return 0 if okc else 1
     if "--macro-depth-gate" in sys.argv:
         try:
             mt = float(sys.argv[sys.argv.index("--macro-depth-gate") + 1])
