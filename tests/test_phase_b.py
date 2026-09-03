@@ -25,7 +25,7 @@ def test_api_coverage_and_depth():
     gap = json.load(open(os.path.join(ROOT, "coverage_gap.json"), encoding="utf-8"))
     api = gap["report"]["surfaces"]["api"]
     assert api["total"] == 290 and api["pct"] == 100.0
-    assert api["depth"]["real"] >= 160
+    assert api["depth"]["real"] == 290
 
 
 def test_api_gate():
