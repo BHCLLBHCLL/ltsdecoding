@@ -39,3 +39,24 @@
 - P7 优化器 / P7 MACRO 解释器 / P5 序列成像
 - 最终命令全覆盖 202/202
 - 工程收尾: SQLite 黄金回归 + 常驻 verify_*.py
+## Coverage & Depth Alignment (面向 LT 官方面 100%)
+
+前置: Phase 0 覆盖度仪表; 之后逐面对齐 (coverage=表面可表示, depth=真实绑定).
+
+| 阶段 | 面 | total | coverage | depth(real) |
+|---|---|---|---|---|
+| Phase A | command | 710 | 100% | 100% |
+| Phase B | api | 290 | 100% | 100% |
+| Phase C | macro | 84 | 100% | 49 = 58.33% |
+| Phase D | class | 378 | 100% | 378 = 100% |
+
+### 工具
+- coverage_report.py: 四张面覆盖率+深度+缺口; --gate/--depth-gate/--api-gate/--api-depth-gate/--macro-gate/--macro-depth-gate/--class-gate/--class-depth-gate.
+- lts_phase_a.py: 命令面自动登记+真实/骨架 handler (LT_ALIASES+GUI bus).
+- lts_api.py: API 面绑定层 (290, 真实/validated).
+- lts/macro/macro.py: MACRO 解释器函数表+known_functions/depth_stats.
+- lts_class.py + lts/lts_bind.py: LTS 类面绑定 (族分类).
+- verify_all.py: 9 道门禁 (command/api/macro/class 的 coverage+depth + --full 的 pipeline/raytrace).
+
+### 关键提交
+- Phase 0: 74a5f00; Phase A: 81b7618/913ecf0/58837e2/7475c4e; Phase B: 1f3f8f0/fb39a7b/d2e2cad; Phase C: 342ac10; Phase D: 92a6af2/ff8ec60/e0b7c92.

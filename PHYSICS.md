@@ -46,3 +46,8 @@ ltsdecoding 的光学/物理引擎扩展，按用户指定顺序逐项实现。�
 - `python -m pytest tests/ -q`（当前 **238 passed**）
 - `python verify_all.py --full`（UI 202/202、16 golden、pipeline、raytrace，退出码 0）
 - 黄金回归 SQLite `tests/goldens.db`（16 键）
+## Coverage & Depth Alignment (面向 LT 官方面 100%)
+
+四张 LT 官方面全部 surface coverage 100%; key 深度: command 100%, api 100%, macro 58.33%, class 100%.
+
+度量: python coverage_report.py (四面 coverage+depth+缺口); 门禁: python verify_all.py --full (9 道 coverage/depth gate + pipeline/raytrace).
