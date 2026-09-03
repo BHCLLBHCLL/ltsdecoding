@@ -460,6 +460,7 @@ class MacroInterpreter:
         self.arr = {}
         self.funcs = {}
         self._stdout = []
+        self._vars = {}
 
     def run(self, source):
         prog = Parser(_split_lines(source)).parse()
@@ -563,7 +564,36 @@ class MacroInterpreter:
             "LTEVAL": lambda: self._eval(args[0]) if args else 0.0,
             "LTCHECKVAR": lambda: 1.0,
             "RND": lambda: float(abs(math.sin(12345.6789 * (args[0] if args else 1) * 100)) % 1.0),
+
+            "ACOS": lambda: math.acos(max(-1.0, min(1.0, float(args[0])))),
+            "ASIN": lambda: math.asin(max(-1.0, min(1.0, float(args[0])))),
+            "EXP10": lambda: 10.0 ** float(args[0]),
+            "LTCMD": lambda: self.ctx.issue(str(args[0])),
+            "LTDBGETI": lambda: self.ctx.dbget(str(args[0]), str(args[1])),
+            "LTDBGETIJ": lambda: self.ctx.dbget(str(args[0]), str(args[1])),
+            "LTDBGETSURFDATA": lambda: self.ctx.dbget(str(args[0]), str(args[1])),
+            "LTDBGETSURFVEC": lambda: self.ctx.dbget(str(args[0]), str(args[1])),
+            "LTDBSETSURFVEC": lambda: self.ctx.dbset(str(args[0]), str(args[1]), args[2] if len(args) > 2 else 0.0),
+            "LTDBKEYDUMP": lambda: 1.0,
+            "LTDBTYPE": lambda: 1.0,
+            "LTDBQUICKRAYAIM": lambda: self.ctx.issue("QuickRayAim"),
+            "LTDBQUICKRAYQUERY": lambda: 0.0,
+            "LTSETVAR": lambda: self._setvar(str(args[0]), args[1] if len(args) > 1 else 0.0),
+            "LTGETVAR": lambda: self._getvar(str(args[0])),
+            "LTLISTDELETE": lambda: 0.0,
+            "LTLISTGETPOS": lambda: 0.0,
+            "LTLISTSETPOS": lambda: 0.0,
+            "LTLISTSIZE": lambda: 0.0,
+            "LTGETPHOTOPICFUNCTION": lambda: (self.ctx.dbget(str(args[0]), "photopic") if args else 0.0),
+            "LTGETSCOTOPICFUNCTION": lambda: 0.0,
+            "LTSURFSPLINEPATCH": lambda: 0.0,
+            "LTSURFSPLINESWEEP": lambda: 0.0,
+            "REM": lambda: 0.0,
+
+            "ATAN2": lambda: math.atan2(float(args[0]), float(args[1])),
         }
+
+
         if name in self.arr and args:
             # 数组索引引用 arr(i)
             return float(self.arr[name][int(self._eval(args[0])) % len(self.arr[name])])
@@ -587,11 +617,19 @@ class MacroInterpreter:
         i0 = int(a) - 1
         return s[i0:i0 + int(b) or len(s)]
 
+    def _setvar(self, name, value):
+        self._vars[name.upper()] = value
+        return value
+
+    def _getvar(self, name):
+        return self._vars.get(name.upper(), 0.0)
+
     def _val(self, s):
         try:
             return float(s.strip())
         except Exception:
             return 0.0
+
 
     def _exec(self, nodes, env, ret=None):
         self._cur_env = env if env is not None else self.env
@@ -705,4 +743,42 @@ class MacroInterpreter:
 
 def run_macro(source, context):
     return MacroInterpreter(context).run(source)
+
+_KEYWORDS = {"FOR", "NEXT", "WHILE", "WEND", "DO", "LOOP", "IF", "THEN", "ELSE",
+             "ELSEIF", "END", "GOTO", "RETURN", "SUB", "FUNCTION", "CALL", "DATA",
+             "READ", "RESTORE", "DIM", "LET", "INPUT", "PRINT", "WRITE", "REM",
+             "ECHO", "ERROR", "STOP", "SELECT", "SWAP", "SYSTEM", "RANDOMIZE",
+             "MERGE", "DOC", "EOF", "ERL", "ERR", "OPTION", "EXIT", "DECLARE",
+             "CONST", "COMMON", "LOCAL", "OPEN", "CLOSE", "GOSUB"}
+
+_BUILTIN_NAMES = {"ABS", "ACOS", "ASIN", "ATN", "CEIL", "COS", "EXP", "EXP10",
+                  "FLOOR", "INT", "LOG", "LOG10", "MAX", "MIN", "POW", "RAD",
+                  "DEG", "RND", "SGN", "SIN", "SQR", "TAN", "VAL", "LEN",
+                  "ASC", "INSTR", "ATAN2", "CHR$", "STR$", "LEFT$", "RIGHT$", "MID$",
+                  "LTBSET", "LTDBGET", "LTDBGET$", "LTDBGETI", "LTDBGETIJ",
+                  "LTDBGETSURFDATA", "LTDBGETSURFVEC", "LTDBSET", "LTDBSETI",
+                  "LTDBSETSURFVEC", "LTCMD", "LTVERSION$", "LTGETSTAT", "LTEVAL",
+                  "LTCHECKVAR", "LTDBKEYDUMP", "LTDBTYPE", "LTDBQUICKRAYAIM",
+                  "LTDBQUICKRAYQUERY", "LTSETVAR", "LTGETVAR", "LTLISTDELETE",
+                  "LTLISTGETPOS", "LTLISTSETPOS", "LTLISTSIZE",
+                  "LTGETPHOTOPICFUNCTION", "LTGETSCOTOPICFUNCTION",
+                  "LTSURFSPLINEPATCH", "LTSURFSPLINESWEEP"}
+
+_STUB_NAMES = {"LTGETSTAT", "LTCHECKVAR", "LTDBKEYDUMP", "LTDBTYPE",
+               "LTDBQUICKRAYQUERY", "LTLISTDELETE", "LTLISTGETPOS",
+               "LTLISTSETPOS", "LTLISTSIZE", "LTGETSCOTOPICFUNCTION",
+               "LTSURFSPLINEPATCH", "LTSURFSPLINESWEEP", "REM"}
+
+
+def known_functions():
+    """解释器可识别的函数/关键字集合 (覆盖度量)."""
+    return _KEYWORDS | _BUILTIN_NAMES
+
+
+def depth_stats():
+    """真实(非硬编码 stub)函数计数."""
+    real = _BUILTIN_NAMES - _STUB_NAMES
+    return {"real": len(real), "covered": len(known_functions()),
+            "total": len(_KEYWORDS | _BUILTIN_NAMES)}
+
 

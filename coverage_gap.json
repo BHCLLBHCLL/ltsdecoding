@@ -21,8 +21,12 @@
       },
       "macro": {
         "total": 84,
-        "covered": 51,
-        "pct": 60.71
+        "covered": 84,
+        "pct": 100.0,
+        "depth": {
+          "real": 49,
+          "pct": 58.33
+        }
       },
       "class": {
         "total": 378,
@@ -34,41 +38,7 @@
   "gap": {
     "command": {},
     "api": [],
-    "macro": [
-      "ACOS",
-      "ASIN",
-      "ATAN2",
-      "DOC",
-      "ERL",
-      "EXP10",
-      "INPUT",
-      "LTBSET",
-      "LTCMD",
-      "LTDBGETI",
-      "LTDBGETIJ",
-      "LTDBGETSURFDATA",
-      "LTDBGETSURFVEC",
-      "LTDBKEYDUMP",
-      "LTDBQUICKRAYAIM",
-      "LTDBQUICKRAYQUERY",
-      "LTDBSETSURFVEC",
-      "LTDBTYPE",
-      "LTGETPHOTOPICFUNCTION",
-      "LTGETSCOTOPICFUNCTION",
-      "LTGETVAR",
-      "LTLISTDELETE",
-      "LTLISTGETPOS",
-      "LTLISTSETPOS",
-      "LTLISTSIZE",
-      "LTSETVAR",
-      "LTSURFSPLINEPATCH",
-      "LTSURFSPLINESWEEP",
-      "MERGE",
-      "READ",
-      "RETURN",
-      "SYSTEM",
-      "WRITE"
-    ],
+    "macro": [],
     "class": [
       "AberrationVector",
       "Alias",

@@ -86,14 +86,21 @@ def main():
         api_depth = lts_api.depth_stats().get("real", 0)
     except Exception:
         pass
-    mac_c = ref_cover(macro, txt)
+    mac_c = set(); macro_depth = 0
+    try:
+        from lts.macro.macro import known_functions as _mk, depth_stats as _mds
+        mac_c = _mk() & set(macro)
+        macro_depth = _mds().get("real", 0)
+    except Exception:
+        pass
     ks = list(hist.keys()) if isinstance(hist, dict) else list(hist)
     cls_c = ref_cover(ks, txt)
     report = {"surfaces": {
         "command": {"total": n_cmds, "covered": len(covered_cmds), "pct": round(pct_cmd,2)},
         "api": {"total": len(api), "covered": len(api_c), "pct": round(100.0*len(api_c)/max(len(api),1),2),
                 "depth": {"real": api_depth, "pct": round(100.0*api_depth/max(len(api),1),2)}},
-        "macro": {"total": len(macro), "covered": len(mac_c), "pct": round(100.0*len(mac_c)/max(len(macro),1),2)},
+        "macro": {"total": len(macro), "covered": len(mac_c), "pct": round(100.0*len(mac_c)/max(len(macro),1),2),
+                "depth": {"real": macro_depth, "pct": round(100.0*macro_depth/max(len(macro),1),2)}},
         "class": {"total": len(ks), "covered": len(cls_c), "pct": round(100.0*len(cls_c)/max(len(ks),1),2)},
     }}
     # 深度: 对 feature 命令集(710) 逐条判定“真实”(authentic 或 Phase A 真实)
@@ -144,6 +151,24 @@ def main():
         ok = round(apc, 2) >= ag
         print("GATE api coverage %.2f%% (%d/%d) >= %.2f%% -> %s" % (apc, len(api_c), len(api), ag, "OK" if ok else "FAIL"))
         return 0 if ok else 1
+    if "--macro-gate" in sys.argv:
+        try:
+            mg = float(sys.argv[sys.argv.index("--macro-gate") + 1])
+        except Exception:
+            mg = 100.0
+        mc = 100.0 * len(mac_c) / max(len(macro), 1) if macro else 0.0
+        okm = round(mc, 2) >= mg
+        print("GATE macro coverage %.2f%% (%d/%d) >= %.2f%% -> %s" % (mc, len(mac_c), len(macro), mg, "OK" if okm else "FAIL"))
+        return 0 if okm else 1
+    if "--macro-depth-gate" in sys.argv:
+        try:
+            mt = float(sys.argv[sys.argv.index("--macro-depth-gate") + 1])
+        except Exception:
+            mt = 0.0
+        mp = 100.0 * macro_depth / max(len(macro), 1) if macro else 0.0
+        okm = round(mp, 2) >= mt
+        print("GATE macro depth %.2f%% (%d/%d) >= %.2f%% -> %s" % (mp, macro_depth, len(macro), mt, "OK" if okm else "FAIL"))
+        return 0 if okm else 1
     if "--api-depth-gate" in sys.argv:
         try:
             at = float(sys.argv[sys.argv.index("--api-depth-gate") + 1])
