@@ -19,7 +19,25 @@ def _family(name):
     if "Texture" in name: return "texture"
     if ("Coating" in name or "ThinFilm" in name): return "coating"
     if "Scatter" in name: return "scatter"
-    return None
+    if ("Performance" in name or "Measure" in name or "Merit" in name
+            or "Tolerance" in name): return "performance"
+    if ("Ray" in name or "Path" in name or "Splitter" in name): return "ray"
+    if ("Simulation" in name or "Lit" in name or "Render" in name
+            or "Photoreal" in name): return "simulation"
+    if ("Spline" in name or "NURBS" in name or "MeshData" in name or "Array" in name
+            or "List" in name or "Curve" in name or "Polyline" in name): return "curve_data"
+    if ("Solid" in name or "Body" in name or "Prim" in name or "CSG" in name
+            or "Revolution" in name or "Extrusion" in name or "Sheet" in name
+            or "Sweep" in name or "Skinned" in name or "Block" in name or "Sphere" in name
+            or "Cylinder" in name or "Toroid" in name or "Ellipsoid" in name
+            or "Prism" in name or "Lens" in name or "Mirror" in name or "Reflector" in name
+            or "Tube" in name or "Cone" in name or "Pyramid" in name or "Grille" in name
+            or "Freeform" in name): return "geometry"
+    if ("CoordSys" in name or "UCS" in name or "Snap" in name or "Coord" in name): return "coordsys"
+    if ("Environment" in name or "Setting" in name or "Option" in name or "Pref" in name
+            or "Config" in name or "Model" in name or "Item" in name or "Element" in name
+            or "Library" in name or "View" in name or "Window" in name): return "env_model"
+    return "entity"
 
 
 CLASS_BINDERS = {}
