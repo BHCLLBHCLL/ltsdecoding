@@ -25,7 +25,7 @@ def main():
     codes.append(run("coverage_report.py", ["--api-gate", os.environ.get("LT_API_GATE", "100.0")]))
     codes.append(run("coverage_report.py", ["--api-depth-gate", os.environ.get("LT_API_DEPTH_GATE", "100.0")]))
     codes.append(run("coverage_report.py", ["--macro-gate", os.environ.get("LT_MACRO_GATE", "100.0")]))
-    codes.append(run("coverage_report.py", ["--macro-depth-gate", os.environ.get("LT_MACRO_DEPTH_GATE", "58.0")]))
+    codes.append(run("coverage_report.py", ["--macro-depth-gate", os.environ.get("LT_MACRO_DEPTH_GATE", "100.0")]))
     codes.append(run("coverage_report.py", ["--class-gate", os.environ.get("LT_CLASS_GATE", "100.0")]))
     codes.append(run("coverage_report.py", ["--class-depth-gate", os.environ.get("LT_CLASS_DEPTH_GATE", "100.0")]))
     for name, args in (("verify_ui.py", None), ("verify_goldens.py", None)):

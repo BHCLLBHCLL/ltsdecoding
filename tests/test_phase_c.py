@@ -14,7 +14,7 @@ def test_macro_known_covers_84():
     assert len(m) == 84
     assert len(k & m) == 84, sorted(m - k)
     ds = depth_stats()
-    assert ds["real"] >= 49
+    assert ds["real"] == 84
 
 
 def test_macro_new_builtins_eval():
@@ -42,4 +42,4 @@ def test_macro_coverage_depth():
     gap = json.load(open(os.path.join(ROOT, "coverage_gap.json"), encoding="utf-8"))
     mac = gap["report"]["surfaces"]["macro"]
     assert mac["total"] == 84 and mac["pct"] == 100.0
-    assert mac["depth"]["real"] >= 49
+    assert mac["depth"]["real"] == 84

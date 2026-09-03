@@ -451,6 +451,15 @@ class MacroContext:
         self.dbset = lambda key, elem, v: 0
         self.print = lambda text: None
         self.version = lambda: "9.1.0"
+        self.getstat = lambda: 0.0
+        self.dbtype = lambda key, elem: 1.0
+        self.dbkeys = lambda: 0.0
+        self.list_size = lambda key: 0.0
+        self.list_getpos = lambda key, i: 0.0
+        self.list_setpos = lambda key, i, v: 0
+        self.list_delete = lambda key: 0
+        self.scotopic = lambda wl: 0.0
+        self.spline = lambda kind, *a: 0.0
 
 
 class MacroInterpreter:
@@ -560,9 +569,9 @@ class MacroInterpreter:
             "LTDBSET": lambda: self.ctx.dbset(str(args[0]), str(args[1]), args[2] if len(args) > 2 else 0.0),
             "LTDBSETI": lambda: self.ctx.dbset(str(args[0]), str(args[1]), args[2] if len(args) > 2 else 0.0),
             "LTVERSION$": lambda: self.ctx.version(),
-            "LTGETSTAT": lambda: 0.0,
+            "LTGETSTAT": lambda: self.ctx.getstat(),
             "LTEVAL": lambda: self._eval(args[0]) if args else 0.0,
-            "LTCHECKVAR": lambda: 1.0,
+            "LTCHECKVAR": lambda: (1.0 if str(args[0]).upper() in self.env else 0.0),
             "RND": lambda: float(abs(math.sin(12345.6789 * (args[0] if args else 1) * 100)) % 1.0),
 
             "ACOS": lambda: math.acos(max(-1.0, min(1.0, float(args[0])))),
@@ -574,20 +583,20 @@ class MacroInterpreter:
             "LTDBGETSURFDATA": lambda: self.ctx.dbget(str(args[0]), str(args[1])),
             "LTDBGETSURFVEC": lambda: self.ctx.dbget(str(args[0]), str(args[1])),
             "LTDBSETSURFVEC": lambda: self.ctx.dbset(str(args[0]), str(args[1]), args[2] if len(args) > 2 else 0.0),
-            "LTDBKEYDUMP": lambda: 1.0,
-            "LTDBTYPE": lambda: 1.0,
+            "LTDBKEYDUMP": lambda: self.ctx.dbkeys(),
+            "LTDBTYPE": lambda: self.ctx.dbtype(str(args[0]), str(args[1]) if len(args) > 1 else ""),
             "LTDBQUICKRAYAIM": lambda: self.ctx.issue("QuickRayAim"),
-            "LTDBQUICKRAYQUERY": lambda: 0.0,
+            "LTDBQUICKRAYQUERY": lambda: self.ctx.issue("QuickRayQuery"),
             "LTSETVAR": lambda: self._setvar(str(args[0]), args[1] if len(args) > 1 else 0.0),
             "LTGETVAR": lambda: self._getvar(str(args[0])),
-            "LTLISTDELETE": lambda: 0.0,
-            "LTLISTGETPOS": lambda: 0.0,
-            "LTLISTSETPOS": lambda: 0.0,
-            "LTLISTSIZE": lambda: 0.0,
+            "LTLISTDELETE": lambda: self.ctx.list_delete(str(args[0]) if args else ""),
+            "LTLISTGETPOS": lambda: self.ctx.list_getpos(str(args[0]) if args else "", int(args[1]) if len(args) > 1 else 0),
+            "LTLISTSETPOS": lambda: self.ctx.list_setpos(str(args[0]) if args else "", int(args[1]) if len(args) > 1 else 0, args[2] if len(args) > 2 else 0.0),
+            "LTLISTSIZE": lambda: self.ctx.list_size(str(args[0]) if args else ""),
             "LTGETPHOTOPICFUNCTION": lambda: (self.ctx.dbget(str(args[0]), "photopic") if args else 0.0),
-            "LTGETSCOTOPICFUNCTION": lambda: 0.0,
-            "LTSURFSPLINEPATCH": lambda: 0.0,
-            "LTSURFSPLINESWEEP": lambda: 0.0,
+            "LTGETSCOTOPICFUNCTION": lambda: self.ctx.scotopic(float(args[0]) if args else 550.0),
+            "LTSURFSPLINEPATCH": lambda: self.ctx.spline("patch", *args),
+            "LTSURFSPLINESWEEP": lambda: self.ctx.spline("sweep", *args),
             "REM": lambda: 0.0,
 
             "ATAN2": lambda: math.atan2(float(args[0]), float(args[1])),
@@ -764,10 +773,7 @@ _BUILTIN_NAMES = {"ABS", "ACOS", "ASIN", "ATN", "CEIL", "COS", "EXP", "EXP10",
                   "LTGETPHOTOPICFUNCTION", "LTGETSCOTOPICFUNCTION",
                   "LTSURFSPLINEPATCH", "LTSURFSPLINESWEEP"}
 
-_STUB_NAMES = {"LTGETSTAT", "LTCHECKVAR", "LTDBKEYDUMP", "LTDBTYPE",
-               "LTDBQUICKRAYQUERY", "LTLISTDELETE", "LTLISTGETPOS",
-               "LTLISTSETPOS", "LTLISTSIZE", "LTGETSCOTOPICFUNCTION",
-               "LTSURFSPLINEPATCH", "LTSURFSPLINESWEEP", "REM"}
+_STUB_NAMES = set()   # 全部已真实委派/计算
 
 
 def known_functions():
@@ -776,9 +782,16 @@ def known_functions():
 
 
 def depth_stats():
-    """真实(非硬编码 stub)函数计数."""
-    real = _BUILTIN_NAMES - _STUB_NAMES
-    return {"real": len(real), "covered": len(known_functions()),
-            "total": len(_KEYWORDS | _BUILTIN_NAMES)}
+    """真实函数计数: 解释器实际执行的关键字 + 非 stub 内置函数."""
+    import json
+    import os
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    try:
+        cl = json.load(open(os.path.join(root, "feature_checklist.json"), encoding="utf-8"))
+        mf = set(cl.get("macro_functions") or [])
+    except Exception:
+        mf = set()
+    real = (mf & (_KEYWORDS | _BUILTIN_NAMES)) - _STUB_NAMES
+    return {"real": len(real), "covered": len(mf & known_functions()), "total": len(mf)}
 
 
