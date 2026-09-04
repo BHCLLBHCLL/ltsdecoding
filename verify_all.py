@@ -31,6 +31,9 @@ def main():
     for name, args in (("verify_ui.py", None), ("verify_goldens.py", None)):
         print("== %s ==" % name)
         codes.append(run(name, args))
+    # 层 5: lt.exe 对标 harness (客观基线 + 语料 diff)
+    print("== lt_parity.py ==")
+    codes.append(run("lt_parity.py", ["--gate"]))
     # 重任务默认跳过; --full 才跑
     if "--full" in sys.argv:
         for name, args in (("verify_pipeline.py", None),
