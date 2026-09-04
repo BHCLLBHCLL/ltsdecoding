@@ -28,3 +28,18 @@ def test_coverage_gate_ok_and_fail():
     assert _run(["--gate", "0"]).returncode == 0
     assert _run(["--gate", "100"]).returncode == 0   # 命令面 100%
     assert _run(["--gate", "100.1"]).returncode == 1  # 超 100% 失败
+
+
+def test_depth_tiers_reported():
+    r = _run(["--depth-tier"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    import json as _j
+    dt = _j.loads(r.stdout)
+    assert "command" in dt and "api" in dt
+    for s in ("command", "api"):
+        for k in ("T1", "T2", "T3", "T3_pct"):
+            assert k in dt[s]
+        assert dt[s]["T1"] + dt[s]["T2"] + dt[s]["T3"] > 0
+        assert 0.0 <= dt[s]["T3_pct"] <= 100.0
+    assert os.path.exists(os.path.join(ROOT, "depth_tier.json"))
+

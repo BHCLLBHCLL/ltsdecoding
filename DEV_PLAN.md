@@ -1,162 +1,149 @@
-# ltsdecoding → LightTools 100% 对齐开发计划
+# ltsdecoding → LightTools 9.1.0 100% 对标 开发计划（刷新版）
 
-> 目标：功能完整度与深度均达成与 **LightTools 9.1.0** 100% 对齐
-> 差距基线：见 [function_gap_analysis.md](function_gap_analysis.md)（当前综合覆盖度约 25–30%）
-> 功能清单基准：[`feature_checklist.json`](feature_checklist.json)（9.1：710 命令 + 290 API + 84 宏 + 378 类）
-> **UI 100% 对标规划**：见 [UI_PARITY_PLAN.md](UI_PARITY_PLAN.md)（依据 lt_en_US.dll 资源字符串 / CoreUG 第 3-5 章 / CommandReferenceGuide 命令→调色板路径 / CHM 逆向）
-> 制定日期：2026-08-23（8.7 基准）→ **2026-08-24 升级 9.1 基准；M0/M2 已达成**
+> 刷新日期：2026-09-04
+> 刷新依据：当前四张面覆盖率/深度 + 命令执行深度审计 + CAD 引擎能力探测 + parity 语料规模 + 验证链现状。
+> 与旧版差异：旧版按「覆盖率/解析/物理/UI/COM 验证」定义 100%；**刷新版重申：100% 对标 = 功能执行深度 + 数值等价，而不仅是「覆盖率 100%」**，并量化「覆盖率 100% 但执行深度薄」这一核心缺口，据以重排路线。
+> 旧版里程碑 M0–M7 见 §7 对照与状态；本计划为 M0–M7 之后的**第 2 轮深化**。
 
 ---
 
-## 进度快照（2026-08-25）
+## 0. 当前状态快照（2026-09-04，实测）
 
-| 里程碑 | 状态 | 证据 |
+| 维度 | 现状 | 证据/说明 |
 |---|---|---|
-| **M0** checklist 固化 + 语料基建 | **✅ 完成** | `feature_checklist.json`（710+290+84+378）；181 LTS 文件语料 0 错误 0 警告（自 40.2 万警告清零）；22 篇官方 PDF 全文提取 |
-| **M2** 几何验证链闭环 | **✅ 完成** | `verify_sat_import.py` 四重全绿：本地自洽 66/66、COM 导入 66/66、重导出 body bbox 66/66（≤1e-6）、loop 级裁剪面 bbox 66/66（**dev=0 逐位一致**）；loop 并集包围盒确认为权威参照 |
-| M1 解析层 100% | 🔶 部分 | 378 类可读；对象创建写回/往返字节级一致/Undo 未建 |
-| M3 光学属性 100% | 🔶 部分 | PropertyZone 链 205/205 解析并逐面绑定；Fresnel/RT/TIR/Lambert/Mirror/Mechanical 分区物理；`tests/test_zones_receivers.py` 10 项纯物理单测（合成 LTS 全绿） |
-| M4/M5 追迹+分析 | 🔶 部分 | 面发射采样（位置+方向 apodizer+光谱+灯功率 lm/ray）；远场接收器 30×60 网格（立体角归一 candela）与 LT 已算网格比对；通量守恒闭合（Beer/TIR 计入吸收）；接收器假彩色/极坐标图 + LT 参考对比 + CSV 导出（matplotlib）；区链支持 setPropertiesName 预设与纹理区域（VariableSpacedTexture/PlanarReferenceSurface，backlight 语料 205 区全部解析） |
-| M6 优化器+MACRO+API | ⬜ | 空白 |
+| 命令表—覆盖率 | **710/710 = 100%** | `coverage_report.py --json` |
+| API 面—覆盖率 | **290/290 = 100%** | 同上 |
+| 宏面—覆盖率 | **84/84 = 100%** | 同上 |
+| 类面—覆盖率 | **378/378 = 100%** | 同上 |
+| 命令/API/宏/类—「真实绑定」深度 | **均 100%** | 深度=`status=="real"` 或非 `pa_*` 别名（**我们自己的度量**） |
+| **真实 T3 执行深度**（本次审计） | **result 13 / intent 557 / void 140** | `_audit`：按 handler 返回是否含真实计算载荷（volume/centroid/count/tris/spectrum/…） |
+| GUI 真实执行命令 | **约 72 条内部命令** | `lts_commands.IMPLEMENTED`（其余多为菜单别名/passthrough） |
+| 几何内核 | **manifold3d（无 OCC）** | `occ_available()=False`；SAT/STEP/IGES 读写均 **False**；布尔用 manifold3d 网格（box 级 union=12/cut=4 精确） |
+| SAT 独立解码 | **66 文件** | `output/sat`；`sat_tessellator`+自研 loop 包围盒/三角化（本地自洽） |
+| 实时 LT 交叉验证 | **阻塞** | `lt.exe` headless 超时 → `lt_parity --lt` 回退「pinned refs」（**非 LT 派生**）；`verify_sat_import` 阶段B（COM）本环境不可跑 |
+| parity 语料 | **17 用例** | 多数 pinned 自算值（回归锁），仅少数为解析/自洽基准 |
+| LTS 往返 | **约 183 文件字节一致** | `test_roundtrip.py`（OOM 跳过机制） |
+| 宏 LT 扩展 | **已实现** | `_call` 内置 LTDBGET/LTDBSET/LTCHECKVAR/LTVERSION$/LTEVAL/COMMAND |
+| 测试 | **41 文件 / 277 通过** | `pytest tests/` |
+| 验证脚本 | 7 个 | verify_all / cad_exchange / goldens / pipeline / raytrace / sat_import / ui |
 
-关键解锁：**LightTools 9.1.0 license 可用**，COM 自动化（LTLocator/Dispatch + JumpStart ltcom64.jsml）全链路打通，"对表验证"不再被阻塞。
-
-UI 界面对标：**M-UI1（四窗格/坐标栏/Set depth 工具条）与 M-UI2（菜单注册表 `lts_menus.py` + `ui_command_map.json`：198 菜单项全入口，82 实现/116 NYI，136 官方命令名映射）已完成**（见 UI_PARITY_PLAN.md）。
-
-## 一、"100%"的定义与验收度量
-
-100% 不是口号，按以下四条硬性度量执行，每项建立 checklist（以 `feature_checklist.json` 为销项基准）：
-
-1. **解析完整**：所有 LTS 类（9.1 全功能清单 378 类）可读、可写、可往返。
-2. **物理正确**：每个光学特性有可验证的物理实现——与 LightTools COM 输出或解析解比对，几何容差 ≤1e-6、通量容差 ≤1%。
-3. **界面等价**：LightTools 的每个操作（创建/编辑/仿真/绘图）有对应 UI 入口。
-4. **验证闭环**：`verify_sat_import.py` 式自动比对跑通全绿（**已达成**）；`feature_checklist.json` 条目 100% 销项。
+**结论**：四张面「识别/语义」层已 100%；但「**真实执行 + 数值等价**」远未 100%。真正驱动 LT 功能的几何内核、实时 LT 对表、模型作者化写回、以及大部分命令/API 的真实执行，仍是主要缺口。**覆盖率 100% ≠ 功能 100%**。
 
 ---
 
-## 二、分阶段计划
+## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
-### P0 · 基础设施与功能清单固化 —— **✅ 完成（2026-08-24）**
-- ~~从官方文档提取 LightTools 9.1 全功能清单~~ → `feature_checklist.json`（710 命令/290 API/84 宏/378 类，15 子系统分组）
-- ~~多样本语料~~ → 181 个 LTS 文件（LT_files + ExamplesLibrary），解析 0 错误 0 警告
-- ~~COM 验证链路~~ → `verify_sat_import.py` 双阶段全绿（license 恢复后打通）
-- 待办：pytest 黄金文件回归、CI、代码结构重组为 `lts/` 包
+旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
 
-### P1 · 解析层 100%
-**目标**：任意 LTS 文件无损读写。
+刷新版四条硬性可测度量（每项建立 checklist 销项）：
 
-| 工作项 | 模块 |
-|---|---|
-| 类 schema 注册表：类→属性类型/默认值/单位/枚举，替代裸 dict | 新增 `lts/schema.py` |
-| 对象**创建**：生成合法 ORACAD 脚本（对齐缩进/命名规则/边连接语句） | 扩展 `lts_model.py` |
-| 往返保证：parse→serialize→逐字节一致（黄金测试） | 新增 `tests/` |
-| 多版本兼容（v4.x 各版本头差异）、损坏文件恢复、警告分级 | `lts_parser.py` |
-| Undo/Redo 事务化编辑栈 | `lts/undo.py` |
-
-**验收**：多样本文件往返字节一致；新建 solid/source/receiver 能被 LightTools 正常打开（COM 链路已可用，随时验证）。
-
-### P2 · 几何内核 100%
-**目标**：精确 B-Rep。~~66/66 SAT 全绿~~ **已达成**（本地 + COM 双阶段）。
-
-1. ~~消灭 7 个 WARN~~ → **确认为误报**：body 记录包围盒为未裁剪松散盒，loop 并集才是权威参照；细分器本身精确（dev ≤2e-4）
-2. **OCC 精确路径为一等公民**（非可选）：SAT→OCCT 形状精确求值，网格仅用于显示；统一布尔（含变换树）。
-3. LightTools 全图元集：块/球/柱/锥/圆环/管/挤出/旋转/放样/薄面/facet 实体 → `lts/geometry/prims.py`（9.1 geometry_modeling 187 条命令为对照面）。
-4. 草图特征系统（2D 草图→拉伸/旋转/扫掠）→ `lts/geometry/sketch.py`。
-5. CAD 交换：STEP/IGES 导入导出（OCCT 内建）、SAT 精确写出（9.1 data_exchange 40 条命令为对照面）。
-6. 几何分析：距离/角度/质量属性/干涉检查。
-7. 剖切视图（clip plane）与测量工具入 `lts_vtk.py`。
-
-**验收**：~~verify_sat_import.py 阶段A 66/66 OK；阶段B 与 lt.exe 重导入 bbox/体积差 ≤1e-6~~ **已达成（2026-08-24，loop 级比对 dev=0 逐位一致）**；STEP/IGES 往返与 LightTools 互导对表。
-
-### P3 · 光学属性 100%
-**目标**：文件里的 205 个 PropertyZone、198 个 SurfaceInfo、108 个 AmplDirOpticalProperties 变成可计算物理。
-
-- **材料**：折射率模型全套（常数/Schott 色散/Laurent/光学密度）——`lts/optics/materials.py`；吸收/透射光谱（Beer–Lambert）；玻璃目录系统（用户目录格式读写 + refractiveindex.info 公共数据替代授权目录）；GRIN 梯度折射率。
-- **表面属性**：镜面反射、Lambertian 散射、菲涅尔损耗、BSDF（含 .bsdf 文件格式）、apodizer（uniform/Lambertian）、dominant ray direction、ray amplitude 规则、property zone 逐面/逐区域指派 → `lts/optics/surface.py`。
-- **光谱**：波长系统（559 个 ORAWavelengthObj 语义化）、spectral region、color component、明视觉响应 → `lts/optics/spectrum.py`（9.1 colorimetry 45 条命令为对照面）。
-- UI：材料管理器、表面属性编辑器、属性指派对话框（对照 LightTools 界面）。
-
-**验收**：单位测试比对解析解（平板菲涅尔、色散公式采样值）；与 LightTools DbGet 读取值一致（COM 链路已通）。
-
-### P4 · 光源与接收器 100%
-- 光源：surface emitter（空间×角度分布、apodizer 加权）、cylinder source、ray aiming（AimSphereDir/ForwardStart）、光谱/偏振态配置 → `lts/optics/sources.py`（9.1 source_modeling 34 条命令为对照面）。
-- 接收器：far-field receiver、照度面接收器、intensity data mesh/scatter mesh（解析出网格拓扑）→ `lts/optics/receivers.py`。
-- 创建向导 UI + 3D 符号精确化（现有 marker 球升级）。
-
-**验收**：发射采样分布与设定 apodizer 的解析分布 K-S 检验通过；接收器网格数据结构与 LTS 落盘一致。
-
-### P5 · 光线追迹引擎 100%（核心，工作量最大）
-**目标**：替代 `ORAForwardIllumSimObj`+`NSRayManager`（9.1 ray_tracing 31 条命令 + simulation_management 22 条命令为对照面）。
-
-架构（新包 `lts/trace/`）：
-
-```
-lts/trace/
-  scene.py      # 光学场景装配：B-Rep→BVH 加速结构（AABB/Embree 可选）
-  raygen.py     # 波长/位置/方向/偏振采样（蒙特卡洛+低差异序列）
-  intersect.py  # 相交：BVH 网格法线插值（快路径）+ OCC 精确（校验路径）
-  physics.py    # Snell/Fresnel（含镀膜）/TIR/Beer 吸收/BSDF 重要性采样/偏振(Jones)
-  engine.py     # 主循环：ray splitting、路径历史、Russian roulette、种子控制
-  rayspace.py   # NSRayManager 等价：光线缓冲、过滤、持久化(.ray)
-```
-
-- 性能阶梯：numpy 向量化（≥1M rays/min）→ 可选 CUDA 后端（对标 LightTools 速度）。
-- **验证金标准**：(a) 解析解用例——理想透镜成像、积分球、TIR 棱镜、菲涅尔平板通量守恒；(b) **COM 对表（链路已通）**：与 LightTools 跑同一模型比对照度图，通量差 ≤1%。
-- 仿真控制面板：ray 数/波长/种子/收敛判据，进度与取消。
-
-### P6 · 结果分析与可视化 100%
-- `lts/analysis/`：照度图（假彩色+等值线）、坎德拉图（极坐标/笛卡尔）、强度分布、亮度图、通量/效率/均匀性统计（9.1 receiver_analysis 70 条 + imaging_analysis 16 条命令为对照面）。
-- 3D 窗格光线显示（按 path/history/波长过滤）——扩展 `lts_vtk.py`。
-- 绘图窗（matplotlib）、CSV/位图导出、图例与色标。
-- 结果写回 LTS（ORAIntensityDataMeshObj 等）实现文件级往返。
-
-**验收**：rearlighting.lts 全模型跑通，照度/坎德拉图与 LightTools 视觉与数值比对通过（COM 可用）。
-
-### P7 · 优化器 + MACRO 脚本 + API 100%
-- **优化**（`lts/optimizer/`）：变量/评价函数/约束、阻尼最小二乘+单纯形+遗传、参数扫描、灵敏度/公差分析（对标 OptimizationManager；9.1 optimization 45 条命令为对照面）。
-- **MACRO**（`lts/macro/`）：按 9.1 MACRO 参考实现解释器（词法/语法/命令映射到内部 API，84 宏函数全实现）、宏编辑器、批处理。
-- **LTAPI 兼容层**：暴露 COM 接口（pywin32），使既有第三方脚本可驱动本引擎（290 API 函数为对照面）；同时保留现有"驱动 LightTools"方向（`verify_sat_import.py` 的 LTSession 抽象为双向桥）。
-
-**验收**：9.1 MACRO 参考中的命令集 100% 可执行；一个第三方优化宏不改一行跑通。
-
-### P8 · 工程化收口 100%
-- 全功能回归矩阵（checklist 逐条销项）、性能基准（追迹吞吐、大模型加载）。
-- 打包发行（Windows 安装包）、用户文档、崩溃报告。
-- 最终验证：`feature_checklist.json` 全绿 + 双向 COM 比对报告归档。
+1. **执行深度（T3）**：每条命令/API 触发真实执行 —— 变更真实 `LTSModel`/`SurfaceOpt`/网格，或产出**可复算**的数值结果（体积/质心/网格/光谱/照度/追迹输出…）。`feature_checklist.json` 逐条按 T3 销项（阈值：**≥90% 命令、≥90% API 达到 T3**，不再是「status=real」）。
+2. **数值等价**：结果与 LT 派生基线或解析解做相对误差比对 —— 几何 ≤1e-6、通量 ≤1%、色度 CCT ≤1%、追迹逃逸占比 ≤3%。
+3. **几何 B-rep 一等公民**：OCC（cadquery-ocp / pythonocc-core）可用并作为精确路径（B-rep 布尔、GProp 质量属性、SAT/STEP/IGES 读写、精确求交）；manifold3d 仅作显示/兜底。CAD 交换与 LT 互导对表。
+4. **验证闭环**：`verify_*` 全绿 + parity 语料按「命令/API 覆盖清单」扩展（目标：≥300 用例，每条命令/API 至少 1 个对表用例），并能区分「LT 派生 ref」与「自洽 pinned ref」。
 
 ---
 
-## 三、阶段依赖与推进顺序
+## 2. 缺口分析（按杠杆排序）
+
+| # | 缺口 | 现状 | 目标 | 影响 |
+|---|---|---|---|---|
+| G1 | **命令/API 执行深度** | 13 result / 557 intent / 140 void | T3 覆盖 ≥90%（先补高密度子系统） | 决定「能不能真的做 LT 做的事」 |
+| G2 | **几何 B-rep 内核** | manifold3d；无 OCC；SAT/STEP/IGES 全 False | OCC 转正；B-rep 布尔/质量属性/CAD 交换 | LT 是 ACIS B-rep，精确几何/形状保真的根 |
+| G3 | **实时 LT 交叉验证** | `lt.exe` headless 超时；COM 阶段B 不可跑 | headless/COM 打通（看门狗关 About/许可框）→ ref 变真 LT 派生 | 「与 LT 对表」成为可能而非自说自话 |
+| G4 | **模型作者化写回** | `lts_insert`/`create_solid` 生成本地 .lts；未验证 LT 可开 | 写出的 .lts 被 LT 正常打开；SAT 精确导出 | 完成「可写」闭环 |
+| G5 | **物理等价单测** | 有多项物理实现；对表用例少 | 解析解+LT 双路径逐特性对表（Fresnel 平板/TIR 棱镜/理想透镜/BSDF K-S/GRIN/色度） | 证明物理正确而非仅可实现 |
+| G6 | **UI 功能等价** | M-UI1/M-UI2 完成；116+ NYI/薄处理 | 每 LT 操作有真实执行入口 | 「界面等价」落到功能 |
+| G7 | **追迹吞吐/真实性** | numpy 追迹（rearlighting 全模型 OK） | 吞吐基准 + 与 LT 照度图对表（通量差 ≤1%） | 商业化规模可用 |
+
+---
+
+## 3. 刷新分阶段路线图 R0–R7
+
+> 原则：先用可测的「执行深度/数值等价」基建立起度量，再做最大的两杠杆（几何 B-rep、实时 LT 对表），最后铺全命令/API 真实执行并收口。
+
+### R0 · 执行深度度量与分类器（1–2 天）
+- 交付：`coverage_report.py` 增加 **T3 深度分类**（T1 识别 / T2 语义 intent / T3 真实执行——变更模型或产出可复算载荷），逐命令/API 打标并写 `depth_tier.json`。
+- 验收：`--depth-t3-gate <n>` 门禁；报表区分 4 张面 × {识别/语义/执行} 三维。
+
+### R1 · OCC 几何内核转正（3–5 天，最高保真收益）
+- 交付：安装/探测 `cadquery-ocp` 或 `pythonocc-core`；`lts_occ` 引为精确路径 —— B-rep 布尔、`shape_metrics`（GProp 体积/面积/质心）、SAT 精确读写、STEP/IGES 导入导出、OCC 精确求交（追迹校验路径）。
+- 验收：`verify_cad_exchange.py` 不再 SKIP；阶段A 全绿；`geom_csg_*` 在 OCC 下体积/质心达 ≤1e-6；SAT 66/66 本地自洽 + 写回 roundtrip。
+
+### R2 · 实时 LT headless/COM 打通（3–5 天）
+- 交付：lt.exe 无头/宏模式看门狗（自动关 About/许可对话框，`verify_sat_import.py` 已有 COM 看门狗可复用）；`lt_parity --lt` 产出**真 LT 派生 ref**；COM 双向桥（驱动 LT + 读 LT）。
+- 验收：`lt_parity --lt` 对现有 17 用例给出 LT 真实基线并 diff；`verify_sat_import` 阶段B 66/66。
+
+### R3 · 命令/API 真实执行补全（按高密度子系统铺开，持续）
+- 交付：按 `_audit` 密度排序逐子系统补 T3 —— `geometry_modeling`(157 intent)→`receiver_analysis`(62)→`misc`(53)→`ui_view`(45)→`colorimetry`(43)→`optimization`(41)→… ；每命令/API 接真实模型变更或真实数值计算。
+- 验收：T3 覆盖 ≥90%（命令/API）；新增命令级 parity 用例。
+
+### R4 · 物理等价对表语料（与 R3 并行）
+- 交付：解析解 + LT 派生双路径用例：平板 Fresnel（R/T）、TIR 棱镜、理想透镜焦距/像距、BSDF 采样 K-S、GRIN 光程、色度 CCT、散射介质 Beer 吸收、衍射/相干/磷光。
+- 验收：各项相对误差达 §1.2 阈值；parity 语料 17→≥300。
+
+### R5 · 模型作者化 + CAD 交换（依赖 R1）
+- 交付：结构化写出 ORACAD（对齐缩进/命名/边连接），写回 .lts 被 LT 打开；SAT/STEP/IGES 导出；Undo/Redo 事务栈。
+- 验收：新建 solid/source/receiver 的 .lts 在 LT 打开无警告；STEP/IGES 与 LT 互导对表。
+
+### R6 · UI 功能等价（消灭 NYI）
+- 交付：把 M-UI 的每一项菜单/面板接到真实 handler；116+ NYI 转真实执行；命令调色板/工具条/状态栏功能闭环。
+- 验收：UI 每操作产生真实模型/分析变更；UI 回归全绿。
+
+### R7 · 性能 + 收口
+- 交付：追迹吞吐基准（numpy 向量化 → 可选 Embree/CUDA）；checklist 逐条 T3 销项报告；双端（本地+LT）对表报告归档；Windows 打包/文档/崩溃报告。
+- 验收：`feature_checklist.json` 全绿（T3）+ `verify_all --full` 全绿 + 性能达标。
+
+---
+
+## 4. 依赖与推进顺序
 
 ```
-P0 ──> P1 ──> P2 ──> P3 ──> P4 ──> P5 ──> P6 ──> P8
-              │                    │
-              └── P2 贯穿 P5-P6（精确求交支撑）  └── P7（依赖 P5/P6 的 API 面）
+R0 ─> R1 ─> R2 ─> R3 ─> R7
+           └─> R5         │
+R3 ─> R4 (与 R3 并行)     │
+R6 依赖 R3/R1             │
+                 R0/R1 全程支撑
 ```
 
-关键路径：**P1→P2→P5→P6**（解析→几何→追迹→分析）。P3/P4 可与 P2 后期并行；P7 在 P5 API 稳定后启动。
+关键路径：**R0→R1→R2→R3→R7**。R3/R4/R6 可在 R2 打通后并行铺开；R5 依赖 R1 的 OCC。
 
-## 四、关键风险与对策
+---
+
+## 5. 关键风险与对策
 
 | 风险 | 影响 | 对策 |
 |---|---|---|
-| ~~LightTools license 不可用~~ | ~~COM 验证被阻塞~~ | **已解除（2026-08-24）**：license 恢复，COM 全链路打通，66/66 对表全绿；保留 verify_sat_import.py 作常驻回归 |
-| ACIS 为商业内核 | 精确几何无法直接复用 | OCCT 全面替代（P2 转正）；SAT 读写 OCCT 原生支持 |
-| 玻璃目录为授权数据 | 材料库缺口 | 用户目录格式兼容 + refractiveindex.info 公共数据；允许导入厂商 CSV |
-| 蒙特卡洛性能对标商业软件 | P5 吞吐量 | numpy 向量化起步 → Embree/CUDA 后端分层优化 |
-| 单人代码量（P5+P6 约占一半工作量） | 排期风险 | 引擎与 UI 分层解耦，可先交付 headless 追迹 CLI |
-| body 记录包围盒为松散盒（未裁剪曲面范围） | 几何验证误判 | 已确立 loop 并集包围盒为权威参照（写入 verify_sat_import.py） |
+| OCC 在本环境不可用/编译失败 | R1/R5 阻塞 | cadquery-ocp 轮子优先（免编译）；失败则 fallback：`manifold3d` + 自研 SAT/B-rep 轻量求值，标注为非精确 |
+| lt.exe 无头超时（许可/About 框） | R2/R7 对表阻塞 | 看门狗关闭对话框 + 宏模式无 UI 启动；超时则 ref 标为「p-in（自洽）」，_audit 记录真实 LT 缺口 |
+| 执行深度主观难分 | R0 分类器失真 | 以「是否变更模型状态 or 产出可复算载荷」为客观判据，人工校准 10% 样本 |
+| 蒙特卡洛性能 | R4/R7 | numpy 向量化起步，预留 Embree/CUDA 后端；黑白盒基准 |
+| 单人代码量 | 整体排期 | 引擎 headless 与 UI 解耦，先交付 CLI/对表，再 UI |
 
-## 五、里程碑总览
+---
 
-| 里程碑 | 内容 | 达成标志 | 状态 |
-|---|---|---|---|
-| M0 | checklist 固化 + 测试基建 | `feature_checklist.json` 覆盖 9.1 全子系统（710+290+84+378） | **✅ 2026-08-24** |
-| M1 | 解析层 100% | 黄金文件往返字节一致 | 🔶 |
-| M2 | 几何内核 100%（验证链） | verify_sat_import 双阶段 66/66 OK | **✅ 2026-08-24** |
-| M2b | 几何内核 100%（精确 B-Rep + CAD 交换） | OCC 精确路径 + STEP/IGES 互导对表 | ⬜ |
-| M3 | 光学属性+光源接收器 100% | 物理语义单测全绿（解析解比对） | ⬜ |
-| M4 | 光线追迹引擎 100% | 解析解用例全绿；与 LT 通量差 ≤1% | ⬜ |
-| M5 | 分析与可视化 100% | rearlighting.lts 全模型跑通出图 | ⬜ |
-| M6 | 优化器+MACRO+API 100% | 第三方宏零修改跑通 | ⬜ |
-| M7 | 收口 | feature_checklist 全绿 + 比对报告归档 | ⬜ |
+## 6. 近期下一步（本周，按序）
+
+1. **R0**：写 T3 深度分类器进 `coverage_report.py`，出 `depth_tier.json`（命令/API 三维打标）。
+2. **R1 第一步**：探测并安装 `cadquery-ocp`（或 `pythonocc-core`），跑 `verify_cad_exchange.py` 确认转正。
+3. **R3 起点**：从 `geometry_modeling`（157 intent）开始，把 Make*/块/球/柱 + 布尔/阵列/变换补成真实执行，并加命令级 parity 用例。
+4. **R2 探针**：给 lt.exe 加看门狗尝试无头宏，记录是否可回传结果；若不可，标记 G3 为本环境硬阻塞并在 refs 中体现。
+5. 每步跑 `verify_all --full` + `pytest tests/` 全绿后提交。
+
+---
+
+## 7. 旧版里程碑 M0–M7 现状对照
+
+| 里程碑 | 原计划内容 | 现状 |
+|---|---|---|
+| M0 | checklist 固化+语料基建 | ✅ |
+| M1 | 解析层 100%（往返字节一致） | 🔶 往返 done；对象创建写回/Undo 未建（R5） |
+| M2 | 几何验证链（SAT 66/66） | ✅ 本地自洽；阶段B COM 本环境不可跑（R2） |
+| M2b | OCC 精确 B-rep + CAD 交换 | ⬜（R1） |
+| M3 | 光学属性+光源接收器 100% | 🔶 物理实现广；LT/解析对表用例不足（R4） |
+| M4 | 光线追迹引擎 100% | 🔶 numpy 追迹可跑；LT 通量差对表不足（R4/R7） |
+| M5 | 分析与可视化 100% | 🔶 报表/绘图在；UI 功能等价未达（R6） |
+| M6 | 优化器+MACRO+API 100% | 🔶 MACRO 84/84；优化器空白（R3/R6） |
+| M7 | 收口 | ⬜（R7） |
+
+> 后补：Phase A/B/C/D 已把四张面「识别/语义」层做到 100%（L5/L1/L2 部分真实执行）；本刷新版在其上补「真实执行 + 数值等价」。

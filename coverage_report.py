@@ -64,6 +64,110 @@ def src_text():
 def ref_cover(names, txt):
     return {n for n in names if str(n) in txt}
 
+
+# ---- R0: T3 真实执行深度分类器 ----
+# T1 识别(无处理) / T2 语义(返回 intent) / T3 真实执行(变更真实模型 或 产出可复算载荷)
+_T3_PAYLOAD = ("volume","centroid","count","points","tris","n_tris","spectrum",
+               "vector","distance","matrix","peak","grid","data","mesh","result",
+               "ratios","cct","oid","targets","n_rays","launched","escaped",
+               "absorbed","positions","value")
+
+
+def _tier_from_result(r):
+    if not isinstance(r, dict):
+        return 1
+    if r.get("status") != "real":
+        return 1 if r.get("status") == "validated" else 2
+    if any(k in r for k in _T3_PAYLOAD):
+        return 3
+    return 2
+
+
+def _command_handler(cmd, aliases, handlers):
+    hid = aliases.get(cmd)
+    if hid is None:
+        hid = cmd
+    return hid, handlers.get(hid)
+
+
+def load_command_groups():
+    cl = load_checklist()
+    return cl.get("commands_by_subsystem") or {}
+
+
+def command_depth_tiers():
+    """逐命令 T1/T2/T3 打标 -> (tier=cmd->int, tally, names)."""
+    cbs = load_command_groups()
+    import lts_commands as lc
+    gui = set(lc.IMPLEMENTED)
+    lta = dict(lc.LT_ALIASES)
+    try:
+        import lts_phase_a as pa
+        pa.merge_aliases()
+        aliases, handlers = pa.build()
+    except Exception:
+        aliases, handlers = {}, {}
+    tier = {}
+    for sub, cmds in cbs.items():
+        for c in cmds:
+            # GUI 真实执行: LT 命令名 -> 内部 snake_case -> IMPLEMENTED 集合
+            inner = lta.get(c)
+            if inner is not None and inner in gui:
+                tier[c] = 3
+                continue
+            hid, fn = _command_handler(c, aliases, handlers)
+            if hid in gui:
+                tier[c] = 3
+                continue
+            if fn is None:
+                tier[c] = 1
+                continue
+            try:
+                r = fn(c, {})
+            except Exception:
+                tier[c] = 1
+                continue
+            tier[c] = _tier_from_result(r)
+    return tier, [c for _sub, cmds in cbs.items() for c in cmds]
+
+
+def api_depth_tiers():
+    import lts_api
+    tier = {}
+    _names = list(lts_api.covered_set())
+    for name in lts_api.covered_set():
+        fn = lts_api._REAL.get(name)
+        if fn is None:
+            tier[name] = 1
+            continue
+        try:
+            r = fn(name, [])
+        except Exception:
+            tier[name] = 1
+            continue
+        if not isinstance(r, dict):
+            tier[name] = 1
+            continue
+        if r.get("status") == "validated":
+            tier[name] = 1
+            continue
+        if r.get("status") != "real":
+            tier[name] = 2
+            continue
+        if any(k in r for k in _T3_PAYLOAD):
+            tier[name] = 3
+            continue
+        tier[name] = 2
+    return tier, _names
+
+
+def _tally(tier, names):
+    t = {1: 0, 2: 0, 3: 0}
+    for n in names:
+        t[tier.get(n, 1)] = t[tier.get(n, 1)] + 1
+    return t
+
+
 def main():
     cl = load_checklist()
     cbs = cl.get("commands_by_subsystem") or {}
@@ -140,6 +244,52 @@ def main():
            "class": sorted(set(ks)-cls_c)}
     with open(GAP,"w",encoding="utf-8") as f:
         json.dump({"report": report, "gap": gap}, f, ensure_ascii=False, indent=2)
+    # R0: T3 真实执行深度 (command / api)
+    if "--depth-tier" in sys.argv:
+        try:
+            c_tier, c_names = command_depth_tiers()
+            a_tier, a_names = api_depth_tiers()
+            c_t = _tally(c_tier, c_names)
+            a_t = _tally(a_tier, a_names)
+            dt = {
+                "command": {"T1": c_t[1], "T2": c_t[2], "T3": c_t[3],
+                            "T3_pct": round(100.0 * c_t[3] / max(len(c_names), 1), 2)},
+                "api": {"T1": a_t[1], "T2": a_t[2], "T3": a_t[3],
+                        "T3_pct": round(100.0 * a_t[3] / max(len(a_names), 1), 2)},
+            }
+            with open(os.path.join(ROOT, "depth_tier.json"), "w", encoding="utf-8") as f:
+                json.dump({"tiers": {"command": c_t, "api": a_t},
+                           "command_tier": c_tier, "api_tier": a_tier},
+                          f, ensure_ascii=False, indent=2)
+            print(json.dumps(dt, ensure_ascii=False, indent=2))
+        except Exception as e:
+            print("depth-tier error:", e)
+            return 1
+        return 0
+    if "--depth-t3-gate" in sys.argv:
+        try:
+            tg = float(sys.argv[sys.argv.index("--depth-t3-gate") + 1])
+        except Exception:
+            tg = 90.0
+        c_tier, c_names = command_depth_tiers()
+        c_t = _tally(c_tier, c_names)
+        cp = 100.0 * c_t[3] / max(len(c_names), 1)
+        ok = cp >= tg
+        print("GATE command T3-exec depth %.2f%% (T3=%d/%d) >= %.2f%% -> %s" % (
+            cp, c_t[3], len(c_names), tg, "OK" if ok else "FAIL"))
+        return 0 if ok else 1
+    if "--api-t3-gate" in sys.argv:
+        try:
+            at = float(sys.argv[sys.argv.index("--api-t3-gate") + 1])
+        except Exception:
+            at = 90.0
+        a_tier, a_names = api_depth_tiers()
+        a_t = _tally(a_tier, a_names)
+        ap = 100.0 * a_t[3] / max(len(a_names), 1)
+        ok = ap >= at
+        print("GATE api T3-exec depth %.2f%% (T3=%d/%d) >= %.2f%% -> %s" % (
+            ap, a_t[3], len(a_names), at, "OK" if ok else "FAIL"))
+        return 0 if ok else 1
     if "--gate" in sys.argv:
         try:
             target = float(sys.argv[sys.argv.index("--gate") + 1])
