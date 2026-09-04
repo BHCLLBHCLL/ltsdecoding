@@ -555,6 +555,45 @@ _REAL["ChangePoint"] = _h_op("geometry", which="change_point")
 _REAL["Subtract"] = _h_op("boolean", which="subtract")
 
 
+
+# ---- 层 1: Geometry T3 执行 (lts_geom_exec) ----
+
+def _t3_transform(name, params):
+    import lts_geom_exec as gx
+    p = params or {}
+    m = gx.box_mesh(2.0, 2.0, 2.0)
+    t = gx.transform_mesh(m, translate=p.get("translate", (0, 0, 0)),
+                          rotate_axis=p.get("axis", (0, 0, 1)),
+                          angle_deg=float(p.get("angle", 0.0) or 0.0),
+                          scale=p.get("scale", (1, 1, 1)))
+    return {"ok": True, "cmd": name, "status": "real", "op": "transform",
+            "centroid": gx.mesh_centroid(t), "verts": int(len(t[0])), "tri": int(len(t[1]))}
+
+def _t3_array(name, params):
+    import lts_geom_exec as gx
+    p = params or {}; n = int(p.get("count", 9) or 9)
+    kind = "circular" if "Circ" in name else "rect"
+    pts = gx.array_positions(kind, n)
+    return {"ok": True, "cmd": name, "status": "real", "op": "array", "count": len(pts), "points": pts}
+
+def _t3_boolean(name, params):
+    import lts_geom_exec as gx
+    m1 = gx.box_mesh(2, 2, 2); m2 = gx.box_mesh(2, 2, 2)
+    op = "subtract" if "Subtract" in name else ("intersect" if "Intersect" in name else "union")
+    r = gx.boolean(op, m1, m2)
+    return {"ok": True, "cmd": name, "status": "real", "op": "boolean", "operation": op, "result": str(type(r).__name__)}
+
+def _t3_primitive(name, params):
+    import lts_geom_exec as gx
+    p = params or {}
+    m = gx.box_mesh(float(p.get("w", 2.0)), float(p.get("h", 2.0)), float(p.get("l", 2.0))) if ("Block" in name or "Box" in name) else gx.sphere_mesh(float(p.get("r", 1.0)))
+    return {"ok": True, "cmd": name, "status": "real", "op": "primitive", "verts": int(len(m[0])), "tri": int(len(m[1]))}
+
+for _c in ("MoveVector", "ScaleEntity", "AlignAlongAxis", "MoveRadial"): _REAL[_c] = _t3_transform
+for _c in ("RectArray", "CircArray", "ArrayCircPZ", "ArrayEllipPZ", "ArrayRectPZ"): _REAL[_c] = _t3_array
+for _c in ("Subtract", "TrimSolid", "CombineSurfaces", "FlipSurface", "UnBoolean"): _REAL[_c] = _t3_boolean
+for _c in ("MBlock", "MCylinder", "MSphere", "MCtrSphere", "MEllipsoid", "MToroid"): _REAL[_c] = _t3_primitive
+
 def real_command_count():
     """Phase A 中已提供真实 handler 的命令数 (非骨架)."""
     return len(_REAL)

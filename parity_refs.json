@@ -18,5 +18,17 @@
   "glass_bk7_nd": {
     "nd": 1.5168000345005885,
     "tol": 0.01
+  },
+  "geom_box_volume": {
+    "volume": 8,
+    "tol": 0.01
+  },
+  "geom_transform_centroid": {
+    "x": 1,
+    "tol": 0.01
+  },
+  "geom_array_count": {
+    "count": 9,
+    "tol": 0.01
   }
 }

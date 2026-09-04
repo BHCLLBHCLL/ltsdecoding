@@ -7,6 +7,7 @@ lt.exe 生成参考 (超时回退).
 """
 
 import json, os, subprocess, sys, math
+import lts_geom_exec as gel
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 REFS = os.path.join(ROOT, "parity_refs.json")
@@ -99,6 +100,9 @@ CORPUS = [
     {"id": "seq_focal", "kind": "seq", "fn": our_seq_focal, "src": "focal", "tol_key": "focal"},
     {"id": "apod_lambert", "kind": "apod", "fn": our_apod_lambert, "src": "mean", "tol_key": "mean"},
     {"id": "glass_bk7_nd", "kind": "glass", "fn": lambda: our_glass_nd("BK7"), "src": "nd", "tol_key": "nd"},
+    {"id": "geom_box_volume", "kind": "geometry", "fn": lambda: gel.mesh_volume(gel.box_mesh(2, 2, 2)), "src": "volume", "tol_key": "volume"},
+    {"id": "geom_transform_centroid", "kind": "geometry", "fn": lambda: float(gel.mesh_centroid(gel.transform_mesh(gel.box_mesh(2, 2, 2), translate=(1, 2, 3)))[0]), "src": "centroid_x", "tol_key": "x"},
+    {"id": "geom_array_count", "kind": "geometry", "fn": lambda: float(len(gel.array_positions("rect", 9))), "src": "count", "tol_key": "count"},
 ];
 
 
