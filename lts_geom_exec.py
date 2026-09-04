@@ -114,6 +114,38 @@ def boolean(op, m1, m2):
         return {"op": op, "fallback": "mesh-boolean unavailable: " + str(e)}
 
 
+
+# ---- 真实模型上下文 ----
+
+def build_model_solid(kind="block", material="BK7", **params):
+    """在真实 LTSModel 上创建实体, 返回 (model, oid)."""
+    from lts_model import LTSModel
+    import lts_insert
+    m = LTSModel()
+    oid = lts_insert.create_solid(m, kind, name="Geo", material=material, **params)
+    return m, oid
+
+
+def model_solid_tris(kind="block", material="BK7", **params):
+    """创建实体 -> scene_from_model 组装 -> 返回三角形数 (真实模型执行)."""
+    from lts.trace.from_model import scene_from_model
+    m, oid = build_model_solid(kind, material, **params)
+    _scene, meta = scene_from_model(m)
+    return float(meta.get("n_tris", 0))
+
+
+def rearlighting_counts():
+    """加载 LT 实模型 rearlighting.lts -> (sources, receivers, zones)."""
+    import os
+    f = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rearlighting.lts")
+    if not os.path.exists(f):
+        return (0.0, 0.0, 0.0)
+    import lts_parser, lts_optics_bind as ob
+    p = lts_parser.LTSParser(open(f, encoding="utf-8", errors="replace").read()).parse()
+    objs = p.objects
+    nz = sum(1 for o in objs.values() if o.cls == "ORAPropertyZoneObj")
+    return (float(len(ob.bind_sources(objs))), float(len(ob.bind_receivers(objs))), float(nz))
+
 if __name__ == "__main__":
     print("box 2x2x2 volume", round(mesh_volume(box_mesh(2,2,2)), 4))
     print("sphere r=1 verts", len(sphere_mesh(1.0)[0]))

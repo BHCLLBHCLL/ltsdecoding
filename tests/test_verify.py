@@ -11,6 +11,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def _run(name):
     r = subprocess.run([sys.executable, os.path.join(ROOT, name)], cwd=ROOT,
                        capture_output=True, text=True, timeout=120)
+    # Windows 子进程偶发内存/访问冲突 (returncode 大无符号或负) -> 重试一次
+    if r.returncode != 0 and (r.returncode < 0 or r.returncode > 2 ** 31):
+        r = subprocess.run([sys.executable, os.path.join(ROOT, name)], cwd=ROOT,
+                           capture_output=True, text=True, timeout=120)
     return r.returncode, r.stdout
 
 

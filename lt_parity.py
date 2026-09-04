@@ -103,6 +103,9 @@ CORPUS = [
     {"id": "geom_box_volume", "kind": "geometry", "fn": lambda: gel.mesh_volume(gel.box_mesh(2, 2, 2)), "src": "volume", "tol_key": "volume"},
     {"id": "geom_transform_centroid", "kind": "geometry", "fn": lambda: float(gel.mesh_centroid(gel.transform_mesh(gel.box_mesh(2, 2, 2), translate=(1, 2, 3)))[0]), "src": "centroid_x", "tol_key": "x"},
     {"id": "geom_array_count", "kind": "geometry", "fn": lambda: float(len(gel.array_positions("rect", 9))), "src": "count", "tol_key": "count"},
+    {"id": "geom_real_block_tris", "kind": "geometry_model", "fn": lambda: gel.model_solid_tris("block", width=2.0, height=2.0, length=2.0), "src": "tris", "tol_key": "tris"},
+    {"id": "geom_real_sphere_tris", "kind": "geometry_model", "fn": lambda: gel.model_solid_tris("sphere", radius=1.0), "src": "tris", "tol_key": "tris"},
+    {"id": "rearlighting_zones", "kind": "lt_model", "fn": lambda: gel.rearlighting_counts()[2], "src": "zones", "tol_key": "zones"},
 ];
 
 

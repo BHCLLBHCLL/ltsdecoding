@@ -21,6 +21,17 @@ def test_array_count():
     assert len(gx.array_positions("circular", 8)) == 8
 
 
+
+def test_model_solid_tris():
+    assert gx.model_solid_tris("block", width=2.0, height=2.0, length=2.0) >= 12
+    assert gx.model_solid_tris("sphere", radius=1.0) >= 500
+
+def test_rearlighting_counts():
+    s, r, z = gx.rearlighting_counts()
+    if z > 0:
+        assert z >= 100 and s >= 1
+
+
 def test_phase_a_t3_geometry():
     import lts_phase_a as pa
     pa.merge_aliases()

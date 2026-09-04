@@ -30,5 +30,17 @@
   "geom_array_count": {
     "count": 9,
     "tol": 0.01
+  },
+  "geom_real_block_tris": {
+    "tris": 12,
+    "tol": 0.5
+  },
+  "geom_real_sphere_tris": {
+    "tris": 720,
+    "tol": 1
+  },
+  "rearlighting_zones": {
+    "zones": 205,
+    "tol": 1
   }
 }

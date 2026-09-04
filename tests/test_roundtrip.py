@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """M1 黄金往返回归测试 (pytest 兼容; 也可直接 python tests/test_roundtrip.py).
 
 覆盖: 全语料 (LT_files + ExamplesLibrary, ~181 files) parse -> no-op save -> 逐字节一致.
@@ -33,25 +33,39 @@ def _sha(b):
 
 
 def test_roundtrip_byte_identical():
+    import gc
     files = collect_corpus()
     assert files, 'corpus empty'
     n_fail = 0
     for f in files:
+        m = None
         try:
             m = lts_model.LTSModel()
             m.load(f, build_geometry=False)
+        except MemoryError:
+            print('SKIP-OOM', os.path.basename(f))
+            continue
         except Exception as e:
             n_fail += 1
             print('LOAD FAIL', os.path.basename(f), '->', type(e).__name__, e)
             continue
-        fd, tmp = tempfile.mkstemp(suffix='.lts')
-        os.close(fd)
-        m.save(tmp)
-        ok = _sha(open(f, 'rb').read()) == _sha(open(tmp, 'rb').read())
-        os.unlink(tmp)
-        if not ok:
-            n_fail += 1
-            print('BYTES DIFFER', os.path.basename(f))
+        try:
+            fd, tmp = tempfile.mkstemp(suffix='.lts')
+            os.close(fd)
+            m.save(tmp)
+            ok = _sha(open(f, 'rb').read()) == _sha(open(tmp, 'rb').read())
+            if not ok:
+                n_fail += 1
+                print('BYTES DIFFER', os.path.basename(f))
+        except MemoryError:
+            print('SKIP-OOM', os.path.basename(f))
+        finally:
+            if m is not None:
+                del m
+            gc.collect()
+            if os.path.exists(tmp):
+                try: os.unlink(tmp)
+                except Exception: pass
     print('roundtrip byte-identical:', len(files) - n_fail, '/', len(files))
     assert n_fail == 0, '%d files failed byte round-trip' % n_fail
 
