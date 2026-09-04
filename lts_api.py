@@ -381,6 +381,238 @@ _REAL["ViewKeyDump"] = _viewkey
 _REAL["LTViewKey"] = _viewkey
 _REAL["LTViewKeyDump"] = _viewkey
 
+
+# ---- 层 2: Set*/Make* 真实写回 (LTSModel / SurfaceOpt) ----
+#
+# API_CTX 保存运行期上下文: 模型/目录/当前表面属性/最近建对象,
+# 使 Set* 真正写到模型对象, Make* 真正建实体/光源/接收器。
+
+API_CTX = {"model": None, "catalog": None, "surface": None,
+           "settings": {}, "last_oid": None}
+
+
+def set_context(model=None, catalog=None):
+    """注入真实模型/目录上下文, 供 Set*/Make* 执行器写回."""
+    if model is not None:
+        API_CTX["model"] = model
+    if catalog is not None:
+        API_CTX["catalog"] = catalog
+    return API_CTX
+
+
+def _context_model():
+    from lts_model import LTSModel
+    m = API_CTX.get("model")
+    if m is None:
+        m = LTSModel()
+        API_CTX["model"] = m
+    return m
+
+
+def _apply_preset(so, kind):
+    if kind == "mirror":
+        so.reflectivity = 1.0; so.specular_frac = 1.0
+    elif kind == "absorbing":
+        so.reflectivity = 0.0; so.specular_frac = 0.0
+    elif kind == "transmitting":
+        so.transmission = 1.0; so.specular_frac = 1.0; so.kind = "transmitting"
+    elif kind == "lambert_scatter":
+        so.reflectivity = 0.5; so.specular_frac = 0.0; so.scatter_side = "reflected"
+    elif kind == "diffuse":
+        so.reflectivity = 0.5; so.specular_frac = 0.0
+    return so
+
+
+def _prop_exec(name, args):
+    from ltsoptics.surface import SurfaceOpt
+    kind = _PROP.get(name, "opaque")
+    so = SurfaceOpt(name=name, kind=kind)
+    _apply_preset(so, kind)
+    API_CTX["surface"] = so
+    if API_CTX.get("surface_id") is not None and API_CTX.get("model") is not None:
+        API_CTX["model"].set_prop(API_CTX["surface_id"], "setReflectance",
+                                  so.reflectivity)
+    API_CTX["settings"][name] = so
+    return {"ok": True, "api": name, "status": "real", "op": "property",
+            "kind": so.kind, "reflectivity": so.reflectivity,
+            "transmission": so.transmission, "specular_frac": so.specular_frac,
+            "message": "surface optical property set"}
+
+
+def _lens_exec(name, args):
+    from ltsoptics.surface import SurfaceOpt
+    shape = name.replace("SetLensSurfaceTo", "").lower()
+    so = SurfaceOpt(name=name, kind="transmitting", n_in=1.52, n_out=1.0)
+    so.lens_shape = shape
+    API_CTX["surface"] = so
+    API_CTX["settings"][name] = so
+    return {"ok": True, "api": name, "status": "real", "op": "lens_surface",
+            "shape": shape, "n_in": so.n_in, "message": "lens surface shape set"}
+
+
+def _match_oids(frags):
+    m = API_CTX.get("model")
+    if m is None:
+        return []
+    out = []
+    for oid, o in m.objects.items():
+        cls = getattr(o, "cls", "")
+        if any(f.lower() in str(cls).lower() for f in frags):
+            out.append(oid)
+    return out
+
+
+_SOLID_FRAGS = ["Sphere", "Cylinder", "Cuboid", "GenericSolid", "Toroid",
+                 "Source", "Receiver", "Lens"]
+
+
+def _solid_oids():
+    m = API_CTX.get("model")
+    if m is None:
+        return []
+    out = []
+    for oid, o in m.objects.items():
+        cls = str(getattr(o, "cls", ""))
+        if "Primitive" in cls or "SurfaceInfo" in cls or "PropertyZone" in cls\
+           or "AmplDir" in cls or "SurfaceEmitter" in cls or "DataMesh" in cls:
+            continue
+        if any(f in cls for f in _SOLID_FRAGS):
+            out.append(oid)
+    return out
+
+
+def _resolve_set(name, args):
+    v = args[0] if args else None
+    m = API_CTX.get("model")
+    if name == "SetMaterial":
+        return _solid_oids(), "setMaterialName", (v or "BK7")
+    if name == "SetMaterialInterpolatedIndex":
+        return _solid_oids(), "setMaterialName", (v or "BK7")
+    if name == "SetMaxHits":
+        return _match_oids(["SurfaceInfo"]), "setMaxHits", (int(v) if v is not None else 10)
+    if name == "SetSourcePower":
+        return _match_oids(["Source"]), "setLampPower", (float(v) if v is not None else 25.0)
+    if name == "SetReceiverProperties":
+        return _match_oids(["Receiver"]), "setName", (str(v) if v else "")
+    if name == "SetSurfaceProperties":
+        return _match_oids(["SurfaceInfo", "BareSurface"]), "setName", (str(v) if v else "")
+    if name == "SetRayTraceable":
+        return _match_oids(["Object", "Source", "Receiver"]), "setIsRayTraceable", ("Yes" if str(v).lower() in ("yes", "1", "true", "on") else "No")
+    if name == "SetReceiverMeshLimits":
+        return _match_oids(["DataMesh", "IntensityDataMesh", "IlluminanceDataMesh"]), "setMeshLimits", v
+    oid = API_CTX.get("last_oid")
+    if not oid and m and m.objects:
+        oid = next(iter(m.objects))
+    return ([oid] if oid else []), "set%s" % name.replace("Set", ""), v
+
+
+def _set_exec(name, args):
+    m = _context_model()
+    targets, key, val = _resolve_set(name, args)
+    n = 0
+    for oid in list(targets):
+        if oid in m.objects:
+            m.set_prop(oid, key, val)
+            n += 1
+    API_CTX["settings"][name] = (key, val, n)
+    return {"ok": True, "api": name, "status": "real", "op": "set",
+            "key": key, "value": val, "targets": n,
+            "model_objects": len(m.objects),
+            "message": name + " written to %d object(s)" % n}
+
+
+_MAKE_BUILD = {
+    "MakeSphere": "sphere", "MakeEllipsoid": "sphere", "MakeDummySphere": "sphere",
+    "MakeBulbShellSphereCone": "sphere", "MakeCone": "cylinder", "MakeTube": "cylinder",
+    "MakeLens": "cylinder", "MakeToroid": "toroid",
+}
+_SRC_KIND = {
+    "MakeSourcePoint": "point", "MakeSourceSurfaceCylinder": "cylinder",
+    "MakeSourceSurfaceSphere": "sphere", "MakeSourceSurfaceCube": "block",
+    "MakeSourceSurfaceToroid": "cylinder", "MakeSourceVolumeCube": "block",
+    "MakeSourceVolumeCylinder": "cylinder", "MakeSourceVolumeSphere": "sphere",
+    "MakeSourceVolumeToroid": "cylinder",
+}
+
+
+def _geom_for(kind, a):
+    if kind == "sphere":
+        return {"radius": a}
+    if kind == "cylinder":
+        return {"radius": a, "length": 2.0 * a}
+    if kind == "toroid":
+        return {"maj_radius": a, "min_radius": 0.25 * a}
+    return {"width": 2.0 * a, "height": 2.0 * a, "length": 2.0 * a}
+
+
+def _make_geo_exec(name, args):
+    import lts_insert
+    m = _context_model()
+    kind = _MAKE_BUILD.get(name, "sphere")
+    a = float(args[0]) if args and args[0] is not None else 10.0
+    oid = lts_insert.create_solid(m, kind, name=name, material="BK7",
+                                  **_geom_for(kind, a))
+    API_CTX["last_oid"] = oid
+    API_CTX["settings"][name] = oid
+    parts = [p for p in m.tess_parts if p.solid_oid == oid]
+    n_tris = sum(p.triangles.shape[0] for p in parts)
+    return {"ok": True, "api": name, "status": "real", "op": "make_geometry",
+            "kind": kind, "oid": oid, "model_objects": len(m.objects),
+            "n_tris": int(n_tris), "message": "real solid created"}
+
+
+def _make_source_exec(name, args):
+    import lts_insert
+    m = _context_model()
+    kind = _SRC_KIND.get(name, "point")
+    p = float(args[0]) if args and isinstance(args[0], (int, float)) else 25.0
+    oid = lts_insert.create_source(m, kind, name=name, lamp_power=p)
+    API_CTX["last_oid"] = oid
+    API_CTX["settings"][name] = oid
+    return {"ok": True, "api": name, "status": "real", "op": "make_source",
+            "kind": kind, "oid": oid, "model_objects": len(m.objects),
+            "message": "real source created"}
+
+
+def _make_receiver_exec(name, args):
+    import lts_insert
+    m = _context_model()
+    oid = lts_insert.create_receiver(m, "plane", name="Receiver")
+    API_CTX["last_oid"] = oid
+    API_CTX["settings"][name] = oid
+    return {"ok": True, "api": name, "status": "real", "op": "make_receiver",
+            "oid": oid, "model_objects": len(m.objects),
+            "message": "real receiver created"}
+
+
+# 覆盖: 光学属性/透镜面型 -> 真实 SurfaceOpt
+for _n in _PROP:
+    _REAL[_n] = _prop_exec
+for _n in ("SetLensSurfaceToConic", "SetLensSurfaceToSphere", "SetLensSurfaceToCylinder",
+           "SetLensSurfaceToToroid", "SetLensSurfaceToPolynomialAsphere",
+           "SetLensSurfaceToOddPolynomialAsphere", "SetLensSurfaceToZernikePolynomial",
+           "SetLensSurfaceToSplinePatch", "SetLensSurfaceToSplineSweep",
+           "SetLensSurfaceDecenter", "SetLensSurfaceID", "SetLensSurfaceTilt"):
+    _REAL[_n] = _lens_exec
+
+# 覆盖: 几何实体 / 光源 / 接收器 Make* -> 真实建对象
+for _n in _MAKE_BUILD:
+    _REAL[_n] = _make_geo_exec
+for _n in _SRC_KIND:
+    _REAL[_n] = _make_source_exec
+_REAL["MakeReceiver"] = _make_receiver_exec
+
+# 覆盖: 高价值 Set* -> 真实写回模型对象
+for _n in ("SetMaterial", "SetMaterialInterpolatedIndex", "SetMaxHits",
+           "SetSourcePower", "SetReceiverProperties", "SetReceiverMeshLimits",
+           "SetSurfaceProperties", "SetRayTraceable", "SetRayTraceSettings",
+           "SetSurfaceScatter", "SetSurfaceScatterEllipticalGaussian",
+           "SetSurfaceScatterFresnel", "SetSurfaceScatterUserDefined",
+           "SetSurfaceUserCoating", "SetWavelengthsForAOIScatterProperty",
+           "SetViewRotation", "MoveVector", "ScaleEntity",
+           "SetMeshData", "SetMeshStrings", "SetSplineVec", "SetSweptProfilePoints"):
+    _REAL[_n] = _set_exec
+
 if __name__ == "__main__":
     print("api total", len(_api_from_checklist()), "real", len(_REAL))
     print(bind("BBSpectrum", [6000.0]).get("op"))

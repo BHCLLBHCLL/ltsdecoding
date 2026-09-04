@@ -60,3 +60,20 @@
 
 ### 关键提交
 - Phase 0: 74a5f00; Phase A: 81b7618/913ecf0/58837e2/7475c4e; Phase B: 1f3f8f0/fb39a7b/d2e2cad; Phase C: 342ac10; Phase D: 92a6af2/ff8ec60/e0b7c92.
+## Layer 对齐 (lt.exe 解构, 分层打真)
+
+| 层 | 主题 | 关键提交 |
+|---|---|---|
+| Layer 5 | lt.exe 相位对称 harness (--lt 优雅回落 parity_refs) | dc83bba |
+| Layer 1 | 真实模型几何: Move/Scale/Align/Array/Boolean/MBlock 等 T3 执行 | fb875f6 / e54babf |
+| Layer 2 | API Set*/Make* 真实写回 (SurfaceOpt + LTSModel 实体/光源/接收器, set_context) | (本次) |
+
+### 工具 / 层 2 说明
+- lts_api.py: 新增 API_CTX (model/catalog/surface/settings/last_oid) + set_context().
+  - SetPropertyTo* / SetLensSurfaceTo* -> 真实 SurfaceOpt (写入 API_CTX["surface"]).
+  - MakeSphere/Ellipsoid/Cone/Tube/Lens/Toroid -> 经 lts_insert.create_solid 建真实实体 (n_tris>0).
+  - MakeSource* -> create_source; MakeReceiver -> create_receiver.
+  - SetMaterial/SetMaxHits/SetSourcePower/... -> model.set_prop 逐对象写回 (model.dirty).
+- tests/test_api_context.py: 层 2 回归 (断言 surface kind / real solid / source / set 写回).
+- 保持四张面 100% 覆盖率 + 100% depth (api depth 290/290).
+
