@@ -42,5 +42,29 @@
   "rearlighting_zones": {
     "zones": 205,
     "tol": 1
+  },
+  "geom_csg_union_vol": {
+    "volume": 12.0,
+    "tol": 0.02
+  },
+  "geom_csg_cut_vol": {
+    "volume": 4.0,
+    "tol": 0.02
+  },
+  "geom_csg_inter_vol": {
+    "volume": 4.0,
+    "tol": 0.02
+  },
+  "rearlighting_bodies": {
+    "bodies": 120,
+    "tol": 0.5
+  },
+  "rearlighting_mesh_tris": {
+    "tris": 57589,
+    "tol": 1.0
+  },
+  "rearlighting_trace_escape": {
+    "escape": 0.2094711843559731,
+    "tol": 0.03
   }
 }

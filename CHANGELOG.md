@@ -66,6 +66,7 @@
 |---|---|---|
 | Layer 5 | lt.exe 相位对称 harness (--lt 优雅回落 parity_refs) | dc83bba |
 | Layer 1 | 真实模型几何: Move/Scale/Align/Array/Boolean/MBlock 等 T3 执行 | fb875f6 / e54babf |
+| Layer 1深化 | CSG 真实模型: 两实体 union/subtract/common -> 结果写回真实模型 (OCC B-rep / manifold3d); rearlighting 全文追迹+网格语料 | (本次) |
 | Layer 2 | API Set*/Make* 真实写回 (SurfaceOpt + LTSModel 实体/光源/接收器, set_context) | (本次) |
 
 ### 工具 / 层 2 说明
@@ -76,4 +77,10 @@
   - SetMaterial/SetMaxHits/SetSourcePower/... -> model.set_prop 逐对象写回 (model.dirty).
 - tests/test_api_context.py: 层 2 回归 (断言 surface kind / real solid / source / set 写回).
 - 保持四张面 100% 覆盖率 + 100% depth (api depth 290/290).
+### 工具 / Layer 1 深化说明
+- lts_occ.py: 修复 trimesh remove_duplicate_faces 缺失导致的布尔静默回退 (manifold3d 现给出真实 union/cut/common 网格体积).
+- lts_geom_exec.py: 新增 model_boolean / model_csg_volume / model_csg_tris (真实 CSG: 同模型建两实体 -> lts_occ 布尔 -> insert_mesh 结果写回 -> 体积 diff; OCC 用时 GProp 精确体积).
+  - 新增 rearlighting_geom / rearlighting_trace (模块级缓存一次: 网格语料 bodies/mesh_tris/scene_tris + 全文正向追迹 launched/absorbed/escaped/逃逸占比/通量守恒).
+- lt_parity.py + parity_refs.json: 语料 11 -> 17 (geom_csg_union/cut/inter_vol, rearlighting_bodies, rearlighting_mesh_tris, rearlighting_trace_escape), 全 PASS.
+
 

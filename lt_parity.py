@@ -106,6 +106,12 @@ CORPUS = [
     {"id": "geom_real_block_tris", "kind": "geometry_model", "fn": lambda: gel.model_solid_tris("block", width=2.0, height=2.0, length=2.0), "src": "tris", "tol_key": "tris"},
     {"id": "geom_real_sphere_tris", "kind": "geometry_model", "fn": lambda: gel.model_solid_tris("sphere", radius=1.0), "src": "tris", "tol_key": "tris"},
     {"id": "rearlighting_zones", "kind": "lt_model", "fn": lambda: gel.rearlighting_counts()[2], "src": "zones", "tol_key": "zones"},
+    {"id": "geom_csg_union_vol", "kind": "geometry_csg", "fn": lambda: gel.model_csg_volume("fuse", "block", {"width": 2.0, "height": 2.0, "length": 2.0}, "block", {"width": 2.0, "height": 2.0, "length": 2.0, "position": (1.0, 0.0, 0.0)}), "src": "volume", "tol_key": "volume"},
+    {"id": "geom_csg_cut_vol", "kind": "geometry_csg", "fn": lambda: gel.model_csg_volume("cut", "block", {"width": 2.0, "height": 2.0, "length": 2.0}, "block", {"width": 2.0, "height": 2.0, "length": 2.0, "position": (1.0, 0.0, 0.0)}), "src": "volume", "tol_key": "volume"},
+    {"id": "geom_csg_inter_vol", "kind": "geometry_csg", "fn": lambda: gel.model_csg_volume("common", "block", {"width": 2.0, "height": 2.0, "length": 2.0}, "block", {"width": 2.0, "height": 2.0, "length": 2.0, "position": (1.0, 0.0, 0.0)}), "src": "volume", "tol_key": "volume"},
+    {"id": "rearlighting_bodies", "kind": "lt_model", "fn": lambda: float(gel.rearlighting_geom().get("bodies", 0.0)), "src": "bodies", "tol_key": "bodies"},
+    {"id": "rearlighting_mesh_tris", "kind": "lt_model", "fn": lambda: float(gel.rearlighting_geom().get("mesh_tris", 0.0)), "src": "tris", "tol_key": "tris"},
+    {"id": "rearlighting_trace_escape", "kind": "lt_trace", "fn": lambda: float(gel.rearlighting_trace().get("escaped_frac", 0.0)), "src": "escape", "tol_key": "escape"},
 ];
 
 

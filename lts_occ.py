@@ -519,8 +519,14 @@ def _manifold_boolean(op: str, pts_a, tris_a, pts_b, tris_b
     mb = trimesh.Trimesh(vertices=np.asarray(pts_b, float),
                          faces=np.asarray(tris_b, np.int32),
                          process=False)
-    ma.remove_duplicate_faces()
-    mb.remove_duplicate_faces()
+    try:
+        ma.remove_duplicate_faces()
+    except Exception:
+        pass
+    try:
+        mb.remove_duplicate_faces()
+    except Exception:
+        pass
     engine = "manifold"
     if op == "fuse":
         out = trimesh.boolean.union([ma, mb], engine=engine)

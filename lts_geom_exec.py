@@ -146,6 +146,138 @@ def rearlighting_counts():
     nz = sum(1 for o in objs.values() if o.cls == "ORAPropertyZoneObj")
     return (float(len(ob.bind_sources(objs))), float(len(ob.bind_receivers(objs))), float(nz))
 
+
+
+# ---- 层 1 深化: 布尔/CSG 真实模型 ----
+
+def _solid_mesh(m, oid):
+    """从真实 LTSModel 提取实体 oid 的 tessellation (pts, tris)."""
+    for p in m.tess_parts:
+        if p.solid_oid == oid:
+            return np.asarray(p.points, dtype=float), np.asarray(p.triangles, dtype=np.int32)
+    return np.zeros((0, 3)), np.zeros((0, 3), np.int32)
+
+
+def _solid_on(m, kind, name="Geo", material="BK7", **params):
+    import lts_insert
+    return lts_insert.create_solid(m, kind, name=name, material=material, **params)
+
+
+def model_boolean(op="fuse", kind1="block", p1=None, kind2="sphere", p2=None):
+    """真实模型 CSG: 同一模型上建两实体 -> lts_occ 布尔(union/cut/common) -> 结果
+    作为真实实体 insert_mesh 写回 -> 返回结果 tessellation/体积/引擎.
+
+    OCC 可用时走 B-rep (GProp 精确体积), 否则 manifold3d (网格体积).
+    """
+    p1 = p1 or {}
+    p2 = p2 or {}
+    from lts_model import LTSModel
+    m = LTSModel()
+    oid1 = _solid_on(m, kind1, name="A", **p1)
+    oid2 = _solid_on(m, kind2, name="B", **p2)
+    a = _solid_mesh(m, oid1)
+    b = _solid_mesh(m, oid2)
+    res = boolean(op, a, b)
+    if isinstance(res, dict):
+        return {"ok": False, "op": op, "engine": "none", "oid1": oid1,
+                "oid2": oid2, "n_tris": 0, "volume": 0.0,
+                "fallback": res.get("fallback")}
+    pts, tris, shape = res
+    vol = mesh_volume((pts, tris))
+    if shape is not None:
+        try:
+            import lts_occ as lo
+            sm = lo.shape_metrics(shape)
+            if sm and sm.get("volume"):
+                vol = float(sm["volume"])
+        except Exception:
+            pass
+    n_tris = int(tris.shape[0])
+    engine = "OCC" if shape is not None else "manifold3d"
+    res_oid = m.insert_mesh("CSG_" + op, np.asarray(pts, float),
+                            np.asarray(tris, np.int32), material="BK7",
+                            kind="solid", color=(0.45, 0.62, 0.92))
+    return {"ok": True, "op": op, "engine": engine, "oid1": oid1, "oid2": oid2,
+            "result_oid": res_oid, "n_tris": n_tris, "volume": float(vol),
+            "model_objects": len(m.objects), "n_tris_result": n_tris}
+
+
+def model_csg_volume(op="fuse", kind1="block", p1=None, kind2="block", p2=None):
+    """CSG 结果落到真实模型后返回结果实体体积 (供 lt_parity 对标)."""
+    r = model_boolean(op, kind1, p1, kind2, p2)
+    return float(r.get("volume", 0.0)) if r.get("ok") else None
+
+
+def model_csg_tris(op="fuse", kind1="block", p1=None, kind2="block", p2=None):
+    r = model_boolean(op, kind1, p1, kind2, p2)
+    return float(r.get("n_tris", 0.0)) if r.get("ok") else None
+
+
+
+
+
+# ---- 层 1 深化: rearlighting 全文追迹 / 网格语料 ----
+
+_RL = {"full": None}
+
+
+def _rl_find():
+    import os
+    f = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rearlighting.lts")
+    return f if os.path.exists(f) else None
+
+
+def _rl_full():
+    """一次性缓存: rearlighting 网格语料 + 全文正向追迹统计.
+
+    模型装载/场景/追迹只做一次, 供 lt_parity 多个语料项复用.
+    返回 dict (ok / objects / bodies / mesh_tris / scene_tris / parts /
+              launched / absorbed / escaped / escaped_frac / conservation_rel).
+    """
+    if _RL["full"] is not None:
+        return _RL["full"]
+    f = _rl_find()
+    if f is None:
+        _RL["full"] = {"ok": False}
+        return _RL["full"]
+    from lts_model import LTSModel
+    m = LTSModel()
+    m.load(f)
+    from lts.trace.from_model import run_forward
+    pack = run_forward(m, n_per_source=4, max_tris=60000, preview=0, seed=1)
+    res = pack["result"]
+    meta = pack.get("meta") or {}
+    escaped = float(res.escaped)
+    launched = float(res.launched)
+    cons = float(res.absorbed) + escaped
+    _RL["full"] = {
+        "ok": True,
+        "objects": len(m.objects),
+        "bodies": len(m.geo_boxes),
+        "mesh_tris": int(sum(b.n_tris for b in m.geo_boxes)),
+        "scene_tris": int(meta.get("n_tris", 0)),
+        "parts": int(meta.get("n_parts", 0)),
+        "launched": int(launched),
+        "absorbed": int(res.absorbed),
+        "escaped": int(escaped),
+        "escaped_frac": escaped / max(launched, 1e-12),
+        "conservation_rel": abs(cons - launched) / max(launched, 1e-12),
+    }
+    return _RL["full"]
+
+
+def rearlighting_geom():
+    """rearlighting 网格语料: (实体数, 网格三角, 场景追迹三角/部件)."""
+    d = _rl_full()
+    return {"ok": d.get("ok", False), "objects": d.get("objects"),
+            "bodies": d.get("bodies"), "mesh_tris": d.get("mesh_tris"),
+            "scene_tris": d.get("scene_tris"), "parts": d.get("parts")}
+
+
+def rearlighting_trace(n=4, seed=1):
+    """rearlighting 全文正向追迹 (种子里确定性): 通量守恒 + 逃逸占比."""
+    return _rl_full()
+
 if __name__ == "__main__":
     print("box 2x2x2 volume", round(mesh_volume(box_mesh(2,2,2)), 4))
     print("sphere r=1 verts", len(sphere_mesh(1.0)[0]))
