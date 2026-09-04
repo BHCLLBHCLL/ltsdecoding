@@ -31,6 +31,23 @@
 
 ---
 
+
+## 0.5 R1/R2 进展（2026-09-04，本轮实测）
+
+### R1 · OCC 精确几何一等公民 —— 已集成并验证
+- lts_occ 现支持 **pythonocc-core（OCC.Core）** 后端：修复 GProp 检测（from OCC.Core.BRepGProp import brepgprop，静态 brepgprop.VolumeProperties/SurfaceProperties），occ_available()=True。
+- **运行时 = conda env occ**（conda-forge pythonocc-core + numpy/PyQt5/vtk/manifold3d/pytest；仅缺 requests/sklearn 不相关）。经 run_occ.ps1 前置 occ 环境的 Library/bin 入 PATH（OpenBLAS/OCC DLL 延迟加载必需），并设 PYTHONIOENCODING=utf-8（occ env 控制台默认 cp1252，打印中文会 UnicodeEncodeError）。
+- 验证（occ env）：engine=OCC.Core；GProp 精确体积/面积/质心（box: vol=8, area=24）；OCC B-rep 布尔 boolean_meshes 返回 OCC shape，model_boolean 走 engine=OCC 且 union=12/cut=4 **精确**；STEP/IGES 往返保体积（sphere vol=33.51）；verify_cad_exchange.py 由 SKIP 转正 → 59/66 OK。
+- **base env 已装 cadquery-ocp(OCP) 但其扩展 DLL 加载失败**（from OCP.OCP import * → DLL load failed），故 base 回退 manifold3d（geom_csg 仍 12/4/4，正常）。tests/test_occ.py **OCC 门控**：occ env 5 通过，base 5 跳过（基础套件 278 passed, 5 skipped）。
+
+### R2 · lt.exe 无头 / COM 对表 —— 已打通
+- lt.exe CLI -macro/-run/-batch 均 >6s 超时（启动完整 GUI/About/许可框）。
+- **COM Dispatch("LightTools.LTAPI3") + DialogWatchdog 连接成功**（约 12–20s，看门狗自动关 About/许可对话框）。
+- 新模块 **lt_com.py**：LTSessionCOM.connect/cmd/eval/dbget/getvar/close，封装真实 LT API（Cmd/Eval/DbGet/GetVar…）。
+- lt_parity --lt 改走 COM：连接 → Eval 探针 → **live LT 派生基线**（macro_for_sum LT Eval("1+2+3+4+5")=15.0），与 ours 15.0 **rel=0 MATCH**。
+- 注：LicenseIsAvailable() 返回 False，但 Cmd/Eval 可执行（计算引擎可用）。其余语料项需逐用例的 LT 命令映射（R2 剩余，G3）。
+
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
@@ -50,7 +67,7 @@
 |---|---|---|---|---|
 | G1 | **命令/API 执行深度** | 13 result / 557 intent / 140 void | T3 覆盖 ≥90%（先补高密度子系统） | 决定「能不能真的做 LT 做的事」 |
 | G2 | **几何 B-rep 内核** | manifold3d；无 OCC；SAT/STEP/IGES 全 False | OCC 转正；B-rep 布尔/质量属性/CAD 交换 | LT 是 ACIS B-rep，精确几何/形状保真的根 |
-| G3 | **实时 LT 交叉验证** | `lt.exe` headless 超时；COM 阶段B 不可跑 | headless/COM 打通（看门狗关 About/许可框）→ ref 变真 LT 派生 | 「与 LT 对表」成为可能而非自说自话 |
+| G3 | **实时 LT 交叉验证** | `lt.exe` CLI 超时；COM 已通（看门狗），live ref 已验证 | headless/COM 打通 → ref 变真 LT 派生 | 「与 LT 对表」成为可能而非自说自话 |
 | G4 | **模型作者化写回** | `lts_insert`/`create_solid` 生成本地 .lts；未验证 LT 可开 | 写出的 .lts 被 LT 正常打开；SAT 精确导出 | 完成「可写」闭环 |
 | G5 | **物理等价单测** | 有多项物理实现；对表用例少 | 解析解+LT 双路径逐特性对表（Fresnel 平板/TIR 棱镜/理想透镜/BSDF K-S/GRIN/色度） | 证明物理正确而非仅可实现 |
 | G6 | **UI 功能等价** | M-UI1/M-UI2 完成；116+ NYI/薄处理 | 每 LT 操作有真实执行入口 | 「界面等价」落到功能 |
@@ -114,7 +131,7 @@ R6 依赖 R3/R1             │
 
 | 风险 | 影响 | 对策 |
 |---|---|---|
-| OCC 在本环境不可用/编译失败 | R1/R5 阻塞 | cadquery-ocp 轮子优先（免编译）；失败则 fallback：`manifold3d` + 自研 SAT/B-rep 轻量求值，标注为非精确 |
+| OCC 在本环境不可用/编译失败 | R1/R5 阻塞 | **已解（partial）**：conda env occ 有 pythonocc-core；base 的 cadquery-ocp(OCP) 扩展 DLL 加载失败；occ 环境必须前置其 Library/bin 入 PATH（OpenBLAS delay-load）否则 numpy matmul segfault (0xc06d007f)；run_occ.ps1 封装 |
 | lt.exe 无头超时（许可/About 框） | R2/R7 对表阻塞 | 看门狗关闭对话框 + 宏模式无 UI 启动；超时则 ref 标为「p-in（自洽）」，_audit 记录真实 LT 缺口 |
 | 执行深度主观难分 | R0 分类器失真 | 以「是否变更模型状态 or 产出可复算载荷」为客观判据，人工校准 10% 样本 |
 | 蒙特卡洛性能 | R4/R7 | numpy 向量化起步，预留 Embree/CUDA 后端；黑白盒基准 |

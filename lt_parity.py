@@ -147,13 +147,50 @@ def report(rows, ok_all):
     return ok_all
 
 
+def _lt_status(rows):
+    """--lt: 经 COM 连接真实 LightTools, 取 Eval/Cmd 的 "LT 派生" 基线并对表."""
+    import lt_com
+    s = lt_com.LTSessionCOM()
+    ok = s.connect()
+    print("lt.exe COM: %s" % s.status())
+    if not ok:
+        print("  (LT COM unavailable: %s)" % s._err)
+        return
+    probes = {}
+    for expr in ("2+3", "Sqrt(16.0)", "1.5*4", "PI"):
+        try:
+            probes[expr] = s.eval(expr)
+        except Exception:
+            pass
+    print("LT Eval probes: %s" % probes)
+    try:
+        s.cmd("NewModel")
+    except Exception:
+        pass
+    live = {}
+    try:
+        live["macro_for_sum"] = s.eval("1+2+3+4+5")
+    except Exception:
+        pass
+    print("LT-derived refs (live): %s" % live)
+    for row in rows:
+        rid = row.get("id")
+        if rid in live:
+            ours = row.get("ours")
+            rv = live[rid]
+            if ours is not None:
+                rel = abs(float(ours) - float(rv)) / max(abs(float(rv)), 1e-9)
+                print("  live-diff %-18s ours=%-10s lt=%-10s rel=%.2e %s" % (
+                    rid, ours, rv, rel, "MATCH" if rel <= 0.01 else "DIFF"))
+    s.close()
+
+
 def main():
     rows, ok_all = run();
     if "--json" in sys.argv:
         print(json.dumps({"rows": rows, "ok": ok_all}, ensure_ascii=False, indent=2)); return 0
     if "--lt" in sys.argv:
-        m = CORPUS[1]; r = run_lt_macro("s=0\nFOR i=1 TO 5\ns=s+i\nNEXT\nPRINT s");
-        print("lt.exe run:", ("ok rc=%s out=%s" % (r[0], r[1][:40])) if r else "unavailable/timeout");
+        _lt_status(rows)
     ok = report(rows, ok_all);
     if "--gate" in sys.argv:
         return 0 if ok else 1;

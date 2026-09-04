@@ -79,11 +79,22 @@ try:
         STEPControl_Reader = None
     try:
         from OCC.Core.GProp import GProp_GProps
-        from OCC.Core.BRepGProp import BRepGProp
         from OCC.Core.Bnd import Bnd_Box
-        from OCC.Core.BRepBndLib import brepbndlib
-        _BNDBND = brepbndlib
-        _FX["gprop"] = True
+        try:
+            from OCC.Core.BRepGProp import BRepGProp
+        except Exception:
+            try:
+                from OCC.Core.BRepGProp import brepgprop as BRepGProp
+            except Exception:
+                BRepGProp = None
+        if BRepGProp is not None:
+            try:
+                from OCC.Core.BRepBndLib import brepbndlib
+                _BNDBND = brepbndlib
+            except Exception:
+                from OCC.Core.BRepBndLib import BRepBndLib
+                _BNDBND = BRepBndLib
+            _FX["gprop"] = True
     except Exception:
         pass
     try:
