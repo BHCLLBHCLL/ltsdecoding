@@ -110,6 +110,12 @@
 - 验证(occ): block/cylinder mesh vs OCC rel=0 (tessellation 精确); sphere(48 段) mean_rel=4e-4 (<0.1%); OCC block ray t=[4,6] (精确入口/出口)。
 - test_occ 增 test_occ_ray_intersection_exact + test_occ_ray_mesh_agree (块精确, 球体<1%); occ 下 10 通过; ci_occ 全 PASS; base 285 passed / 10 skipped。
 
+
+### R3 收尾 · verify_raytrace_occ 全模型逐射线校验（2026-09-04 续）
+- lts_geom_exec 增 occ_mesh_ray_verify(mesh) (任意网格缝成 OCC B-rep, 外圈向质心发射射线, mesh_ray_nearest vs ray_intersect 交叉验证) + occ_model_ray_verify(model) (真实模型最大实体)。
+- 新验证器 verify_raytrace_occ.py: 阶段A 图元级 (block/cylinder 精确, sphere<0.1%) + 阶段B --model rearlighting 最大实体 (sphere 2690 tris 等, mesh vs OCC rel=0)。OCC 不可用 SKIP; 接入 ci_occ.ps1 -Full。
+- 验证: ci_occ -Full 全 PASS (cad_exchange 59/66 + ray-occ 图元/模型精确 + test_occ 10 + parity 15 OCC)；base geom/sketch 15 passed (无回归)。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

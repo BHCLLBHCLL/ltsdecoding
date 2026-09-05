@@ -1,5 +1,5 @@
 # ci_occ.ps1 - occ 运行时 CI (pythonocc-core OCC 一等公民)
-# 在 conda env "occ" 下运行 OCC 专项: occ 可用性 + test_occ + lt_parity --gate(OCC 语料) [+CAD 交换].
+# 在 conda env "occ" 下运行 OCC 专项: occ 可用性 + test_occ + lt_parity --gate(OCC 语料) [+CAD 交换 + ray-occ].
 # 用法: powershell -File ci_occ.ps1   ;  ci_occ.ps1 -Full
 param([switch]$Full)
 $ErrorActionPreference = "Stop"
@@ -27,5 +27,9 @@ if ($Full) {
     Write-Host "== verify_cad_exchange (OCC CAD exchange) =="
     & $py "$root\verify_cad_exchange.py"
     if ($LASTEXITCODE -ne 0) { throw "verify_cad_exchange failed" }
+
+    Write-Host "== verify_raytrace_occ (OCC precise-intersection raytrace verify) =="
+    & $py "$root\verify_raytrace_occ.py" --model
+    if ($LASTEXITCODE -ne 0) { throw "verify_raytrace_occ failed" }
 }
 Write-Host "== OCC CI OK =="

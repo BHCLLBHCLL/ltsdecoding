@@ -467,6 +467,65 @@ def occ_ray_verify(kind, **params):
     return {"n": len(rels), "max_rel": max(rels),
             "mean_rel": sum(rels) / len(rels)}
 
+
+
+
+def occ_mesh_ray_verify(mesh, n_dirs=9):
+    """对任意网格: 缝成 OCC B-rep (shape_from_mesh) 后, 从外圈向质心发射射线,
+    交叉验证 mesh_ray_nearest vs ray_intersect 的命中距离. 返回 dict(n,max_rel,mean_rel)."""
+    import lts_occ as lo
+    v = np.asarray(mesh[0], dtype=float)
+    tr = np.asarray(mesh[1], dtype=np.int32)
+    if len(v) == 0 or len(tr) == 0:
+        return None
+    lo_, hi = v.min(0), v.max(0)
+    center = 0.5 * (lo_ + hi)
+    diag = float(np.linalg.norm(hi - lo_)) or 1.0
+    shape = lo.shape_from_mesh(v, tr)
+    if shape is None:
+        return None
+    raw = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1], [-1, 1, -1],
+           [1, -1, 1], [-1, -1, 1], [0.5, 1.0, 0.2], [-0.3, 0.7, 1.0]]
+    dirs = raw[:n_dirs]
+    rels = []
+    for dd in dirs:
+        d = np.asarray(dd, dtype=float)
+        d = d / (np.linalg.norm(d) or 1.0)
+        origin = tuple(center + d * (diag + 1.0))
+        direction = tuple(-d)
+        hits = lo.ray_intersect(shape, origin, direction, tmax=2.0 * (diag + 1.0))
+        if not hits:
+            continue
+        t_occ = hits[0][0]
+        t_mesh = mesh_ray_nearest(origin, direction, mesh)
+        if t_mesh is not None:
+            rels.append(abs(t_occ - t_mesh) / max(t_occ, 1e-9))
+    if not rels:
+        return None
+    return {"n": len(rels), "max_rel": max(rels),
+            "mean_rel": sum(rels) / len(rels)}
+
+
+def occ_model_ray_verify(model, n_solids=3, n_dirs=9):
+    """对真实模型最大的 n_solids 个实体做网格 vs OCC 逐射线校验.
+
+    model: LTSModel. 返回 (dict(n_solids, max_rel, mean_rel), per-solid 列表).
+    """
+    parts = sorted(model.tess_parts, key=lambda p: len(p.triangles), reverse=True)[:n_solids]
+    per = []
+    rels = []
+    for p in parts:
+        m = occ_mesh_ray_verify((p.points, p.triangles), n_dirs=n_dirs)
+        if m is None:
+            continue
+        per.append({"solid": p.solid_oid, "tris": len(p.triangles),
+                    "mean_rel": m["mean_rel"], "max_rel": m["max_rel"]})
+        rels.append(m["mean_rel"])
+    if not rels:
+        return None, per
+    return {"n_solids": len(rels), "mean_rel": sum(rels) / len(rels),
+            "max_rel": max(rels)}, per
+
 if __name__ == "__main__":
     print("box 2x2x2 volume", round(mesh_volume(box_mesh(2,2,2)), 4))
     print("sphere r=1 verts", len(sphere_mesh(1.0)[0]))
