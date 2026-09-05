@@ -124,6 +124,15 @@ class LTSModel:
         obj = self.objects[oid]
         obj.props[key] = value
 
+    def unset_prop(self, oid: str, key: str) -> None:
+        """移除属性 (撤销事务用): 同步清 props 与 edits 缓冲."""
+        if oid not in self.objects:
+            return
+        self.objects[oid].props.pop(key, None)
+        d = self.edits.get(oid)
+        if d is not None:
+            d.pop(key, None)
+
     def delete_object(self, oid: str) -> None:
         if oid not in self.deletions:
             self.deletions.append(oid)
@@ -181,6 +190,46 @@ class LTSModel:
         self.inserted_oids = []
         return True
 
+    def _sat_text_for_part(self, obj):
+        """网格实体 (无 raw_sat) -> LT 原生内嵌 SAT 文本 (OCC 序列化).
+
+        仅当 OCC 可用且存在对应 tess_part 时: mesh -> sew B-rep -> SAT,
+        写回的 .lts 与带 SAT 导入实体同构 (G4/LT 打开几何完整)。
+        失败时返回 None (调用方回退 props 语义块)。
+        """
+        if obj is None:
+            return None
+        sat = getattr(obj, "raw_sat", None)
+        if sat:
+            return sat
+        part = next((p for p in (self.tess_parts or [])
+                     if p.primitive_oid == obj.oid), None)
+        if part is None or len(part.triangles) < 4:
+            return None
+        try:
+            import lts_occ
+            if not lts_occ.occ_available():
+                return None
+            shape = lts_occ.shape_from_mesh(part.points, part.triangles)
+            if shape is None:
+                return None
+            import tempfile
+            fd, path = tempfile.mkstemp(suffix=".sat")
+            os.close(fd)
+            try:
+                if not lts_occ.sat_write(shape, path):
+                    return None
+                with open(path, "r", encoding="utf-8",
+                          errors="replace") as fh:
+                    return fh.read()
+            finally:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+        except Exception:
+            return None
+
     def _persist_inserted(self, lines: List[str]) -> List[str]:
         """Append create-blocks for session-inserted solids and wire Part DB."""
         import lts_create
@@ -202,26 +251,12 @@ class LTSModel:
             if inject:
                 lines = lines[:e] + inject + lines[e:]
         extra = []
-        written = set()
         for oid in self.inserted_oids:
-            queue = [oid]
-            while queue:
-                cur = queue.pop(0)
-                if cur in written:
-                    continue
-                obj = self.objects.get(cur)
-                if obj is None or obj.line is not None:
-                    continue
-                written.add(cur)
-                sat = getattr(obj, "raw_sat", None)
-                if sat:
-                    extra.append(lts_create.make_solid_block(
-                        obj.cls, cur, obj.props.get("setName") or cur, sat))
-                else:
-                    extra.append(lts_create.render_object(
-                        obj.cls, cur, obj.props, obj.edges))
-                for _m, ref in obj.edges:
-                    queue.append(ref)
+            obj = self.objects.get(oid)
+            if obj is None or obj.line is not None:
+                continue
+            extra.append(lts_create.render_graph(
+                oid, self.objects, sat_provider=self._sat_text_for_part))
         if extra:
             block = "\n".join(x.rstrip("\n") for x in extra)
             lines = list(lines) + block.splitlines()

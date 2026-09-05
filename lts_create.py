@@ -74,6 +74,56 @@ def render_object(cls, oid, props=None, edges=None, indent='    ') -> str:
     return '\n'.join(lines) + '\n'
 
 
+def render_graph(root_oid, objects, sat_provider=None, indent='    '):
+    """渲染对象图 -> 真实 LT 嵌套语法 (写回 .lts 作者化).
+
+    与 render_object (flat, 边渲染为体内键行) 不同, 这里按 LT 写盘风格:
+    每条边渲染为**嵌套子块**, 子块闭合行 `} method: $ref;` 一次完成
+    「子块闭合 + 挂父」(parser 以 {/} 配对解析, 与缩进无关, 与 LT 原生同构);
+    根块闭合为纯 `}`。SAT 子块 (make_solid_block) 的末行同样替换为挂父行。
+
+    sat_provider(obj) 返回 SAT 文本时, 该子块渲染为 readSATdata 实体块。
+    外部引用 (无对象/已被访问) 的边回退 props 键行 (断链保语法自洽)。
+    """
+    seen = set()
+
+    def walk(oid, depth, close_spec):
+        o = objects.get(oid)
+        if o is None:
+            return []
+        sub = indent * depth
+        lines = ['%s$%s create -> $%s' % (sub, o.cls,
+                                          oid[1:] if oid.startswith('$') else oid),
+                 sub + '{']
+        for key, val in (o.props or {}).items():
+            lines.append('%s%s: %s ;' % (sub + indent, key, fmt_value(val)))
+        for method, ref in (o.edges or []):
+            ref = str(ref)
+            if ref in objects and ref not in seen:
+                seen.add(ref)
+                sat_text = sat_provider(objects[ref]) if sat_provider else None
+                if sat_text:
+                    blk = make_solid_block(objects[ref].cls, ref,
+                                           objects[ref].props.get("setName")
+                                           or ref, sat_text, sub + indent)
+                    body, _last = blk.rstrip('\n').rsplit('\n', 1)
+                    lines.append(body)
+                    lines.append('%s} %s: %s ;' % (sub + indent, method, ref))
+                else:
+                    lines.extend(walk(ref, depth + 1, (method, ref)))
+            else:
+                lines.append('%s%s: %s ;' % (sub + indent, method, ref))
+        if close_spec is None:
+            lines.append(sub + '}')
+        else:
+            _m, _r = close_spec
+            lines.append('%s} %s: %s ;' % (sub, _m, _r))
+        return lines
+
+    seen.add(root_oid)
+    return '\n'.join(walk(root_oid, 1, None)) + '\n'
+
+
 def make_solid_block(solid_cls, oid, name, sat_text, indent='    '):
     """生成一个含内嵌 SAT 的 solid 图元创建块。
 

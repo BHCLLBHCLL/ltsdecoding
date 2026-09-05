@@ -807,6 +807,9 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             self.log("Nothing selected", "WARN")
             return
         from lts_optics_bind import apply_surface_preset
+        targets = self._props_targets(oid)
+        before = {t: dict(self.model.objects[t].props)
+                  for t in targets if t in self.model.objects}
         try:
             reps = apply_surface_preset(
                 self.model, oid, preset,
@@ -816,6 +819,11 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         except ValueError as e:
             self.log("Surface preset failed: %s" % e, "ERROR")
             return
+        after = {t: dict(self.model.objects[t].props)
+                 for t in targets if t in self.model.objects}
+        if reps and before != after:
+            self._undo_stack.append(("props", targets, before, after))
+            self._redo_stack.clear()
         for rep in reps:
             self.log("Surface preset %s -> %s[%d] (%s): kind=%s R=%.3f T=%.3f"
                      % (rep["preset"], rep["surface"] or "-",
@@ -881,6 +889,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             return
         self.model.delete_object(oid)
         self._hidden.add(oid)
+        self._undo_stack.append(("delete", oid))
+        self._redo_stack.clear()
         self._apply_visibility()
         self.log("Marked for deletion: %s" % name)
         self._mark_dirty()
@@ -2573,7 +2583,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         except Exception as e:
             self.log("Insert failed: %s" % e, "ERROR")
             return
-        self._undo_stack.append(("insert", oid))
+        self._undo_stack.append(("insert",) + self._snapshot_insert(oid))
         self._redo_stack.clear()
         self._after_insert(oid, kind)
 
@@ -2730,44 +2740,128 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         self._mark_dirty()
         self.log("Inserted %s (%s)" % (label, oid))
 
+    # ---- 事务栈 (Undo/Redo): insert / hide / delete / props 四类 --------
+
+    def _snapshot_insert(self, oid: str) -> tuple:
+        """insert 快照: 对象引用 + tess_parts / geo_boxes 项 (redo 恢复用)."""
+        m = self.model
+        obj = m.objects.get(oid)
+        parts = [p for p in (m.tess_parts or []) if p.solid_oid == oid]
+        boxes = [b for b in (m.geo_boxes or []) if b.oid == oid]
+        return (oid, obj, parts, boxes)
+
+    def _props_targets(self, oid: str) -> list:
+        """实体 PropertyZone 链写回涉及的对象 (zone/amplitude/direction)."""
+        from lts_optics_bind import zones_for_solid, zone_amp_dir
+        out = []
+        seen = set()
+        for _leaf, rec, _zp in zones_for_solid(self.model.objects, oid):
+            for z_oid in rec.zone_oids:
+                if z_oid in seen:
+                    continue
+                seen.add(z_oid)
+                out.append(z_oid)
+                a_oid, d_oid = zone_amp_dir(self.model.objects, z_oid)
+                if a_oid:
+                    out.append(a_oid)
+                if d_oid:
+                    out.append(d_oid)
+        return out
+
+    def _props_restore(self, targets: list, before: dict, after: dict,
+                       to_after: bool = False) -> None:
+        """属性事务恢复方向: to_after=False 回退 before, True 重放 after."""
+        for oid in targets:
+            if oid not in self.model.objects:
+                continue
+            src = after if to_after else before
+            dst = before if to_after else after
+            b = src.get(oid, {})
+            a = dst.get(oid, {})
+            for k in set(a) - set(b):
+                self.model.unset_prop(oid, k)
+            for k, v in b.items():
+                self.model.set_prop(oid, k, v)
+
     def _undo(self) -> None:
         if not self._undo_stack:
             self.log("Nothing to undo", "WARN")
             return
         rec = self._undo_stack.pop()
         kind = rec[0]
-        if kind == "insert" and self.model:
-            oid = rec[1]
+        if self.model is None:
+            self.log("Undo: no model", "WARN")
+            return
+        if kind == "insert":
+            _k, oid, _obj, _parts, _boxes = rec
             self.model.remove_inserted(oid)
             self._hidden.discard(oid)
-            self.sys_nav.populate(self.model, hidden=self._hidden)
-            self._rebuild_scene(fit=False)
-            self._redo_stack.append(rec)
-            self._mark_dirty()
-            self.log("Undo insert %s" % oid)
-            return
-        if kind == "hide":
+        elif kind == "hide":
             _k, oid, was_hidden = rec
             self._hide_oid(oid, not was_hidden, record=False)
-            self._redo_stack.append(rec)
-            self._redo_stack.append(rec)
-            self.log("Undo hide/show")
+        elif kind == "delete":
+            _k, oid = rec
+            if oid in self.model.deletions:
+                self.model.deletions.remove(oid)
+            self._hidden.discard(oid)
+            self.log("Undeleted %s" % oid)
+        elif kind == "props":
+            _k, targets, before, after = rec
+            self._props_restore(targets, before, after)
+        else:
+            self._redo_stack.clear()
+            self.log("Undo: unknown record %r" % (kind,), "ERROR")
             return
-        self._nyi("undo")
+        self._redo_stack.append(rec)
+        try:
+            self.sys_nav.populate(self.model, hidden=self._hidden)
+        except Exception:
+            pass
+        self._rebuild_scene(fit=False)
+        self._mark_dirty()
+        self.log("Undo %s" % kind)
 
     def _redo(self) -> None:
         if not self._redo_stack:
             self.log("Nothing to redo", "WARN")
             return
         rec = self._redo_stack.pop()
-        if rec[0] == "insert" and self.model:
-            self._nyi("redo insert")
+        kind = rec[0]
+        if self.model is None:
+            self.log("Redo: no model", "WARN")
             return
-        if rec[0] == "hide":
-            self._hide_oid(rec[1], rec[2])
+        if kind == "insert":
+            _k, oid, obj, parts, boxes = rec
+            m = self.model
+            if obj is not None:
+                m.objects[oid] = obj
+            m.tess_parts.extend(parts)
+            m.geo_boxes.extend(boxes)
+            m.geo_by_oid.setdefault(oid, []).extend(boxes)
+            if oid not in m.inserted_oids:
+                m.inserted_oids.append(oid)
+        elif kind == "hide":
+            _k, oid, was_hidden = rec
+            self._hide_oid(oid, was_hidden, record=False)
+        elif kind == "delete":
+            _k, oid = rec
+            self.model.delete_object(oid)
+            self._hidden.add(oid)
+        elif kind == "props":
+            _k, targets, before, after = rec
+            self._props_restore(targets, before, after, to_after=True)
+        else:
             self._undo_stack.append(rec)
+            self.log("Redo: unknown record %r" % (kind,), "ERROR")
             return
-        self._nyi("redo")
+        self._undo_stack.append(rec)
+        try:
+            self.sys_nav.populate(self.model, hidden=self._hidden)
+        except Exception:
+            pass
+        self._rebuild_scene(fit=False)
+        self._mark_dirty()
+        self.log("Redo %s" % kind)
 
     def _export_view_png(self) -> None:
         if self.vtk_widget is None:
@@ -3362,7 +3456,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             kind=clip.get("kind") or "solid",
             sat_text=clip.get("sat_text"),
             color=clip.get("color"))
-        self._undo_stack.append(("insert", oid))
+        self._undo_stack.append(("insert",) + self._snapshot_insert(oid))
         self.sys_nav.populate(self.model, hidden=self._hidden)
         self._rebuild_scene(fit=False)
         self.sys_nav.select_oid(oid)

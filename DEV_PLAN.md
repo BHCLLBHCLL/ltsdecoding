@@ -192,6 +192,17 @@
 - tests/test_gui_sim.py 9->12: 12 键默认/编辑/持久化回填、spectrum_bins 分箱 (黑体源 3500K, 光谱键 ≤16 且 ∈(380,780))、quick_preview 复用 (n_rays=8, seed/bounces/tris/spectrum_bins 保留)、_analysis_param 面板读数与默认回落。
 - 验证: base pytest 328 passed / 10 skipped (+3); coverage --gate 710/710 PASS; verify_all --full 全绿。
 
+
+### R5 · 模型作者化: Undo/Redo 事务栈 + 写回验证（2026-09-06）
+- lts_gui 事务栈重写: _undo/_redo 四类记录 (insert 快照 / hide / delete / props), 修复原 hide 分支 redo 双 push bug 与 redo insert NYI; insert 快照含对象引用+tess_parts+geo_boxes 项 (redo 完整恢复); delete 记录/撤销 (deletions 移除+hidden 恢复); props 记录前后快照 (zone/amplitude/direction 对象), undo 恢复旧值+unset 新增键 (LTSModel.unset_prop 新增), redo 重放。
+- _apply_surface_preset 经 _props_targets 快照写回对象 -> push props 事务; _delete_selected 记录 delete; insert push 改快照形式; "undo"/"redo" 入 IMPLEMENTED (84)。
+- lts_create.render_graph (新): 对象图 -> 真实 LT 嵌套语法写回 (边=嵌套子块, 闭合行 `} method: $ref;` 完成子块闭合+挂父, 与 LT 写盘同构), 替代 render_object flat 键行 (原格式边重载后误入 props —— 已修复, 重载后 zones_for_solid/edges 正确)。
+- 网格实体写回: LTSModel._sat_text_for_part —— 无 raw_sat 的网格实体, OCC 可用时 shape_from_mesh+sat_write 序列化为内嵌 SAT (make_solid_block 末行替换挂父); 当前 pythonocc 环境无 SATControl 后端时自动降级 props 语义块 (结构/属性无损)。
+- verify_model_write.py (新, 接 verify_all 常规面): 空模板新建 (block/sphere/cylinder+source+2 receivers+草图+mirror 写回) -> save -> 重载 -> block 体积精确 480/球半径参数+5% tess 容差/sketch (sat_write 后端可用时精确, 否则语义)/mirror 写回 3 区重载保留/对象图 84 对象/保存幂等/re-parse; occ 与默认两环境均 PASS。
+- tests/test_gui_undo.py (6, offscreen): insert 撤销重放 (对象/tess/geo/插入标记恢复), 空栈 WARN, hide 撤消重放, delete 撤消重放, props (mirror 撤消回 Fresnel+新键 unset+redo 重放, 用户 R/T/side 值往返)。
+- G7: run_forward 分段计时 (scene/emission/trace/preview/total -> meta["timings"]); verify_raytrace 输出吞吐基准 (本机全模型 n=8: 1.10 rays/s end-to-end, trace-only 1.73, scene 22.6s/emission 1.2s/trace 41.6s; <0.5 rays/s 告警) + LT 通量比门禁 (ref_ratio ΣI·Ω 逐格同 Ω, n>=100 时 3% 判定)。
+- 验证: base pytest 334 passed / 10 skipped (+6); coverage --gate 710/710 PASS; verify_all --full 全绿 (含 verify_model_write)。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

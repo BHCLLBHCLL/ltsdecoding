@@ -686,11 +686,15 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
     """
     catalog = bind_materials(model.objects)
     wl_nm = float(emission_wl or 550.0)
+    import time as _time
+    _t0 = _time.perf_counter()
     scene, meta = scene_from_model(model, max_tris=max_tris, wl_nm=wl_nm,
                                    catalog=catalog)
+    _t1 = _time.perf_counter()
     rays, rs = rays_from_sources(model, n_per_source=n_per_source, seed=seed,
                                  catalog=catalog, wl_nm=wl_nm,
                                  apodizer=apodizer or "")
+    _t2 = _time.perf_counter()
     eng = Engine(scene, max_bounces=max_bounces, seed=seed)
     eng.set_medium_absorption(meta.get("alphas") or {})
     if meta.get("media"):
@@ -705,8 +709,15 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
               for r in recv_specs if r.kind == "plane"]
     eng.set_plane_receivers(planes)
     res = eng.trace(rays, record_hits=True, record_escaped=True)
+    _t3 = _time.perf_counter()
     prev = rays[:max(0, preview)]
     paths = trace_preview(scene, prev, max_bounces=max_bounces) if prev else []
+    _t4 = _time.perf_counter()
+    meta["timings"] = {
+        "scene_s": _t1 - _t0, "emission_s": _t2 - _t1,
+        "trace_s": _t3 - _t2, "preview_s": _t4 - _t3,
+        "total_s": _t4 - _t0,
+    }
     receivers = []
     for ri, recv in enumerate(recv_specs):
         try:

@@ -29,7 +29,7 @@ IMPLEMENTED = {
     "aim_nss", "ray_display", "reset_seeds",
     "user_materials", "opt_props", "glass_cat",
     "analysis_illum", "analysis_intensity", "table_view",
-    "select_all", "invert_sel", "swap_hidden",
+    "select_all", "invert_sel", "swap_hidden", "undo", "redo",
     "copy", "cut", "paste", "copy_geom", "move",
     "set_current_point", "measure",
     "import_sat", "import_stl", "import_step", "import_iges",

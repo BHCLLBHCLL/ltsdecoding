@@ -28,7 +28,8 @@ def main():
     codes.append(run("coverage_report.py", ["--macro-depth-gate", os.environ.get("LT_MACRO_DEPTH_GATE", "100.0")]))
     codes.append(run("coverage_report.py", ["--class-gate", os.environ.get("LT_CLASS_GATE", "100.0")]))
     codes.append(run("coverage_report.py", ["--class-depth-gate", os.environ.get("LT_CLASS_DEPTH_GATE", "100.0")]))
-    for name, args in (("verify_ui.py", None), ("verify_goldens.py", None)):
+    for name, args in (("verify_ui.py", None), ("verify_goldens.py", None),
+                       ("verify_model_write.py", None)):
         print("== %s ==" % name)
         codes.append(run(name, args))
     # 层 5: lt.exe 对标 harness (客观基线 + 语料 diff)
