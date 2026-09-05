@@ -106,6 +106,50 @@ def test_paraxial_image():
     assert abs(img.paraxial_image_distance() - img.back_focal_length()) < 1e-6
 
 
+
+
+
+def test_hg_phase_normalized():
+    import ltsoptics.volume_scatter as vs
+    g = 0.6
+    N = 2000
+    tot = 0.0
+    for i in range(N):
+        cm = -1.0 + (2.0 * i + 1.0) / N
+        tot += vs.hg_phase(cm, g) * 2.0 * math.pi * (2.0 / N)
+    assert abs(tot - 1.0) < 1e-3                       # 归一
+    assert abs(vs.mean_cos(g) - g) < 1e-9              # 平均余弦 = g
+
+
+def test_polarization_malus_brewster():
+    import ltsoptics.polarization as pol
+    bj = pol.jones_from_amplitudes(1.0, 0.0)           # x 线偏
+    assert abs(pol.malus(bj, math.radians(45.0)) - 0.5) < 1e-9   # Malus 定律
+    assert abs(pol.degree_of_polarization(bj) - 1.0) < 1e-9      # 完全偏振 DOP=1
+    assert abs(math.degrees(pol.brewster_angle(1.0, 1.5185)) - math.degrees(math.atan(1.5185))) < 1e-6
+
+
+def test_thinfilm_ar():
+    import ltsoptics.thinfilm as tf
+    nsub = 1.5185
+    # 基底裸反射 = Fresnel
+    assert abs(tf.bare_reflectivity(0.0, 1.0, nsub) - ((1.0 - nsub) / (1.0 + nsub)) ** 2) < 1e-9
+    # 单层 λ/4 增透 (n=sqrt(nsub)) -> R≈0
+    nl = math.sqrt(nsub)
+    L = tf.Layer(n=nl, d=(550.0 / 4.0) / nl)
+    fs = tf.FilmStack([L])
+    assert abs(fs.reflectivity(0.0, 550.0, 1.0, nsub)) < 1e-6
+
+
+def test_sag_spherical():
+    from lts.trace.sequential import SeqSurface
+    s = SeqSurface(name="s", z=0.0, curvature=1.0 / 50.0)
+    sag = s.sag(20.0)
+    assert abs(sag - (50.0 - math.sqrt(2500.0 - 400.0))) < 1e-6   # 球面矢高精确
+    par = 20.0 * 20.0 / (2.0 * 50.0)
+    assert sag > par                                                  # 球差 (矢高 > 近轴)
+
+
 def test_lensmaker_focal():
     from lts.trace.sequential import single_lens
     img = single_lens()

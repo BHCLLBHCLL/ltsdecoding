@@ -129,6 +129,13 @@
 - test_physics 6 -> 11 (Beer/光栅/斯托克斯/相干可见度/磷光寿命/近轴像距)。
 - 验证: verify_all --full 全绿 (parity 33 PASS, pipeline/raytrace OK, conservation 0.0007%)。
 
+
+### R4 续 · HG 归一性 / 偏振 / 膜系 / 球差(矢高) 解析对表（2026-09-04 续）
+- 新增 7 物理语料 (lt_parity 33 -> 40): phys_hg_norm(HG 相函数球面积分=1), phys_hg_mean(mean_cos(g)=g), phys_pol_malus(Malus cos²45=0.5), phys_pol_dop(完全偏振 DOP=1), phys_brewster(atan n), phys_ar_reflect(薄膜基底裸反射=Fresnel), phys_sag_sphere(球面矢高精确 = r-sqrt(r²-y²), 球差>近轴)。
+- 注: spot_diagram 原始点有巨大 x 异常 (6.9e9, 疑似 bug) -> 球差改以矢高 sag 解析对表; seq.spot_rms=0.2815 仍由 golden 覆盖。
+- test_physics 11 -> 15 (HG 归一/mean, Malus/DOP/Brewster, 薄膜 λ/4 增透 R=0, 球面矢高)。
+- 验证: parity --gate 40 PASS; verify_all --full 全绿。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

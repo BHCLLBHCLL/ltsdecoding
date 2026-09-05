@@ -193,5 +193,33 @@
   "phys_paraxial": {
     "image": 49.152542372881356,
     "tol": 0.0001
+  },
+  "phys_hg_norm": {
+    "norm": 1.0,
+    "tol": 0.001
+  },
+  "phys_hg_mean": {
+    "mean": 0.6,
+    "tol": 1e-06
+  },
+  "phys_pol_malus": {
+    "T": 0.5,
+    "tol": 1e-06
+  },
+  "phys_pol_dop": {
+    "dop": 1.0,
+    "tol": 1e-06
+  },
+  "phys_brewster": {
+    "deg": 56.63331304474833,
+    "tol": 0.1
+  },
+  "phys_ar_reflect": {
+    "R": 0.04238513893357508,
+    "tol": 1e-06
+  },
+  "phys_sag_sphere": {
+    "sag": 4.1742430504416035,
+    "tol": 1e-06
   }
 }

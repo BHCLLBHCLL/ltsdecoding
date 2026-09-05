@@ -175,6 +175,52 @@ def our_paraxial():
     img = single_lens()
     return float(img.paraxial_image_distance())
 
+
+
+
+def our_hg_norm():
+    import ltsoptics.volume_scatter as vs
+    N = 2000
+    c = [-1.0 + 2.0 * i / N for i in range(N + 1)]
+    tot = 0.0
+    for i in range(N):
+        cm = 0.5 * (c[i] + c[i + 1])
+        tot += vs.hg_phase(cm, 0.6) * 2.0 * math.pi * (2.0 / N)
+    return float(tot)
+
+
+def our_hg_mean():
+    import ltsoptics.volume_scatter as vs
+    return float(vs.mean_cos(0.6))
+
+
+def our_pol_malus():
+    import ltsoptics.polarization as pol
+    bj = pol.jones_from_amplitudes(1.0, 0.0)
+    return float(pol.malus(bj, math.radians(45.0)))
+
+
+def our_pol_dop():
+    import ltsoptics.polarization as pol
+    bj = pol.jones_from_amplitudes(1.0, 0.0)
+    return float(pol.degree_of_polarization(bj))
+
+
+def our_brewster():
+    import ltsoptics.polarization as pol
+    return float(math.degrees(pol.brewster_angle(1.0, 1.5185)))
+
+
+def our_ar_reflect():
+    import ltsoptics.thinfilm as tf
+    return float(tf.bare_reflectivity(0.0, 1.0, 1.5185))
+
+
+def our_sag_sphere():
+    from lts.trace.sequential import SeqSurface
+    s = SeqSurface(name="s", z=0.0, curvature=1.0 / 50.0)
+    return float(s.sag(20.0))
+
 def our_photopic(wl):
     from ltsoptics.spectrum import v_lambda
     return float(v_lambda(float(wl)))
@@ -219,6 +265,13 @@ CORPUS = [
     {"id": "phys_visibility", "kind": "physics", "fn": our_visibility, "src": "vis", "tol_key": "vis"},
     {"id": "phys_lifetime", "kind": "physics", "fn": our_lifetime_mean, "src": "tau", "tol_key": "tau"},
     {"id": "phys_paraxial", "kind": "physics", "fn": our_paraxial, "src": "image", "tol_key": "image"},
+    {"id": "phys_hg_norm", "kind": "physics", "fn": our_hg_norm, "src": "norm", "tol_key": "norm"},
+    {"id": "phys_hg_mean", "kind": "physics", "fn": our_hg_mean, "src": "mean", "tol_key": "mean"},
+    {"id": "phys_pol_malus", "kind": "physics", "fn": our_pol_malus, "src": "T", "tol_key": "T"},
+    {"id": "phys_pol_dop", "kind": "physics", "fn": our_pol_dop, "src": "dop", "tol_key": "dop"},
+    {"id": "phys_brewster", "kind": "physics", "fn": our_brewster, "src": "deg", "tol_key": "deg"},
+    {"id": "phys_ar_reflect", "kind": "physics", "fn": our_ar_reflect, "src": "R", "tol_key": "R"},
+    {"id": "phys_sag_sphere", "kind": "physics", "fn": our_sag_sphere, "src": "sag", "tol_key": "sag"},
     {"id": "geom_box_volume", "kind": "geometry", "fn": lambda: gel.mesh_volume(gel.box_mesh(2, 2, 2)), "src": "volume", "tol_key": "volume"},
     {"id": "geom_transform_centroid", "kind": "geometry", "fn": lambda: float(gel.mesh_centroid(gel.transform_mesh(gel.box_mesh(2, 2, 2), translate=(1, 2, 3)))[0]), "src": "centroid_x", "tol_key": "x"},
     {"id": "geom_array_count", "kind": "geometry", "fn": lambda: float(len(gel.array_positions("rect", 9))), "src": "count", "tol_key": "count"},
