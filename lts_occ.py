@@ -227,6 +227,34 @@ def cad_features() -> dict:
 # 精确质量属性 (GProp) —— OCC 精确路径的验证参照
 # ---------------------------------------------------------------------------
 
+
+
+
+def ray_intersect(shape, origin, direction, tmax=1.0e6):
+    """OCC 精确射线-实体求交 (IntCurvesFace_ShapeIntersector).
+
+    origin/direction (3 元组), 返回按 t 升序的 [(t, [x,y,z]), ...].
+    用于追迹网格求交的校验路径 (ground truth).
+    """
+    from OCC.Core.IntCurvesFace import IntCurvesFace_ShapeIntersector
+    from OCC.Core.gp import gp_Lin, gp_Pnt, gp_Dir
+    o = np.asarray(origin, dtype=float)
+    d = np.asarray(direction, dtype=float)
+    d = d / (np.linalg.norm(d) or 1.0)
+    isa = IntCurvesFace_ShapeIntersector()
+    isa.Load(shape, 1e-7)
+    line = gp_Lin(gp_Pnt(o[0], o[1], o[2]), gp_Dir(d[0], d[1], d[2]))
+    isa.Perform(line, 0.0, float(tmax))
+    res = []
+    n = isa.NbPnt()
+    for i in range(1, n + 1):
+        t = isa.WParameter(i)
+        p = isa.Pnt(i)
+        res.append((float(t), [float(p.X()), float(p.Y()), float(p.Z())]))
+    res.sort(key=lambda r: r[0])
+    return res
+
+
 def shape_metrics(shape,
                   ) -> dict | None:
     """OCC 精确求值 solid 的 bbox / 体积 / 表面积 / 质心。

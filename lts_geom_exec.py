@@ -387,6 +387,86 @@ def occ_geometry_corpus():
         pass
     return out
 
+
+
+
+# ---- R3->raytrace: 网格求交 vs OCC 精确求交 校验路径 ----
+
+def mesh_ray_nearest(origin, direction, mesh):
+    """Moller-Trumbore 网格射线求交, 返回最近命中 t (或 None)."""
+    o = np.asarray(origin, dtype=float)
+    d = np.asarray(direction, dtype=float)
+    d = d / (np.linalg.norm(d) or 1.0)
+    v = np.asarray(mesh[0], dtype=float)
+    tr = np.asarray(mesh[1], dtype=np.int32)
+    best = None
+    for tri in tr:
+        a, b, c = v[tri[0]], v[tri[1]], v[tri[2]]
+        e1 = b - a
+        e2 = c - a
+        pvc = np.cross(d, e2)
+        det = np.dot(e1, pvc)
+        if abs(det) < 1e-12:
+            continue
+        inv = 1.0 / det
+        tvc = o - a
+        u = np.dot(tvc, pvc) * inv
+        if u < 0.0 or u > 1.0:
+            continue
+        qvc = np.cross(tvc, e1)
+        w = np.dot(d, qvc) * inv
+        if w < 0.0 or (u + w) > 1.0:
+            continue
+        t = np.dot(e2, qvc) * inv
+        if t > 0.0 and (best is None or t < best):
+            best = float(t)
+    return best
+
+
+def occ_ray_verify(kind, **params):
+    """OCC 精确求交 (ray_intersect) vs 网格求交 (mesh_ray_nearest) 交叉验证.
+
+    用于 raytrace 校验路径: 验证生产用网格/BVH 求交与 OCC 精确 B-rep 求交一致.
+    OCC 不可用返回 None. 返回 dict(n, max_rel, mean_rel).
+    """
+    import lts_occ as lo
+    if not lo.occ_available():
+        return None
+    if kind == "block":
+        w = float(params.get("width", 2.0))
+        h = float(params.get("height", 2.0))
+        l = float(params.get("length", 2.0))
+        shape = lo.prim_cuboid(w, h, l)
+        mesh = box_mesh(w, h, l)
+    elif kind == "sphere":
+        r = float(params.get("radius", 2.0))
+        shape = lo.prim_sphere(r)
+        mesh = sphere_mesh(r, n=48)
+    elif kind == "cylinder":
+        r = float(params.get("radius", 1.0))
+        L = float(params.get("length", 3.0))
+        shape = lo.prim_cylinder(r, r, L)
+        mesh = cylinder_mesh(r, L)
+    else:
+        return None
+    origin = (0.0, 0.0, -6.0)
+    dirs = [(0.0, 0.0, 1.0), (0.2, 0.1, 1.0), (0.0, -0.3, 1.0),
+            (0.5, 0.4, 1.0), (0.1, -0.5, 1.0), (-0.3, 0.2, 1.0)]
+    rels = []
+    for dd in dirs:
+        ro = (origin[0], origin[1], origin[2])
+        hits = lo.ray_intersect(shape, ro, dd, tmax=1000.0)
+        if not hits:
+            continue
+        t_occ = hits[0][0]
+        t_mesh = mesh_ray_nearest(ro, dd, mesh)
+        if t_mesh is not None:
+            rels.append(abs(t_occ - t_mesh) / max(t_occ, 1e-9))
+    if not rels:
+        return None
+    return {"n": len(rels), "max_rel": max(rels),
+            "mean_rel": sum(rels) / len(rels)}
+
 if __name__ == "__main__":
     print("box 2x2x2 volume", round(mesh_volume(box_mesh(2,2,2)), 4))
     print("sphere r=1 verts", len(sphere_mesh(1.0)[0]))

@@ -103,6 +103,13 @@
 - 验证(base): 切线 d=1.0；中心对称中点=目标；点过线投影到 y=0；样条镜像 A 固定 (1,1),(2,3) -> B=(1,-1),(2,-3)。
 - test_sketch 3 -> 7 (tangent/symmetric/point_on_line/spline_mirror)；base pytest 285 passed / 8 skipped。
 
+
+### R3->raytrace · OCC 精确求交接入追迹校验路径（2026-09-04 续）
+- lts_occ.ray_intersect(shape, origin, dir, tmax) —— 经 IntCurvesFace_ShapeIntersector 精确射线-实体求交, 返回按 t 升序命中 (校验路径 ground truth)。
+- lts_geom_exec.mesh_ray_nearest (Moller-Trumbore 网格求交) + occ_ray_verify(kind) —— 交叉验证: 生产网格/BVH 求交 vs OCC 精确 B-rep 求交的命中距离相对误差。
+- 验证(occ): block/cylinder mesh vs OCC rel=0 (tessellation 精确); sphere(48 段) mean_rel=4e-4 (<0.1%); OCC block ray t=[4,6] (精确入口/出口)。
+- test_occ 增 test_occ_ray_intersection_exact + test_occ_ray_mesh_agree (块精确, 球体<1%); occ 下 10 通过; ci_occ 全 PASS; base 285 passed / 10 skipped。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

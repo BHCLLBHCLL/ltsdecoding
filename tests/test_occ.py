@@ -86,6 +86,22 @@ def test_occ_sketch_primitives():
     assert abs(lo.shape_metrics(lo.prim_pipe((0, 0, 0), (0, 0, 5.0), 1.0))["volume"] - math.pi * 5.0) < 1e-4
 
 
+def test_occ_ray_intersection_exact():
+    # OCC 精确射线求交: 2-cube ray z 向 -> 命中 z=-1(z 为4), z=+1(t=6)
+    box = lo.prim_cuboid(2.0, 2.0, 2.0)
+    hits = lo.ray_intersect(box, (0.0, 0.0, -5.0), (0.0, 0.0, 1.0))
+    assert len(hits) >= 2
+    assert abs(hits[0][0] - 4.0) < 1e-6
+    assert abs(hits[1][0] - 6.0) < 1e-6
+
+
+def test_occ_ray_mesh_agree():
+    # 追迹校验路径: 生产网格求交 vs OCC 精确求交 相合 (block 精确, 球体网格近似 <1%)
+    import lts_geom_exec as gel
+    assert gel.occ_ray_verify("block", width=2.0, height=2.0, length=2.0)["mean_rel"] < 1e-6
+    assert gel.occ_ray_verify("sphere", radius=2.0)["mean_rel"] < 0.01
+
+
 def test_occ_mirror_invariant():
     box = lo.prim_cuboid(2.0, 2.0, 2.0)
     # 镜像体积不变 (关于 x=2 平面)
