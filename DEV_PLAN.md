@@ -82,6 +82,13 @@
 - test_occ 增 test_occ_sketch_primitives (occ 6 通过 / base skip)。
 - lt_parity OCC 语料 5 -> 9；occ --gate 26 项全 PASS。
 
+
+### R3 工程侧续 · B-rep 全图元（圆角/布尔树/变换树/抽壳）（2026-09-04 续）
+- lts_occ 新增 B-rep ops: prim_transform(变换树/刚体, 体积不变)、boolean_tree(布尔树, 依次 fuse/cut/common N 个 shape)、prim_shell(抽壳, BRepOffsetAPI_MakeThickSolidByJoin, 移除一面向内空腔 thickness; 偏移取负才向内, 4x4x4 厚1 -> 杯 52)、prim_fillet(圆角, BRepFilletAPI_MakeFillet, 全部边或第 N 条, 单边 r=0.5 长2 -> 7.8927)。
+- lts_geom_exec occ_geometry_corpus 增 4 项 (geom_occ_shell/fillet/booltree/transform_vol) -> OCC 语料 9 -> 13; 全部 rel~1e-16。
+- test_occ 增 test_occ_brep_ops (occ 7 通过 / base skip)。
+- 验证: ci_occ.ps1 (occ 运行时) test_occ + lt_parity --gate (13 OCC 精确) 全 PASS; base pytest 278 passed, 7 skipped。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

@@ -86,6 +86,22 @@ def test_occ_sketch_primitives():
     assert abs(lo.shape_metrics(lo.prim_pipe((0, 0, 0), (0, 0, 5.0), 1.0))["volume"] - math.pi * 5.0) < 1e-4
 
 
+def test_occ_brep_ops():
+    import math
+    box = lo.prim_cuboid(2.0, 2.0, 2.0)
+    box4 = lo.prim_cuboid(4.0, 4.0, 4.0)
+    # 变换树: 体积不变
+    assert abs(lo.shape_metrics(lo.prim_transform(box, axis=(0, 0, 1), angle_deg=45.0, translate=(1, 0, 0)))["volume"] - 8.0) < 1e-6
+    # 布尔树 fuse 两块偏移 -> 12
+    b2 = lo.prim_transform(box, translate=(1.0, 0.0, 0.0))
+    assert abs(lo.shape_metrics(lo.boolean_tree("fuse", [box, b2]))["volume"] - 12.0) < 1e-6
+    # 抽壳: 4x4x4 杯 (厚1) -> 52
+    assert abs(lo.shape_metrics(lo.prim_shell(box4, 1.0))["volume"] - 52.0) < 0.01
+    # 圆角: 单边 r=0.5 长2 -> 8 - r^2(1-pi/4)*L
+    assert abs(lo.shape_metrics(lo.prim_fillet(box, 0.5, edge_index=0))["volume"]
+               - (8.0 - 0.25 * (1.0 - math.pi / 4.0) * 2.0)) < 1e-4
+
+
 def test_occ_project_csg_first_class():
     # project geometry 在 OCC 可用时走 B-rep 精确体积 (engine=OCC)
     import lts_geom_exec as gel

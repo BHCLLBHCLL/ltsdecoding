@@ -346,6 +346,25 @@ def occ_geometry_corpus():
             continue
         out[cid] = {"volume": m.get("volume"), "area": m.get("area"),
                     "ref_volume": vol, "ref_area": area}
+    # B-rep 派生 ops: 抽壳/圆角/布尔树/变换 (解析可验证)
+    try:
+        import lts_occ as lo
+        box = lo.prim_cuboid(2.0, 2.0, 2.0)
+        box4 = lo.prim_cuboid(4.0, 4.0, 4.0)
+        b2 = lo.prim_transform(box, translate=(1.0, 0.0, 0.0))
+        for cid, sh, ref in [
+            ("geom_occ_shell_vol", lo.prim_shell(box4, 1.0), 64.0 - 2.0*2.0*3.0),
+            ("geom_occ_fillet_vol", lo.prim_fillet(box, 0.5, edge_index=0),
+             8.0 - 0.25*(1.0 - math.pi/4.0)*2.0),
+            ("geom_occ_booltree_vol", lo.boolean_tree("fuse", [box, b2]), 12.0),
+            ("geom_occ_transform_vol", lo.prim_transform(box, axis=(0, 0, 1), angle_deg=45.0, translate=(1, 0, 0)), 8.0),
+        ]:
+            m = lo.shape_metrics(sh)
+            if m:
+                out[cid] = {"volume": m.get("volume"), "area": m.get("area"),
+                            "ref_volume": ref}
+    except Exception:
+        pass
     return out
 
 if __name__ == "__main__":

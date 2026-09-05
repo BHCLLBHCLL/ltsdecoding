@@ -113,5 +113,21 @@
   "geom_occ_pipe_vol": {
     "volume": 15.707963267948966,
     "tol": 0.01
+  },
+  "geom_occ_shell_vol": {
+    "volume": 52.0,
+    "tol": 0.02
+  },
+  "geom_occ_fillet_vol": {
+    "volume": 7.892699081698725,
+    "tol": 0.02
+  },
+  "geom_occ_booltree_vol": {
+    "volume": 12.0,
+    "tol": 0.01
+  },
+  "geom_occ_transform_vol": {
+    "volume": 8.0,
+    "tol": 0.01
   }
 }

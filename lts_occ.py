@@ -56,10 +56,13 @@ try:
         BRepPrimAPI_MakeTorus, BRepPrimAPI_MakeRevol,
         BRepPrimAPI_MakePrism,
     )
-    from OCC.Core.BRepOffsetAPI import BRepOffsetAPI_MakePipe, BRepOffsetAPI_ThruSections
+    from OCC.Core.BRepOffsetAPI import (
+        BRepOffsetAPI_MakePipe, BRepOffsetAPI_MakeThickSolid, BRepOffsetAPI_ThruSections,
+    )
+    from OCC.Core.BRepFilletAPI import BRepFilletAPI_MakeFillet
     from OCC.Core.gp import gp_Ax2, gp_Ax1, gp_Circ, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
     from OCC.Core.TopoDS import TopoDS_Wire
-    from OCC.Core.TopAbs import TopAbs_FACE, TopAbs_SHELL, TopAbs_SOLID
+    from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SHELL, TopAbs_SOLID
     from OCC.Core.TopExp import TopExp_Explorer
     from OCC.Core.TopLoc import TopLoc_Location
     from OCC.Core.TopoDS import (
@@ -497,6 +500,59 @@ def prim_pipe(spine_p0, spine_p1, radius: float):
     pw.Add(prof)
     prof_face = BRepBuilderAPI_MakeFace(pw.Wire()).Face()
     return BRepOffsetAPI_MakePipe(sw.Wire(), prof_face).Shape()
+
+
+
+def prim_transform(shape, axis=(0.0, 0.0, 1.0), angle_deg=0.0, translate=(0.0, 0.0, 0.0)):
+    """刚体变换 (变换树): 绕轴旋转 angle_deg 后平移 translate. 体积不变."""
+    a = math.radians(float(angle_deg))
+    x, y, z = axis
+    n = math.sqrt(x * x + y * y + z * z) or 1.0
+    x, y, z = x / n, y / n, z / n
+    c, s = math.cos(a), math.sin(a)
+    R = [[c + x * x * (1 - c), x * y * (1 - c) - z * s, x * z * (1 - c) + y * s],
+         [y * x * (1 - c) + z * s, c + y * y * (1 - c), y * z * (1 - c) - x * s],
+         [z * x * (1 - c) - y * s, z * y * (1 - c) + x * s, c + z * z * (1 - c)]]
+    return transform_shape(shape, np.asarray(R), np.asarray(translate, dtype=float))
+
+
+def boolean_tree(op, shapes):
+    """布尔树: 依次对一串 shape 做 fuse/cut/common, 返回结果 shape."""
+    result = shapes[0]
+    for s in shapes[1:]:
+        result = _occ_boolean(op, result, s)
+    return result
+
+
+def prim_shell(shape, thickness):
+    """抽壳: 移除一个面, 向内空腔 thickness (BRepOffsetAPI_MakeThickSolidByJoin)."""
+    from OCC.Core.TopTools import TopTools_ListOfShape
+    exp = TopExp_Explorer(shape, TopAbs_FACE)
+    if not exp.More():
+        return shape
+    rf = topods.Face(exp.Current())
+    fs = TopTools_ListOfShape()
+    fs.Append(rf)
+    mk = BRepOffsetAPI_MakeThickSolid()
+    mk.MakeThickSolidByJoin(shape, fs, -float(abs(thickness)), 1e-6)
+    mk.Build()
+    return mk.Shape()
+
+
+def prim_fillet(shape, radius, edge_index=None):
+    """圆角: 对 solid 的全部边 (或第 edge_index 条边) 倒圆 radius."""
+    fil = BRepFilletAPI_MakeFillet(shape)
+    exp = TopExp_Explorer(shape, TopAbs_EDGE)
+    n = 0
+    while exp.More():
+        if edge_index is None or n == edge_index:
+            fil.Add(float(radius), topods.Edge(exp.Current()))
+            if edge_index is not None:
+                break
+        n += 1
+        exp.Next()
+    fil.Build()
+    return fil.Shape()
 
 
 def shape_from_mesh(points: np.ndarray, triangles: np.ndarray):
