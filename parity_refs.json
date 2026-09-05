@@ -5,7 +5,8 @@
   },
   "macro_for_sum": {
     "value": 15,
-    "tol": 0.1
+    "tol": 0.1,
+    "_lt_derived": true
   },
   "seq_focal": {
     "focal": 50.847457627118644,
@@ -66,5 +67,30 @@
   "rearlighting_trace_escape": {
     "escape": 0.2094711843559731,
     "tol": 0.03
+  },
+  "geom_occ_sphere_vol": {
+    "volume": 33.510321638291124,
+    "tol": 0.01
+  },
+  "geom_occ_cylinder_vol": {
+    "volume": 6.283185307179586,
+    "tol": 0.01
+  },
+  "geom_occ_cone_vol": {
+    "volume": 2.0943951023931953,
+    "tol": 0.01
+  },
+  "geom_occ_torus_vol": {
+    "volume": 3.158273408348595,
+    "tol": 0.01
+  },
+  "geom_occ_block_vol": {
+    "volume": 60.0,
+    "tol": 0.01
+  },
+  "cie_ybar_550": {
+    "ybar": 0.9949501,
+    "tol": 0.001,
+    "_lt_derived": true
   }
 }

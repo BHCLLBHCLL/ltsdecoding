@@ -77,6 +77,11 @@ def our_apod_lambert():
     return float(np.mean(vals))
 
 
+def our_cie_ybar(wl):
+    from ltsoptics.spectrum import interp_cie
+    return interp_cie(float(wl))[1]
+
+
 def our_glass_nd(name="BK7"):
     from ltsoptics.materials import GLASS_CATALOG
     g = GLASS_CATALOG.get(name)
@@ -100,6 +105,7 @@ CORPUS = [
     {"id": "seq_focal", "kind": "seq", "fn": our_seq_focal, "src": "focal", "tol_key": "focal"},
     {"id": "apod_lambert", "kind": "apod", "fn": our_apod_lambert, "src": "mean", "tol_key": "mean"},
     {"id": "glass_bk7_nd", "kind": "glass", "fn": lambda: our_glass_nd("BK7"), "src": "nd", "tol_key": "nd"},
+    {"id": "cie_ybar_550", "kind": "colorimetry", "fn": lambda: float(our_cie_ybar(550.0)), "src": "ybar", "tol_key": "ybar"},
     {"id": "geom_box_volume", "kind": "geometry", "fn": lambda: gel.mesh_volume(gel.box_mesh(2, 2, 2)), "src": "volume", "tol_key": "volume"},
     {"id": "geom_transform_centroid", "kind": "geometry", "fn": lambda: float(gel.mesh_centroid(gel.transform_mesh(gel.box_mesh(2, 2, 2), translate=(1, 2, 3)))[0]), "src": "centroid_x", "tol_key": "x"},
     {"id": "geom_array_count", "kind": "geometry", "fn": lambda: float(len(gel.array_positions("rect", 9))), "src": "count", "tol_key": "count"},
@@ -113,6 +119,20 @@ CORPUS = [
     {"id": "rearlighting_mesh_tris", "kind": "lt_model", "fn": lambda: float(gel.rearlighting_geom().get("mesh_tris", 0.0)), "src": "tris", "tol_key": "tris"},
     {"id": "rearlighting_trace_escape", "kind": "lt_trace", "fn": lambda: float(gel.rearlighting_trace().get("escaped_frac", 0.0)), "src": "escape", "tol_key": "escape"},
 ];
+
+# R3: OCC 精确几何语料 —— 仅在 OCC (pythonocc-core) 可用时纳入 (occ 运行时).
+# 引擎敏感的重照亮网格/追迹语料(基于 base tessellation)在 OCC 下数值客观改变 -> 由 base 门禁专责.
+_BASE_TESS_ONLY = {"rearlighting_mesh_tris", "rearlighting_trace_escape"}
+try:
+    import lts_occ as _lo
+    if _lo.occ_available():
+        CORPUS[:] = [c for c in CORPUS if c["id"] not in _BASE_TESS_ONLY]
+        for _cid, _d in gel.occ_geometry_corpus().items():
+            CORPUS.append({"id": _cid, "kind": "geometry_occ",
+                           "fn": lambda _d=_d: float(_d.get("volume")),
+                           "src": "volume", "tol_key": "volume"})
+except Exception:
+    pass
 
 
 def run():
@@ -172,6 +192,11 @@ def _lt_status(rows):
         live["macro_for_sum"] = s.eval("1+2+3+4+5")
     except Exception:
         pass
+    try:
+        r = s.lt.GetCIE1931YBar(550.0)
+        live["cie_ybar_550"] = float(r[0]) if isinstance(r, (list, tuple)) else float(r)
+    except Exception:
+        pass
     print("LT-derived refs (live): %s" % live)
     for row in rows:
         rid = row.get("id")
@@ -182,6 +207,16 @@ def _lt_status(rows):
                 rel = abs(float(ours) - float(rv)) / max(abs(float(rv)), 1e-9)
                 print("  live-diff %-18s ours=%-10s lt=%-10s rel=%.2e %s" % (
                     rid, ours, rv, rel, "MATCH" if rel <= 0.01 else "DIFF"))
+    # 将 live LT 派生值回写 refs (若成功), 使 --lt 后的 refs 转为 LT 派生
+    if os.path.exists(REFS):
+        rr = load_refs()
+        changed = False
+        for rid, v in live.items():
+            rr.setdefault(rid, {})["_lt_derived"] = True
+            changed = True
+        if changed:
+            with open(REFS, "w", encoding="utf-8") as f:
+                json.dump(rr, f, ensure_ascii=False, indent=2)
     s.close()
 
 

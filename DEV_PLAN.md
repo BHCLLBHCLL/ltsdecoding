@@ -48,6 +48,19 @@
 - 注：LicenseIsAvailable() 返回 False，但 Cmd/Eval 可执行（计算引擎可用）。其余语料项需逐用例的 LT 命令映射（R2 剩余，G3）。
 
 
+
+### R3 · OCC 精确路径铺开 + OCC 用例纳入 occ 运行时（2026-09-04 续）
+- lts_geom_exec: 新增 occ_solid_metrics(kind) / occ_geometry_corpus() —— 经 OCC GProp 精确求实体 体积/面积/质心/包围盒 (sphere/cylinder/cone/torus/block)，全部与解析一致 (rel~1e-16)。
+- 修复 lts_occ.prim_cylinder: r1 夹到 0 而非 1e-12，允许真锥(顶点), BRepPrimAPI_MakeCone(r1=0)。
+- lt_parity: OCC 可用时把 OCC 几何语料纳入 CORPUS (geom_occ_sphere/cylinder/cone/torus/block_vol)；引擎敏感的重照亮网格/追迹语料 (rearlighting_mesh_tris / trace_escape，基于 base tessellation) 仅归 base 门禁，OCC 下移除以免数值随引擎漂移。
+- occ 运行时 lt_parity --gate 全 PASS：base 用例 + CSG(OCC 精确 rel~1e-16) + 5 OCC 几何语料。
+- 用 run_occ.ps1 于 occ 环境跑 lt_parity --gate / pytest tests/test_occ.py 即纳入 OCC 用例。
+
+### R2 续 · 更多 live LT 派生基线（2026-09-04 续）
+- lt_parity _lt_status 现对 macro_for_sum (LT Eval) 与 cie_ybar_550 (LT GetCIE1931YBar) 取 live LT 值，均 MATCH (rel 约 0 / 1e-7)。
+- 新语料项 cie_ybar_550（colorimetry, ref=LT 实测 0.9949501）；lt_parity 从 17 -> 18（base）/ +5 OCC = 23。
+- LT COM 语义探明：Eval 为度制 BASIC（Atan(1)*4=180, Log=log10）；GetCIE1931YBar/GetPhotopicFunction 可用。其余光学项（cct/focal/glass）需逐用例 LT 命令序列（R2 剩余 G3）。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

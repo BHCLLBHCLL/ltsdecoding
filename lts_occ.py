@@ -416,7 +416,7 @@ def prim_cylinder(r0: float, r1: float, length: float):
     L = float(max(abs(length), 1e-9))
     ax = gp_Ax2(gp_Pnt(0.0, 0.0, -L * 0.5), gp_Dir(0.0, 0.0, 1.0))
     r0 = float(max(r0, 1e-9))
-    r1 = float(max(r1, 1e-12))
+    r1 = float(max(r1, 0.0))          # r1=0 允许真锥(顶点); 仅夹负值
     if abs(r1 - r0) < 1e-9 * max(r0, 1.0):
         return BRepPrimAPI_MakeCylinder(ax, r0, L).Shape()
     return BRepPrimAPI_MakeCone(ax, r0, r1, L).Shape()

@@ -278,6 +278,58 @@ def rearlighting_trace(n=4, seed=1):
     """rearlighting 全文正向追迹 (种子里确定性): 通量守恒 + 逃逸占比."""
     return _rl_full()
 
+
+
+# ---- R3: OCC 精确质量属性 (B-rep GProp) 一等公民 ----
+
+def occ_solid_metrics(kind="sphere", **params):
+    """OCC 精确求值 (GProp): 体积/面积/质心/包围盒. OCC 不可用返回 None.
+
+    kind: sphere / cylinder / cone / torus / block.
+    对 LT 全图元集提供精确 B-rep 度量, 供几何命令/parity 在 OCC 运行时使用.
+    """
+    import lts_occ as lo
+    if not lo.occ_available():
+        return None
+    if kind == "sphere":
+        sh = lo.prim_sphere(float(params.get("radius", 1.0)))
+    elif kind == "cylinder":
+        r = float(params.get("radius", 1.0))
+        sh = lo.prim_cylinder(r, r, float(params.get("length", 2.0)))
+    elif kind == "cone":
+        r0 = float(params.get("radius0", 1.0))
+        r1 = float(params.get("radius1", 0.0))
+        sh = lo.prim_cylinder(r0, r1, float(params.get("length", 1.0)))
+    elif kind == "torus":
+        sh = lo.prim_torus(float(params.get("maj", 1.0)),
+                           float(params.get("minor", 0.4)), None)
+    elif kind == "block":
+        sh = lo.prim_cuboid(float(params.get("width", 2.0)),
+                            float(params.get("height", 2.0)),
+                            float(params.get("length", 2.0)))
+    else:
+        return None
+    return lo.shape_metrics(sh)
+
+
+def occ_geometry_corpus():
+    """OCC 环境下的一组精确几何语料 (体积/面积). 无 OCC 返回 {}."""
+    import math
+    out = {}
+    for cid, kind, p, vol, area in [
+        ("geom_occ_sphere_vol", "sphere", {"radius": 2.0}, 4.0/3.0*math.pi*8.0, 4.0*math.pi*4.0),
+        ("geom_occ_cylinder_vol", "cylinder", {"radius": 1.0, "length": 2.0}, 2.0*math.pi, 2.0*math.pi*1.0*2.0 + 2.0*math.pi),
+        ("geom_occ_cone_vol", "cone", {"radius0": 1.0, "radius1": 0.0, "length": 2.0}, 1.0/3.0*math.pi*1.0*1.0*2.0, None),
+        ("geom_occ_torus_vol", "torus", {"maj": 1.0, "minor": 0.4}, 2.0*math.pi*math.pi*1.0*0.16, None),
+        ("geom_occ_block_vol", "block", {"width": 3.0, "height": 4.0, "length": 5.0}, 60.0, 2.0*(12+15+20)),
+    ]:
+        m = occ_solid_metrics(kind, **p)
+        if m is None:
+            continue
+        out[cid] = {"volume": m.get("volume"), "area": m.get("area"),
+                    "ref_volume": vol, "ref_area": area}
+    return out
+
 if __name__ == "__main__":
     print("box 2x2x2 volume", round(mesh_volume(box_mesh(2,2,2)), 4))
     print("sphere r=1 verts", len(sphere_mesh(1.0)[0]))
