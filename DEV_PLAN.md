@@ -61,6 +61,16 @@
 - 新语料项 cie_ybar_550（colorimetry, ref=LT 实测 0.9949501）；lt_parity 从 17 -> 18（base）/ +5 OCC = 23。
 - LT COM 语义探明：Eval 为度制 BASIC（Atan(1)*4=180, Log=log10）；GetCIE1931YBar/GetPhotopicFunction 可用。其余光学项（cct/focal/glass）需逐用例 LT 命令序列（R2 剩余 G3）。
 
+
+- lt_parity _lt_status 重构为可扩的 LIVE_MAP：现对 macro_for_sum (LT Eval)、cie_ybar_550 (GetCIE1931YBar)、photopic_550 (GetPhotopicFunction) 取 3 条 live LT 派生，全部 MATCH。
+  live: macro_for_sum=15.0 (rel=0), cie_ybar_550=0.9949501 (rel=1e-7), photopic_550=0.9949501 (rel=1e-7)。
+- 新语料项 photopic_550（colorimetry, v_lambda）；lt_parity base 17 -> 19 / +5 OCC = 24。
+- **R2 剩余 (需逐用例 LT 命令序列, G3)**：
+  - bb_cct: LT Eval 无黑体/CCT 函数 (返回 0)，需建黑体光源+颜色分析命令序列。
+  - glass_bk7_nd: 材料 Cmd 无参为空操作；玻璃目录索引需正确材料创建 + DbGet；LTAPI3 暴露方法无材料创建。
+  - seq_focal: 需序列透镜建模 + QuickRayQuery (需模型设置/实参)。
+  - apod_lambert: 蒙特卡洛采样，需 LT 源 apodizer 查询。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

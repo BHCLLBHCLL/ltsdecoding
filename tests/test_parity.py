@@ -19,5 +19,5 @@ def test_lt_parity_passes():
 def test_lt_parity_cases_outer():
     r = _run()
     assert r.returncode == 0
-    for cid in ("bb_cct", "macro_for_sum", "seq_focal", "apod_lambert", "glass_bk7_nd", "geom_box_volume", "geom_transform_centroid", "geom_array_count", "geom_real_block_tris", "geom_real_sphere_tris", "rearlighting_zones", "geom_csg_union_vol", "geom_csg_cut_vol", "geom_csg_inter_vol", "rearlighting_bodies", "rearlighting_mesh_tris", "rearlighting_trace_escape"):
+    for cid in ("bb_cct", "macro_for_sum", "seq_focal", "apod_lambert", "glass_bk7_nd", "cie_ybar_550", "photopic_550", "geom_box_volume", "geom_transform_centroid", "geom_array_count", "geom_real_block_tris", "geom_real_sphere_tris", "rearlighting_zones", "geom_csg_union_vol", "geom_csg_cut_vol", "geom_csg_inter_vol", "rearlighting_bodies", "rearlighting_mesh_tris", "rearlighting_trace_escape"):
         assert any(cid in line and "PASS" in line for line in r.stdout.splitlines()), cid

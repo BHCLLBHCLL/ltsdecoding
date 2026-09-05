@@ -82,6 +82,11 @@ def our_cie_ybar(wl):
     return interp_cie(float(wl))[1]
 
 
+def our_photopic(wl):
+    from ltsoptics.spectrum import v_lambda
+    return float(v_lambda(float(wl)))
+
+
 def our_glass_nd(name="BK7"):
     from ltsoptics.materials import GLASS_CATALOG
     g = GLASS_CATALOG.get(name)
@@ -106,6 +111,7 @@ CORPUS = [
     {"id": "apod_lambert", "kind": "apod", "fn": our_apod_lambert, "src": "mean", "tol_key": "mean"},
     {"id": "glass_bk7_nd", "kind": "glass", "fn": lambda: our_glass_nd("BK7"), "src": "nd", "tol_key": "nd"},
     {"id": "cie_ybar_550", "kind": "colorimetry", "fn": lambda: float(our_cie_ybar(550.0)), "src": "ybar", "tol_key": "ybar"},
+    {"id": "photopic_550", "kind": "colorimetry", "fn": lambda: float(our_photopic(550.0)), "src": "photopic", "tol_key": "photopic"},
     {"id": "geom_box_volume", "kind": "geometry", "fn": lambda: gel.mesh_volume(gel.box_mesh(2, 2, 2)), "src": "volume", "tol_key": "volume"},
     {"id": "geom_transform_centroid", "kind": "geometry", "fn": lambda: float(gel.mesh_centroid(gel.transform_mesh(gel.box_mesh(2, 2, 2), translate=(1, 2, 3)))[0]), "src": "centroid_x", "tol_key": "x"},
     {"id": "geom_array_count", "kind": "geometry", "fn": lambda: float(len(gel.array_positions("rect", 9))), "src": "count", "tol_key": "count"},
@@ -167,8 +173,21 @@ def report(rows, ok_all):
     return ok_all
 
 
+# live LT 派生: corpus id -> callable(session)->LT 值 (R2; 后续逐项扩)
+LIVE_MAP = {
+    "macro_for_sum": lambda s: s.eval("1+2+3+4+5"),
+    "cie_ybar_550": lambda s: _lt_float(s, "GetCIE1931YBar", 550.0),
+    "photopic_550": lambda s: _lt_float(s, "GetPhotopicFunction", 550.0),
+}
+
+
+def _lt_float(s, meth, *args):
+    r = getattr(s.lt, meth)(*args)
+    return float(r[0]) if isinstance(r, (list, tuple)) else float(r)
+
+
 def _lt_status(rows):
-    """--lt: 经 COM 连接真实 LightTools, 取 Eval/Cmd 的 "LT 派生" 基线并对表."""
+    """--lt: 经 COM 连接真实 LightTools, 取 Eval/API 的 "LT 派生" 基线并对表."""
     import lt_com
     s = lt_com.LTSessionCOM()
     ok = s.connect()
@@ -177,7 +196,7 @@ def _lt_status(rows):
         print("  (LT COM unavailable: %s)" % s._err)
         return
     probes = {}
-    for expr in ("2+3", "Sqrt(16.0)", "1.5*4", "PI"):
+    for expr in ("2+3", "Sqrt(16.0)", "1.5*4"):
         try:
             probes[expr] = s.eval(expr)
         except Exception:
@@ -188,15 +207,11 @@ def _lt_status(rows):
     except Exception:
         pass
     live = {}
-    try:
-        live["macro_for_sum"] = s.eval("1+2+3+4+5")
-    except Exception:
-        pass
-    try:
-        r = s.lt.GetCIE1931YBar(550.0)
-        live["cie_ybar_550"] = float(r[0]) if isinstance(r, (list, tuple)) else float(r)
-    except Exception:
-        pass
+    for rid, fn in LIVE_MAP.items():
+        try:
+            live[rid] = float(fn(s))
+        except Exception:
+            pass
     print("LT-derived refs (live): %s" % live)
     for row in rows:
         rid = row.get("id")

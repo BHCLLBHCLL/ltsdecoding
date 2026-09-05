@@ -92,5 +92,10 @@
     "ybar": 0.9949501,
     "tol": 0.001,
     "_lt_derived": true
+  },
+  "photopic_550": {
+    "photopic": 0.9949501,
+    "tol": 0.001,
+    "_lt_derived": true
   }
 }
