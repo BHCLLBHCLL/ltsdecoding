@@ -97,6 +97,12 @@
 - tests: test_sketch.py (3 测试, 纯 Python base 可跑) + test_occ 增 test_occ_mirror_invariant。
 - occ 语料 13 -> 15; ci_occ (occ) 全 PASS; base pytest 281 passed / 8 skipped。
 
+
+### R3 收尾续 · 草图约束全族（切线/中心对称/过点线/样条镜像）（2026-09-04 续）
+- lts_sketch 扩展约束族: tangent(线段-圆相切, 圆心到无限直线距离=半径)、symmetric(两点关于点中心对称)、point_on_line(点共线)、mirror_to/mirror_spline(镜像复制: 源控制点固定, 目标取关于轴的反射)。
+- 验证(base): 切线 d=1.0；中心对称中点=目标；点过线投影到 y=0；样条镜像 A 固定 (1,1),(2,3) -> B=(1,-1),(2,-3)。
+- test_sketch 3 -> 7 (tangent/symmetric/point_on_line/spline_mirror)；base pytest 285 passed / 8 skipped。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
