@@ -150,6 +150,69 @@ def test_sag_spherical():
     assert sag > par                                                  # 球差 (矢高 > 近轴)
 
 
+
+
+
+def test_grat_sinc2_disp_norm():
+    import ltsoptics.diffraction as df
+    import numpy as np
+    assert abs(df.order_weight(1, 0.25) - (math.sin(math.pi / 4) / (math.pi / 4)) ** 2) < 1e-9
+    assert abs(df.order_weight(0, 0.5) - 0.25) < 1e-9                     # 0 级 = duty²
+    a0 = df.grating_angles(2.0, 0.55, 1); a1 = df.grating_angles(2.0, 0.6, 1)
+    assert abs(df.grating_dispersion(2.0, 0.55, 0.6, 1) - (a1 - a0) / 0.05) < 1e-9   # 色散定义
+    orders = df.diffract(np.array([0.0, 0.0, -1.0]), np.array([0.0, 0.0, 1.0]),
+                         np.array([1.0, 0.0, 0.0]), 2.0, 0.55)
+    assert abs(sum(o[2] for o in orders) - 1.0) < 1e-6                    # 能量归一
+
+
+def test_scatter_depolarization():
+    import numpy as np
+    import ltsoptics.volume_scatter as vs
+    import ltsoptics.polarization as pol
+
+    class R:
+        def __init__(self):
+            self._g = np.random.default_rng(0)
+        def next1(self):
+            return float(self._g.random())
+
+    rng = R()
+    d0 = np.array([0.0, 0.0, 1.0]); d1 = np.array([0.3, 0.2, 0.93])
+    j0 = pol.jones_from_amplitudes(1.0, 0.0)
+
+    def ens_dop(depol, n=2000):
+        M = np.zeros((2, 2), dtype=complex)
+        for _ in range(n):
+            j = np.asarray(vs.scatter_polarization(j0, d0, d1, depol, rng), dtype=complex).ravel()
+            M += np.outer(j, j.conj())
+        M /= n
+        tr = np.trace(M).real
+        det = abs(np.linalg.det(M))
+        return math.sqrt(max(0.0, 1.0 - 4.0 * det / (tr * tr + 1e-12)))
+
+    d0v, d1v = ens_dop(0.0), ens_dop(1.0)
+    assert d0v > 0.99                        # 无退偏: 保持全偏振
+    assert d1v < 0.05                        # 满退偏: 基本去偏振
+
+
+def test_coherence_sum_phase():
+    import ltsoptics.coherence as co
+    assert abs(abs(co.coherent_field_sum([1.0, 1.0], [0.0, 0.0])) ** 2 - 4.0) < 1e-9   # 相干=4
+    assert abs(co.coherent_field_sum([1.0, 1.0], [0.0, math.pi])) < 1e-9               # 反相干涉相消
+
+    class R:
+        def __init__(self):
+            self._g = np.random.default_rng(0)
+        def next1(self):
+            return float(self._g.random())
+
+    rng = R()
+    assert co.random_phase(rng, float("inf")) == 0.0                     # 全相干 -> 0
+    phs = [co.random_phase(rng, 0.0) for _ in range(5000)]
+    assert abs(float(np.mean(phs)) - math.pi) < 0.1                       # 均匀 [0,2pi)
+    assert abs(float(np.std(phs)) - math.pi / math.sqrt(3)) < 0.1
+
+
 def test_lensmaker_focal():
     from lts.trace.sequential import single_lens
     img = single_lens()

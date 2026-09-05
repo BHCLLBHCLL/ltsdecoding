@@ -221,5 +221,25 @@
   "phys_sag_sphere": {
     "sag": 4.1742430504416035,
     "tol": 1e-06
+  },
+  "phys_grat_sinc2": {
+    "w": 0.8105694691387023,
+    "tol": 1e-06
+  },
+  "phys_grat_disp": {
+    "disp": 29.911779,
+    "tol": 0.001
+  },
+  "phys_grat_sum": {
+    "sum": 1.0,
+    "tol": 1e-06
+  },
+  "phys_coh_sum": {
+    "E2": 4.0,
+    "tol": 1e-06
+  },
+  "phys_poldep0": {
+    "dop": 1.0,
+    "tol": 1e-06
   }
 }

@@ -221,6 +221,56 @@ def our_sag_sphere():
     s = SeqSurface(name="s", z=0.0, curvature=1.0 / 50.0)
     return float(s.sag(20.0))
 
+
+
+
+def our_grat_sinc2():
+    import ltsoptics.diffraction as df
+    return float(df.order_weight(1, 0.25))
+
+
+def our_grat_disp():
+    import ltsoptics.diffraction as df
+    return float(df.grating_dispersion(2.0, 0.55, 0.6, 1))
+
+
+def our_grat_sum():
+    import ltsoptics.diffraction as df
+    import numpy as np
+    orders = df.diffract(np.array([0.0, 0.0, -1.0]), np.array([0.0, 0.0, 1.0]),
+                         np.array([1.0, 0.0, 0.0]), 2.0, 0.55)
+    return float(sum(o[2] for o in orders))
+
+
+def our_coh_sum():
+    import ltsoptics.coherence as co
+    E = co.coherent_field_sum([1.0, 1.0], [0.0, 0.0])
+    return float(abs(E) ** 2)
+
+
+def our_poldep0():
+    import numpy as np
+    import ltsoptics.volume_scatter as vs
+    import ltsoptics.polarization as pol
+
+    class R:
+        def __init__(self):
+            self._g = np.random.default_rng(0)
+        def next1(self):
+            return float(self._g.random())
+
+    rng = R()
+    d0 = np.array([0.0, 0.0, 1.0]); d1 = np.array([0.3, 0.2, 0.93])
+    j0 = pol.jones_from_amplitudes(1.0, 0.0)
+    M = np.zeros((2, 2), dtype=complex)
+    for _ in range(1000):
+        j = np.asarray(vs.scatter_polarization(j0, d0, d1, 0.0, rng), dtype=complex).ravel()
+        M += np.outer(j, j.conj())
+    M /= 1000.0
+    tr = np.trace(M).real
+    det = abs(np.linalg.det(M))
+    return float(math.sqrt(max(0.0, 1.0 - 4.0 * det / (tr * tr + 1e-12))))
+
 def our_photopic(wl):
     from ltsoptics.spectrum import v_lambda
     return float(v_lambda(float(wl)))
@@ -272,6 +322,11 @@ CORPUS = [
     {"id": "phys_brewster", "kind": "physics", "fn": our_brewster, "src": "deg", "tol_key": "deg"},
     {"id": "phys_ar_reflect", "kind": "physics", "fn": our_ar_reflect, "src": "R", "tol_key": "R"},
     {"id": "phys_sag_sphere", "kind": "physics", "fn": our_sag_sphere, "src": "sag", "tol_key": "sag"},
+    {"id": "phys_grat_sinc2", "kind": "physics", "fn": our_grat_sinc2, "src": "w", "tol_key": "w"},
+    {"id": "phys_grat_disp", "kind": "physics", "fn": our_grat_disp, "src": "disp", "tol_key": "disp"},
+    {"id": "phys_grat_sum", "kind": "physics", "fn": our_grat_sum, "src": "sum", "tol_key": "sum"},
+    {"id": "phys_coh_sum", "kind": "physics", "fn": our_coh_sum, "src": "E2", "tol_key": "E2"},
+    {"id": "phys_poldep0", "kind": "physics", "fn": our_poldep0, "src": "dop", "tol_key": "dop"},
     {"id": "geom_box_volume", "kind": "geometry", "fn": lambda: gel.mesh_volume(gel.box_mesh(2, 2, 2)), "src": "volume", "tol_key": "volume"},
     {"id": "geom_transform_centroid", "kind": "geometry", "fn": lambda: float(gel.mesh_centroid(gel.transform_mesh(gel.box_mesh(2, 2, 2), translate=(1, 2, 3)))[0]), "src": "centroid_x", "tol_key": "x"},
     {"id": "geom_array_count", "kind": "geometry", "fn": lambda: float(len(gel.array_positions("rect", 9))), "src": "count", "tol_key": "count"},

@@ -136,6 +136,13 @@
 - test_physics 11 -> 15 (HG 归一/mean, Malus/DOP/Brewster, 薄膜 λ/4 增透 R=0, 球面矢高)。
 - 验证: parity --gate 40 PASS; verify_all --full 全绿。
 
+
+### R4 续 · 体积散射退偏 / 衍射 sinc² / 相干长度-相位 解析对表（2026-09-04 续）
+- 新增 5 物理语料 (lt_parity 40 -> 45): phys_grat_sinc2(矩形光栅 sinc², (sin(π/4)/(π/4))²=0.8106), phys_grat_disp(角向色散 deg/nm), phys_grat_sum(光栅各传播级权重和=1, 能量归一), phys_coh_sum(相干叠加 |Σa|²=(Σa)²=4), phys_poldep0(体积散射无退偏 ensemble DOP=1)。
+- 验证: scatter_polarization depol=0 -> ensemble DOP=1; depol=0.5 -> 0.49; depol=1 -> 0.02 (退偏机制正确, 但单事件退偏只随机化偏振方向, 需 ensemble DOP 才体现)。random_phase(inf)=0 确定性; random_phase(0) 均匀 [0,2π)。
+- test_physics 15 -> 18 (光栅 sinc²/色散/归一, 退偏 ensemble DOP 单调, 相干/反相/随机相位)。
+- 验证: base pytest 303 passed; lt_parity --gate 45 PASS。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
