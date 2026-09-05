@@ -358,11 +358,31 @@ def occ_geometry_corpus():
              8.0 - 0.25*(1.0 - math.pi/4.0)*2.0),
             ("geom_occ_booltree_vol", lo.boolean_tree("fuse", [box, b2]), 12.0),
             ("geom_occ_transform_vol", lo.prim_transform(box, axis=(0, 0, 1), angle_deg=45.0, translate=(1, 0, 0)), 8.0),
+            ("geom_occ_mirror_vol", lo.prim_mirror(box, (1.0, 0.0, 0.0), (2.0, 0.0, 0.0)), 8.0),
         ]:
             m = lo.shape_metrics(sh)
             if m:
                 out[cid] = {"volume": m.get("volume"), "area": m.get("area"),
                             "ref_volume": ref}
+    except Exception:
+        pass
+    # 草图约束求解 -> 挤出实体 (约束后三角形 area=6, extrude h=2 -> 12)
+    try:
+        from lts_sketch import Sketch
+        sk = Sketch([(0.0, 0.0), (0.0, 2.2), (3.0, 2.0)])
+        sk.constrain("distance", (0, 1), 3.0)
+        sk.constrain("distance", (1, 2), 4.0)
+        sk.constrain("angle", (0, 1, 2), 90.0)
+        sk.solve()
+        tri = sk.points()
+        if len(tri) == 3:
+            import lts_occ as lo2
+            sh = lo2.prim_prism(tri, 2.0)
+            m = lo2.shape_metrics(sh)
+            if m:
+                out["geom_occ_sketchtri_vol"] = {"volume": m.get("volume"),
+                                                 "area": m.get("area"),
+                                                 "ref_volume": 0.5 * 3.0 * 4.0 * 2.0}
     except Exception:
         pass
     return out

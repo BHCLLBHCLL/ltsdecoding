@@ -89,6 +89,14 @@
 - test_occ 增 test_occ_brep_ops (occ 7 通过 / base skip)。
 - 验证: ci_occ.ps1 (occ 运行时) test_occ + lt_parity --gate (13 OCC 精确) 全 PASS; base pytest 278 passed, 7 skipped。
 
+
+### R3 收尾 · 草图约束系统 + 镜像（2026-09-04 续）
+- **镜像**: lts_occ.prim_mirror(shape, normal, point) 经 BRepBuilderAPI_GTransform 反射; 体积不变 (box 关于 x=2 镜像 vol=8, 质心 [4,0,0])。加 geom_occ_mirror_vol。
+- **草图约束求解**: 新模块 lts_sketch.py —— 2D 草图点集 + 几何约束 (distance/angle/coincide/horizontal/vertical/fixed/mirror)，迭代投影(Gauss-Seidel)求解。验证: 距离=5；勾股 3-4-5 直角三角 (约束 dist+angle, 面积 6, 斜边 5)；镜像对称。
+- **草图 -> B-rep**: 约束求解后的三角形喂 prim_prism/extrude -> 体积 12 (面积6 x h2)。加 geom_occ_sketchtri_vol。
+- tests: test_sketch.py (3 测试, 纯 Python base 可跑) + test_occ 增 test_occ_mirror_invariant。
+- occ 语料 13 -> 15; ci_occ (occ) 全 PASS; base pytest 281 passed / 8 skipped。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

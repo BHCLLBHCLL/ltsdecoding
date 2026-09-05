@@ -86,6 +86,12 @@ def test_occ_sketch_primitives():
     assert abs(lo.shape_metrics(lo.prim_pipe((0, 0, 0), (0, 0, 5.0), 1.0))["volume"] - math.pi * 5.0) < 1e-4
 
 
+def test_occ_mirror_invariant():
+    box = lo.prim_cuboid(2.0, 2.0, 2.0)
+    # 镜像体积不变 (关于 x=2 平面)
+    assert abs(lo.shape_metrics(lo.prim_mirror(box, (1.0, 0.0, 0.0), (2.0, 0.0, 0.0)))["volume"] - 8.0) < 1e-6
+
+
 def test_occ_brep_ops():
     import math
     box = lo.prim_cuboid(2.0, 2.0, 2.0)

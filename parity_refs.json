@@ -129,5 +129,13 @@
   "geom_occ_transform_vol": {
     "volume": 8.0,
     "tol": 0.01
+  },
+  "geom_occ_mirror_vol": {
+    "volume": 8.0,
+    "tol": 0.01
+  },
+  "geom_occ_sketchtri_vol": {
+    "volume": 12.0,
+    "tol": 0.01
   }
 }

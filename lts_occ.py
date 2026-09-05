@@ -60,7 +60,8 @@ try:
         BRepOffsetAPI_MakePipe, BRepOffsetAPI_MakeThickSolid, BRepOffsetAPI_ThruSections,
     )
     from OCC.Core.BRepFilletAPI import BRepFilletAPI_MakeFillet
-    from OCC.Core.gp import gp_Ax2, gp_Ax1, gp_Circ, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_GTransform
+    from OCC.Core.gp import gp_Ax2, gp_Ax1, gp_Circ, gp_Dir, gp_GTrsf, gp_Pnt, gp_Trsf, gp_Vec
     from OCC.Core.TopoDS import TopoDS_Wire
     from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SHELL, TopAbs_SOLID
     from OCC.Core.TopExp import TopExp_Explorer
@@ -553,6 +554,24 @@ def prim_fillet(shape, radius, edge_index=None):
         exp.Next()
     fil.Build()
     return fil.Shape()
+
+
+
+def prim_mirror(shape, normal, point=(0.0, 0.0, 0.0)):
+    """镜像 (草图: 反射/对称): 关于法向 normal、过 point 的平面反射. 体积不变."""
+    n = np.asarray(normal, dtype=float)
+    ln = np.linalg.norm(n) or 1.0
+    n = n / ln
+    p = np.asarray(point, dtype=float)
+    R = np.eye(3) - 2.0 * np.outer(n, n)
+    t = 2.0 * np.dot(n, p) * n
+    g = gp_GTrsf()
+    for i in range(3):
+        for j in range(3):
+            g.SetValue(i + 1, j + 1, float(R[i, j]))
+        g.SetValue(i + 1, 4, float(t[i]))
+    return BRepBuilderAPI_GTransform(shape, g, True).Shape()
+
 
 
 def shape_from_mesh(points: np.ndarray, triangles: np.ndarray):
