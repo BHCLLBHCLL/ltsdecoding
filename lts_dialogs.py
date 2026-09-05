@@ -19,6 +19,8 @@ class PropertiesDialog(QDialog):
     """Dockable-style properties for a System Navigator object."""
 
     apply_requested = pyqtSignal()
+    # oid, preset, reflectivity, transmission, side("reflected"/"transmitted"/"both"), surface
+    surface_preset_requested = pyqtSignal(str, str, float, float, str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -65,6 +67,38 @@ class PropertiesDialog(QDialog):
         pl.addWidget(self.table)
         self.tabs.addTab(prop, "Properties")
 
+        surf = QWidget(self)
+        sf = QFormLayout(surf)
+        self._surf_preset = QComboBox(surf)
+        from lts_optics_bind import SURFACE_PRESETS
+        self._surf_preset.addItems(list(SURFACE_PRESETS))
+        self._surf_pick = QComboBox(surf)
+        self._surf_r = QDoubleSpinBox(surf)
+        self._surf_r.setRange(0.0, 1.0)
+        self._surf_r.setDecimals(4)
+        self._surf_r.setSingleStep(0.05)
+        self._surf_t = QDoubleSpinBox(surf)
+        self._surf_t.setRange(0.0, 1.0)
+        self._surf_t.setDecimals(4)
+        self._surf_t.setSingleStep(0.05)
+        self._surf_side = QComboBox(surf)
+        self._surf_side.addItems(["Reflected", "Transmitted", "Both"])
+        self._surf_info = QLabel(surf)
+        self._surf_info.setWordWrap(True)
+        sf.addRow("Preset", self._surf_preset)
+        sf.addRow("Surface", self._surf_pick)
+        sf.addRow("Reflectivity", self._surf_r)
+        sf.addRow("Transmission", self._surf_t)
+        sf.addRow("Scatter side", self._surf_side)
+        apply_surf = QPushButton("Apply to Surface", surf)
+        apply_surf.clicked.connect(self._surf_apply)
+        sf.addRow(apply_surf)
+        sf.addRow("Current", self._surf_info)
+        self.tabs.addTab(surf, "Surface Optics")
+        self._surf_preset.currentTextChanged.connect(
+            lambda _t: self._surf_preset_defaults())
+        self._surf_preset_defaults()
+
         row = QHBoxLayout()
         apply_btn = QPushButton("Apply", self)
         apply_btn.clicked.connect(self._apply)
@@ -90,6 +124,7 @@ class PropertiesDialog(QDialog):
             self._pos.clear()
             self._ori.clear()
             self._block = False
+            self.set_surface_info("")
             return
         name = prop_str(obj, "setName") or oid
         self.setWindowTitle("Properties — %s" % name)
@@ -112,6 +147,61 @@ class PropertiesDialog(QDialog):
             self.table.setItem(r, 0, ki)
             self.table.setItem(r, 1, QTableWidgetItem(to_lts_str(val)))
         self._block = False
+        self.set_surface_info("")
+
+    # ---- Surface Optics 页 (属性面板编辑 SurfaceOpt) ----
+
+    def _surf_preset_defaults(self) -> None:
+        """切预设 -> R/T/side 取该预设默认; Fresnel 类无数值参数."""
+        from lts_optics_bind import PRESET_PROPS, SURFACE_PRESETS
+        key = SURFACE_PRESETS.get(self._surf_preset.currentText())
+        pk = PRESET_PROPS.get(key) if key else None
+        kind = (pk or {}).get("kind", "")
+        numeric = kind in ("rt", "lambert_scatter", "mirror", "opaque",
+                           "absorbing", "mechanical")
+        self._surf_r.setEnabled(numeric)
+        self._surf_t.setEnabled(numeric)
+        self._surf_side.setEnabled(kind == "lambert_scatter")
+        if pk:
+            self._surf_r.setValue(float(pk.get("R", 0.0)))
+            self._surf_t.setValue(float(pk.get("T", 0.0)))
+            side = str(pk.get("side", "reflected")).title()
+            i = self._surf_side.findText(side)
+            if i >= 0:
+                self._surf_side.setCurrentIndex(i)
+
+    def _surf_apply(self) -> None:
+        if self._oid is None:
+            return
+        surface = (""
+                   if self._surf_pick.currentIndex() <= 0
+                   else self._surf_pick.currentText())
+        self.surface_preset_requested.emit(
+            self._oid, self._surf_preset.currentText(),
+            float(self._surf_r.value()), float(self._surf_t.value()),
+            self._surf_side.currentText().lower(), surface)
+
+    def set_surface_info(self, text: str, surfaces=None, current=None) -> None:
+        """Viewer 回填区链现状 (surfaces 下拉 + 摘要 + 当前预设映射)."""
+        self._surf_pick.clear()
+        self._surf_pick.addItem("(All surfaces)")
+        for s in surfaces or []:
+            self._surf_pick.addItem(str(s))
+        self._surf_info.setText(text or "(select a solid with property zones)")
+        if current and current.get("preset"):
+            from lts_optics_bind import preset_key_of
+            key = preset_key_of(str(current["preset"]))
+            if key:
+                i = self._surf_preset.findText(key)
+                if i >= 0:
+                    self._surf_preset.setCurrentIndex(i)
+            if current.get("kind") not in ("transmitting",):
+                self._surf_r.setValue(float(current.get("R", 0.0)))
+                self._surf_t.setValue(float(current.get("T", 0.0)))
+            side = str(current.get("side", "reflected")).title()
+            j = self._surf_side.findText(side)
+            if j >= 0:
+                self._surf_side.setCurrentIndex(j)
 
     def _on_cell(self, _row, _col) -> None:
         if self._block:

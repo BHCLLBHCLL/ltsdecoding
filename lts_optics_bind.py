@@ -368,6 +368,7 @@ class ZoneProp:
 # 默认光学属性模板 (Default Optical Properties) 中的同名区即这些预设。
 PRESET_PROPS: Dict[str, dict] = {
     "bare":          {"kind": "fresnel"},                       # 默认 Fresnel
+    "fresnel":       {"kind": "fresnel"},
     "smooth optical": {"kind": "fresnel"},
     "transmitting":  {"kind": "rt", "R": 0.0, "T": 1.0, "mode": "tir"},
     "transmissive":  {"kind": "rt", "R": 0.0, "T": 1.0, "mode": "tir"},
@@ -493,6 +494,61 @@ def _direction_mode(direction: Optional[LTSObjectLike]) -> Tuple[str, str]:
     return "", "refract"
 
 
+def _apply_preset_semantics(zp: "ZoneProp", preset: dict, zone=None,
+                            use_zone_values: bool = False) -> None:
+    """PRESET_PROPS 语义 -> ZoneProp 振幅/数值 (zone_prop 预设链共用).
+
+    use_zone_values: GUI 写回 (setAmplitudeOverride) 模式, 区级
+    setReflectance/setTransmittance/setPropagationDirection 覆盖预设默认.
+    """
+    kind = preset["kind"]
+    if use_zone_values:
+        r_def = float(preset.get("R", 0.0))
+        t_def = float(preset.get("T", 0.0))
+    if kind == "fresnel":
+        zp.amplitude = "fresnel"
+    elif kind == "rt":
+        zp.amplitude = "rt"
+        zp.reflectivity = (_float(zone, "setReflectance", r_def)
+                           if use_zone_values else float(preset.get("R", 0.0)))
+        zp.transmission = (_float(zone, "setTransmittance", t_def)
+                           if use_zone_values else float(preset.get("T", 1.0)))
+        zp.refract_mode = preset.get("mode", "tir")
+    elif kind == "mirror":
+        zp.amplitude = "mirror"
+        zp.reflectivity = (_float(zone, "setReflectance", r_def)
+                           if use_zone_values else float(preset.get("R", 1.0)))
+        zp.refract_mode = "reflect"
+    elif kind == "mechanical":
+        zp.amplitude = "rt"
+        zp.reflectivity = 0.0
+        zp.transmission = 0.0
+        zp.refract_mode = "mechanical"
+    elif kind == "absorbing":
+        zp.amplitude = "rt"
+        zp.reflectivity = 0.0
+        zp.transmission = 0.0
+        zp.refract_mode = "refract"
+    elif kind == "opaque":
+        zp.amplitude = "mirror"
+        zp.reflectivity = (_float(zone, "setReflectance", r_def)
+                           if use_zone_values else float(preset.get("R", 0.9)))
+        zp.refract_mode = "reflect"
+    elif kind == "lambert_scatter":
+        zp.amplitude = "lambert"
+        zp.reflectivity = (_float(zone, "setReflectance", r_def)
+                           if use_zone_values else float(preset.get("R", 0.5)))
+        zp.transmission = (_float(zone, "setTransmittance", t_def)
+                           if use_zone_values else float(preset.get("T", 0.0)))
+        side = _str(zone, "setPropagationDirection", "").lower() \
+            if use_zone_values else ""
+        zp.scatter_side = ({"reflected": "reflected",
+                            "transmitted": "transmitted",
+                            "both": "both",
+                            "reflection": "reflected"}.get(
+                                side, preset.get("side", "reflected")))
+
+
 def zone_prop(objects: dict, zone_oid: Optional[str]) -> Optional[ZoneProp]:
     """解析 ORAPropertyZoneObj 链 -> ZoneProp (prop 已含几何无关表面语义)."""
     zone = objects.get(zone_oid) if zone_oid else None
@@ -561,44 +617,23 @@ def zone_prop(objects: dict, zone_oid: Optional[str]) -> Optional[ZoneProp]:
         else:
             zp.amplitude = "fresnel"  # 未知振幅按 Fresnel 界面走
 
+    # setAmplitudeOverride (解码器扩展): GUI 属性编辑器 / SetPropertyTo* 写回,
+    # 预设振幅优先于已解析的振幅类 (LightTools 里等价于换振幅对象, 文本编辑
+    # 缓冲以 override 键表达; 区级数值键见 apply_surface_preset)。
+    override = _str(zone, "setAmplitudeOverride", "")
     # setPropertiesName 预设链: 无显式振幅时按预设 (默认光学属性模板)
     if preset_name:
         zp.preset = preset_name
+    if override:
+        preset = PRESET_PROPS.get(override.strip().lower())
+        if preset is not None:
+            _apply_preset_semantics(zp, preset, zone=zone, use_zone_values=True)
+    elif zp.amplitude in ("none",):
         key = preset_name.strip().lower()
-        if zp.amplitude in ("none",):
+        if key:
             preset = PRESET_PROPS.get(key)
             if preset is not None:
-                kind = preset["kind"]
-                if kind == "fresnel":
-                    zp.amplitude = "fresnel"
-                elif kind == "rt":
-                    zp.amplitude = "rt"
-                    zp.reflectivity = float(preset.get("R", 0.0))
-                    zp.transmission = float(preset.get("T", 1.0))
-                    zp.refract_mode = preset.get("mode", "tir")
-                elif kind == "mirror":
-                    zp.amplitude = "mirror"
-                    zp.reflectivity = float(preset.get("R", 1.0))
-                    zp.refract_mode = "reflect"
-                elif kind == "mechanical":
-                    zp.amplitude = "rt"
-                    zp.reflectivity = 0.0
-                    zp.transmission = 0.0
-                    zp.refract_mode = "mechanical"
-                elif kind == "absorbing":
-                    zp.amplitude = "rt"
-                    zp.reflectivity = 0.0
-                    zp.transmission = 0.0
-                    zp.refract_mode = "refract"
-                elif kind == "opaque":
-                    zp.amplitude = "mirror"
-                    zp.reflectivity = float(preset.get("R", 0.9))
-                    zp.refract_mode = "reflect"
-                elif kind == "lambert_scatter":
-                    zp.amplitude = "lambert"
-                    zp.reflectivity = float(preset.get("R", 0.5))
-                    zp.transmission = float(preset.get("T", 0.0))
-                    zp.scatter_side = preset.get("side", "reflected")
+                _apply_preset_semantics(zp, preset)
 
     if mode and mode.lower() in ("reflect", "mechanical", "refract", "tir"):
         zp.refract_mode = mode.lower()
@@ -682,6 +717,133 @@ def zones_for_solid(objects: dict, solid_oid: str) -> list:
                 zp.surface_number = (zp.surface_number
                                      if zp.surface_number else rec.surface_number)
                 out.append((leaf_oid, rec, zp))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 光学属性预设写回 (GUI Surface Optics 编辑器 / SetPropertyTo* 命令族)
+# ---------------------------------------------------------------------------
+
+# Surface Properties 对话框 Property 下拉的官方预设名 -> PRESET_PROPS 键。
+# 散射族 (Simple/EllipticalGaussian/UserDefined/AOI) 在解码器统一简化为
+# Lambertian 散射 (R/T/方向可调); 与 lts_api._PROP 的语义对齐。
+SURFACE_PRESETS: Dict[str, str] = {
+    "Mirror":                          "mirror",
+    "Absorber":                        "absorbing",
+    "Smooth Optical Surface":          "fresnel",
+    "Thin Fresnel":                    "fresnel",
+    "Complete Scatter (Lambertian)":   "lambertian scattering",
+    "Simple Scatter":                  "lambertian scattering",
+    "Elliptical Gaussian Scatter":     "lambertian scattering",
+    "User Defined Scatter":            "lambertian scattering",
+    "AOI Scatter":                     "lambertian scattering",
+}
+
+# 官方 SetPropertyTo* 命令名 -> SURFACE_PRESETS 预设名 (命令行直达)。
+_SET_PROP_TO_PRESET = {
+    "mirror": "Mirror", "absorber": "Absorber",
+    "smoothoptical": "Smooth Optical Surface", "thinfresnel": "Thin Fresnel",
+    "completescatter": "Complete Scatter (Lambertian)",
+    "simplescatter": "Simple Scatter",
+    "ellipticalgaussianscatter": "Elliptical Gaussian Scatter",
+    "userdefinedscatter": "User Defined Scatter",
+    "aoiscatter": "AOI Scatter",
+}
+
+
+def preset_key_of(name: str) -> Optional[str]:
+    """官方预设名 / SetPropertyTo* 命令名 / PRESET 键 -> SURFACE_PRESETS 键."""
+    n = (name or "").strip()
+    if n in SURFACE_PRESETS:
+        return n
+    low = n.lower().replace(" ", "").replace("_", "")
+    if low.startswith("setpropertyto"):
+        return _SET_PROP_TO_PRESET.get(low[len("setpropertyto"):])
+    for k in SURFACE_PRESETS:
+        if k.lower().replace(" ", "") == low:
+            return k
+    # 写回器存进 setPropertiesName 的 PRESET 键 ("mirror"/"absorbing"/
+    # "fresnel"/"lambertian scattering") 映射回官方预设名 (属性页回显).
+    for k, pk_key in SURFACE_PRESETS.items():
+        if pk_key.replace(" ", "") == low:
+            return k
+    return None
+
+
+def zone_amp_dir(objects: dict, zone_oid: str) -> tuple:
+    """区 -> (amplitude 对象 oid, direction 对象 oid); 与 zone_prop 查找一致."""
+    zone = objects.get(zone_oid)
+    if zone is None:
+        return (None, None)
+    amp_dir = objects.get(_edge(zone, "restoreProperties") or "")
+    if amp_dir is None:
+        return (None, None)
+    amp_oid = _edge(amp_dir, "setAmplitude") or None
+    dir_oid = _edge(amp_dir, "setDirection") or None
+    return (amp_oid, dir_oid)
+
+
+def apply_surface_preset(model, solid_oid: str, preset_name: str, *,
+                         reflectivity=None, transmission=None,
+                         scatter_side: str = "",
+                         surface_name: str = "") -> list:
+    """把光学属性预设写回实体的 PropertyZone 链 (headless 可测).
+
+    写回字段 (set_prop -> edits 缓冲, 键在源文本中存在时 Save 落盘):
+      区: setPropertiesName (官方预设名) + setAmplitudeOverride (PRESET 键,
+          解码器扩展, zone_prop 中优先于已解析振幅类) + 区级数值键;
+      振幅对象: setReflectance / setTransmittance / setPropagationDirection;
+      方向对象: setRefractMode。
+    返回逐区报告 dict 列表 (含写回后重解析的 SurfaceOpt kind)。
+    """
+    key = preset_key_of(preset_name)
+    if key is None:
+        raise ValueError("unknown surface preset: %r" % preset_name)
+    pk = PRESET_PROPS.get(SURFACE_PRESETS[key]) or {}
+    side = (scatter_side or "").strip().lower()
+    if side not in ("reflected", "transmitted", "both", ""):
+        side = ""
+    zones = zones_for_solid(model.objects, solid_oid)
+    if surface_name:
+        zones = [z for z in zones if z[1].surface_name == surface_name]
+    out = []
+    seen = set()
+    for _leaf, rec, _zp in zones:
+        for z_oid in rec.zone_oids:
+            if z_oid is None or z_oid in seen:
+                continue
+            seen.add(z_oid)
+            zone = model.objects.get(z_oid)
+            if zone is None:
+                continue
+            model.set_prop(z_oid, "setPropertiesName", key)
+            model.set_prop(z_oid, "setAmplitudeOverride", SURFACE_PRESETS[key])
+            amp_oid, dir_oid = zone_amp_dir(model.objects, z_oid)
+            for target in (z_oid, amp_oid):
+                if target is None:
+                    continue
+                if reflectivity is not None:
+                    model.set_prop(target, "setReflectance", float(reflectivity))
+                if transmission is not None:
+                    model.set_prop(target, "setTransmittance", float(transmission))
+                if side:
+                    model.set_prop(target, "setPropagationDirection", side.title())
+            mode = {"mirror": "reflect", "absorbing": "refract",
+                    "rt": pk.get("mode", "refract"),
+                    "mechanical": "mechanical"}.get(pk.get("kind", ""))
+            if mode and dir_oid:
+                model.set_prop(dir_oid, "setRefractMode", mode.title())
+            zp2 = zone_prop(model.objects, z_oid)
+            out.append({
+                "zone": z_oid, "surface": rec.surface_name,
+                "surface_number": rec.surface_number, "preset": key,
+                "kind": zp2.prop.kind if (zp2 and zp2.prop) else "?",
+                "R": zp2.reflectivity if zp2 else 0.0,
+                "T": zp2.transmission if zp2 else 0.0,
+                "side": zp2.scatter_side if zp2 else "",
+                "override_persistable": bool(
+                    model.objects[z_oid].prop_lines.get("setAmplitudeOverride")),
+            })
     return out
 
 

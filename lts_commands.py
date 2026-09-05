@@ -135,6 +135,22 @@ LT_ALIASES = {
     "DummySurface": "dummy_plane",
 }
 
+# 光学属性预设命令族 (Surface Properties / 命令行): 官方名 -> set_prop_to_*.
+SET_PROP_ALIASES = {
+    "SetPropertyToMirror": "set_prop_to_mirror",
+    "SetPropertyToAbsorber": "set_prop_to_absorber",
+    "SetPropertyToSmoothOptical": "set_prop_to_smooth_optical",
+    "SetPropertyToThinFresnel": "set_prop_to_thin_fresnel",
+    "SetPropertyToCompleteScatter": "set_prop_to_complete_scatter",
+    "SetPropertyToSimpleScatter": "set_prop_to_simple_scatter",
+    "SetPropertyToEllipticalGaussianScatter":
+        "set_prop_to_elliptical_gaussian_scatter",
+    "SetPropertyToUserDefinedScatter": "set_prop_to_user_defined_scatter",
+    "SetPropertyToAOIScatter": "set_prop_to_aoi_scatter",
+}
+LT_ALIASES.update(SET_PROP_ALIASES)
+IMPLEMENTED.update(SET_PROP_ALIASES.values())
+
 
 def _extend_aliases_from_menus() -> None:
     """把菜单注册表声明的 官方命令名 -> handler 映射并入别名表."""

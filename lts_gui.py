@@ -382,6 +382,17 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("cylinder", lambda: self._insert_kind("cylinder"))
         b.bind("toroid", lambda: self._insert_kind("toroid"))
         b.bind("sketch_feature", self._sketch_feature)
+        for _preset, _sfx in (
+                ("Mirror", "mirror"), ("Absorber", "absorber"),
+                ("Smooth Optical Surface", "smooth_optical"),
+                ("Thin Fresnel", "thin_fresnel"),
+                ("Complete Scatter (Lambertian)", "complete_scatter"),
+                ("Simple Scatter", "simple_scatter"),
+                ("Elliptical Gaussian Scatter", "elliptical_gaussian_scatter"),
+                ("User Defined Scatter", "user_defined_scatter"),
+                ("AOI Scatter", "aoi_scatter")):
+            b.bind("set_prop_to_" + _sfx,
+                   lambda p=_preset: self._set_prop_to(p))
         b.bind("undo", self._undo)
         b.bind("redo", self._redo)
         b.bind("print", self._export_view_png)
@@ -753,10 +764,71 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             self._props_dlg = PropertiesDialog(self)
             self._props_dlg.apply_requested.connect(
                 lambda: self.log("Property edits stored — Save to write the .lts file"))
+            self._props_dlg.surface_preset_requested.connect(
+                self._apply_surface_preset)
         obj = self.model.objects.get(oid)
         self._props_dlg.set_object(oid, obj)
+        self._fill_surface_info(oid)
         self._props_dlg.show()
         self._props_dlg.raise_()
+
+    def _fill_surface_info(self, oid: Optional[str]) -> None:
+        """属性对话框 Surface Optics 页: 区链现状 (surfaces/摘要/当前预设)."""
+        dlg = self._props_dlg
+        if dlg is None:
+            return
+        surfaces: list = []
+        current = None
+        info = ""
+        try:
+            from lts_optics_bind import zones_for_solid
+            zc = zones_for_solid(self.model.objects, oid) \
+                if (self.model and oid) else []
+        except Exception:
+            zc = []
+        if zc:
+            surfaces = sorted({rec.surface_name or rec.oid
+                               for _l, rec, _z in zc})
+            zp0 = zc[0][2]
+            nzone = len({z.oid for _l, _r, z in zc})
+            info = "%d surface(s) / %d zone(s); first: %s" % (
+                len(surfaces), nzone, zp0.summary())
+            current = {"preset": zp0.preset,
+                       "kind": (zp0.prop.kind if zp0.prop else ""),
+                       "R": zp0.reflectivity, "T": zp0.transmission,
+                       "side": zp0.scatter_side}
+        dlg.set_surface_info(info, surfaces, current)
+
+    def _apply_surface_preset(self, oid, preset, r=None, t=None, side="",
+                              surface="") -> None:
+        """Surface Optics 页 Apply / SetPropertyTo* 命令 -> 真实写回区链."""
+        if self.model is None or not oid:
+            self.log("Nothing selected", "WARN")
+            return
+        from lts_optics_bind import apply_surface_preset
+        try:
+            reps = apply_surface_preset(
+                self.model, oid, preset,
+                reflectivity=(None if r is None else float(r)),
+                transmission=(None if t is None else float(t)),
+                scatter_side=side or "", surface_name=surface or "")
+        except ValueError as e:
+            self.log("Surface preset failed: %s" % e, "ERROR")
+            return
+        for rep in reps:
+            self.log("Surface preset %s -> %s[%d] (%s): kind=%s R=%.3f T=%.3f"
+                     % (rep["preset"], rep["surface"] or "-",
+                        rep["surface_number"], rep["zone"], rep["kind"],
+                        rep["R"], rep["T"]), tab="sim")
+        if reps:
+            self._mark_dirty()
+            self._fill_surface_info(oid)
+        else:
+            self.log("No property zones on selection", "WARN")
+
+    def _set_prop_to(self, preset: str) -> None:
+        """SetPropertyTo* 命令族: 预设默认 R/T 直接写回选中实体."""
+        self._apply_surface_preset(self._selected_oid, preset)
 
     def _hide_oid(self, oid: Optional[str], hidden: bool, *,
                   record: bool = True) -> None:

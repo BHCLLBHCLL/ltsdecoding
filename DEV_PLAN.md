@@ -158,6 +158,15 @@
 - tests/test_gui_sketch.py (4): build_solid rt345=12/rect=18, 对话框解算, viewer.run_command("SketchFeature") 不崩溃 (offscreen Qt)。
 - 验证: GUI offscreen 可构造; coverage 710/710 depth 100%; base pytest 307 passed / 10 skipped。
 
+
+### R6 续 · 属性面板 SurfaceOpt 编辑（SetPropertyTo* 写回 + 属性编辑器）（2026-09-05）
+- lts_optics_bind: SURFACE_PRESETS (Surface Properties 官方预设下拉, 散射族简化为 Lambertian) + apply_surface_preset(model, oid, preset, R/T/side, surface) —— 预设写回实体 PropertyZone 链 (setPropertiesName + setAmplitudeOverride + 区/振幅/方向对象数值键, 键在源文本存在时 Save 落盘); zone_prop 增 override 语义 (预设振幅优先于已解析振幅类, 区级数值覆盖预设默认; 无 override 时显式振幅仍优先 = LightTools 语义, 有回归护栏)。
+- lts_dialogs PropertiesDialog: 新增 Surface Optics 页 (预设下拉/R/T spinbox/散射方向/逐面选择/区链摘要回填, 切预设自动带默认值并按 kind 启停参数); surface_preset_requested 信号。
+- lts_gui: _fill_surface_info (打开属性页回填 zones 现状) + _apply_surface_preset (写回+日志+dirty) + _set_prop_to; lts_commands: SetPropertyTo* 9 条官方命令别名 -> set_prop_to_* (IMPLEMENTED 73->82, aliases 180->189), 命令行/宏直达。
+- 追迹贯通: 写回后 scene_from_model 逐三角 SurfaceOpt 即时生效 (transmitting->mirror->lambert_scatter, 用户 R 直达)。
+- tests/test_gui_surface_props.py (8, offscreen): Mirror/Lambert(用户 R/T/side)/命令名直译/单面写回/显式振幅优先回归/场景消费 + 对话框页参数启停与信号 + viewer 命令与属性页 Apply 贯通。
+- 验证: base pytest 315 passed / 10 skipped (+8); coverage --gate 710/710 PASS; verify_all --full 全绿 (UI registry 202/202, parity 45 PASS)。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
