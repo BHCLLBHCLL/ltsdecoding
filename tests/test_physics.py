@@ -62,6 +62,50 @@ def test_grin_straight_when_uniform():
     assert max(abs(d1[i] - d0[i]) for i in range(3)) < 1e-3
 
 
+
+
+
+def test_beer_lambert():
+    import ltsoptics.volume_scatter as vs
+    assert abs(vs.volume_transmission(0.5, 2.0) - math.exp(-1.0)) < 1e-9
+    assert abs(vs.mean_free_path(0.5) - 2.0) < 1e-9
+    assert abs(vs.scatter_albedo(0.2, 0.8) - 0.8) < 1e-9
+
+
+def test_grating_equation():
+    import ltsoptics.diffraction as df
+    assert abs(df.grating_angles(2.0, 0.55, 1) - math.degrees(math.asin(0.55 / 2.0))) < 1e-6
+    assert abs(df.order_weight(1, 0.5) - 4.0 / (math.pi ** 2)) < 1e-6
+
+
+def test_stokes_and_coherence():
+    import ltsoptics.phosphor as ph
+    import ltsoptics.coherence as co
+    assert abs(ph.stokes_shift(365.0, 550.0) - 550.0 / 365.0) < 1e-9    # 波长比红移
+    assert abs(co.visibility(1.5, 1.0) - 0.5) < 1e-9                   # 相干可见度
+
+
+def test_phosphor_lifetime():
+    import numpy as np
+    import ltsoptics.phosphor as ph
+
+    class _R:
+        def __init__(self):
+            self._g = np.random.default_rng(0)
+        def next1(self):
+            return float(self._g.random())
+
+    rng = _R()
+    ts = [ph.lifetime_delay(5.0, rng) for _ in range(4000)]
+    assert abs(float(np.mean(ts)) - 5.0) < 5.0 * 0.03                    # 指数均值=tau
+
+
+def test_paraxial_image():
+    from lts.trace.sequential import single_lens
+    img = single_lens()
+    assert abs(img.paraxial_image_distance() - img.back_focal_length()) < 1e-6
+
+
 def test_lensmaker_focal():
     from lts.trace.sequential import single_lens
     img = single_lens()

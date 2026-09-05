@@ -157,5 +157,41 @@
   "phys_bsdf_frac": {
     "frac": 0.75,
     "tol": 0.01
+  },
+  "phys_beer": {
+    "T": 0.36787944117144233,
+    "tol": 1e-06
+  },
+  "phys_mfp": {
+    "mfp": 2.0,
+    "tol": 1e-06
+  },
+  "phys_albedo": {
+    "albedo": 0.8,
+    "tol": 1e-06
+  },
+  "phys_grating_angle": {
+    "angle": 15.962014162847236,
+    "tol": 0.0001
+  },
+  "phys_grating_order": {
+    "eff": 0.4052847345693511,
+    "tol": 1e-06
+  },
+  "phys_stokes": {
+    "shift": 1.5068493150684932,
+    "tol": 1e-06
+  },
+  "phys_visibility": {
+    "vis": 0.5,
+    "tol": 1e-06
+  },
+  "phys_lifetime": {
+    "tau": 5.0,
+    "tol": 0.02
+  },
+  "phys_paraxial": {
+    "image": 49.152542372881356,
+    "tol": 0.0001
   }
 }

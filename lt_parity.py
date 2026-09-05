@@ -117,6 +117,64 @@ def our_bsdf_frac():
     cs = np.sqrt(rng.random(20000))
     return float(float(np.mean(cs > 0.5)));
 
+
+
+
+def our_beer():
+    import ltsoptics.volume_scatter as vs
+    return float(vs.volume_transmission(0.5, 2.0))   # exp(-mu_t*L)
+
+
+def our_mfp():
+    import ltsoptics.volume_scatter as vs
+    return float(vs.mean_free_path(0.5))             # 1/mu
+
+
+def our_albedo():
+    import ltsoptics.volume_scatter as vs
+    return float(vs.scatter_albedo(0.2, 0.8))        # mu_s/(mu_a+mu_s)
+
+
+def our_grating_angle():
+    import ltsoptics.diffraction as df
+    return float(df.grating_angles(2.0, 0.55, 1))    # 衍射角(度)
+
+
+def our_grating_order():
+    import ltsoptics.diffraction as df
+    return float(df.order_weight(1, 0.5))            # 二元光栅 1 级效率
+
+
+def our_stokes():
+    import ltsoptics.phosphor as ph
+    return float(ph.stokes_shift(365.0, 550.0))      # 波长比 (红移)
+
+
+def our_visibility():
+    import ltsoptics.coherence as co
+    return float(co.visibility(1.5, 1.0))            # 相干可见度 (coherent excess)
+
+
+def our_lifetime_mean():
+    import numpy as np
+    import ltsoptics.phosphor as ph
+
+    class _R:
+        def __init__(self):
+            self._g = np.random.default_rng(0)
+        def next1(self):
+            return float(self._g.random())
+
+    rng = _R()
+    ts = [ph.lifetime_delay(5.0, rng) for _ in range(4000)]
+    return float(sum(ts) / len(ts))
+
+
+def our_paraxial():
+    from lts.trace.sequential import single_lens
+    img = single_lens()
+    return float(img.paraxial_image_distance())
+
 def our_photopic(wl):
     from ltsoptics.spectrum import v_lambda
     return float(v_lambda(float(wl)))
@@ -152,6 +210,15 @@ CORPUS = [
     {"id": "phys_tir_crit", "kind": "physics", "fn": our_tir_crit, "src": "crit_deg", "tol_key": "crit_deg"},
     {"id": "phys_grin_snell", "kind": "physics", "fn": our_grin_snell, "src": "invariant", "tol_key": "invariant"},
     {"id": "phys_bsdf_frac", "kind": "physics", "fn": our_bsdf_frac, "src": "frac", "tol_key": "frac"},
+    {"id": "phys_beer", "kind": "physics", "fn": our_beer, "src": "T", "tol_key": "T"},
+    {"id": "phys_mfp", "kind": "physics", "fn": our_mfp, "src": "mfp", "tol_key": "mfp"},
+    {"id": "phys_albedo", "kind": "physics", "fn": our_albedo, "src": "albedo", "tol_key": "albedo"},
+    {"id": "phys_grating_angle", "kind": "physics", "fn": our_grating_angle, "src": "angle", "tol_key": "angle"},
+    {"id": "phys_grating_order", "kind": "physics", "fn": our_grating_order, "src": "eff", "tol_key": "eff"},
+    {"id": "phys_stokes", "kind": "physics", "fn": our_stokes, "src": "shift", "tol_key": "shift"},
+    {"id": "phys_visibility", "kind": "physics", "fn": our_visibility, "src": "vis", "tol_key": "vis"},
+    {"id": "phys_lifetime", "kind": "physics", "fn": our_lifetime_mean, "src": "tau", "tol_key": "tau"},
+    {"id": "phys_paraxial", "kind": "physics", "fn": our_paraxial, "src": "image", "tol_key": "image"},
     {"id": "geom_box_volume", "kind": "geometry", "fn": lambda: gel.mesh_volume(gel.box_mesh(2, 2, 2)), "src": "volume", "tol_key": "volume"},
     {"id": "geom_transform_centroid", "kind": "geometry", "fn": lambda: float(gel.mesh_centroid(gel.transform_mesh(gel.box_mesh(2, 2, 2), translate=(1, 2, 3)))[0]), "src": "centroid_x", "tol_key": "x"},
     {"id": "geom_array_count", "kind": "geometry", "fn": lambda: float(len(gel.array_positions("rect", 9))), "src": "count", "tol_key": "count"},

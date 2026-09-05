@@ -123,6 +123,12 @@
 - test_physics.py (6 测试): Fresnel 全角度 vs 标准、TIR 临界角/全反射、BSDF Lambertian KS(<0.02)、GRIN Snell 动量守恒+均匀直行、透镜焦距。
 - 修复后 verify_all --full 全绿: 16 golden OK, raytrace conservation 0.0007%, parity 24 全 PASS (rearlighting_trace_escape 仍 PASS, 修正后更贴近 LT ref ratio=0.1267)。
 
+
+### R4 续 · 体积散射/Beer / 衍射 / 相干 / 磷光 / 近轴成像 解析对表（2026-09-04 续）
+- 新增 9 物理语料 (lt_parity 24 -> 33): phys_beer(exp(-mu L)), phys_mfp(1/mu), phys_albedo(mu_s/(mu_a+mu_s)), phys_grating_angle(d sinθ=mλ), phys_grating_order(二元光栅 1 级=4/π²), phys_stokes(λe/λp), phys_visibility(coherent excess=(c-i)/i), phys_lifetime(指数均值=τ), phys_paraxial(单透镜 paraxial_image_distance=bfl)。
+- test_physics 6 -> 11 (Beer/光栅/斯托克斯/相干可见度/磷光寿命/近轴像距)。
+- 验证: verify_all --full 全绿 (parity 33 PASS, pipeline/raytrace OK, conservation 0.0007%)。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
