@@ -418,7 +418,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("about", lambda: about_box(self))
         b.bind("preferences", lambda: self._open_prefs("Preferences"))
         b.bind("refresh", self._refresh)
-        b.bind("begin_fwd", lambda: self._begin_forward(preview=True))
+        b.bind("begin_fwd", lambda: self._sim_params())
+        b.bind("sim_params", lambda: self._sim_params())
         b.bind("begin_all_sim", lambda: self._begin_forward(preview=True))
         b.bind("continue_sim", lambda: self._begin_forward(preview=True, extra=True))
         b.bind("quick_preview", lambda: self._begin_forward(n_per_source=8, preview=True))
@@ -1211,8 +1212,21 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             self.log("Sketch Feature: %s" % e, level="ERROR")
 
     def _on_sketch_generated(self, model, oid, profile, vol) -> None:
-        self._refresh()
-        self.log("Sketch Feature: solid %s volume=%.4f" % (oid, vol))
+        """草图生成回调: 选为新实体 + 3D 场景重建/fit 核对 + 导航树刷新.
+
+        内存内更新 (不重载磁盘): 新建模型 (无 path) 与已保存模型均兼容;
+        3D 模式经 _rebuild_scene 重建 actor 并 fit 视图, 高亮新实体。
+        """
+        self._selected_oid = oid
+        try:
+            if model is not None and getattr(self, "sys_nav", None) is not None:
+                self.sys_nav.populate(model, hidden=self._hidden)
+        except Exception:
+            pass
+        self._rebuild_scene(fit=True)
+        self._mark_dirty()
+        self.log("Sketch Feature: solid %s  profile_pts=%d  volume=%.4f" % (
+            oid, len(profile or []), vol))
 
     # -- Edit ---------------------------------------------------------------
     def _copy_clip(self) -> None:
@@ -2814,25 +2828,60 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             self.model = LTSModel()
         return True
 
+    def _sim_params(self) -> None:
+        """Begin Forward Simulation 参数面板: ray 数 / seed / 收敛 -> run_forward."""
+        if self.model is None or not self.model.objects:
+            self.log("Load a model before simulating.", "WARN")
+            return
+        try:
+            from lts_gui_sim import SimulationParamsDialog
+            if getattr(self, "_sim_dlg", None) is None:
+                self._sim_dlg = SimulationParamsDialog(
+                    on_run=self._sim_apply, parent=self)
+            if getattr(self, "_last_sim_params", None):
+                self._sim_dlg.set_params(self._last_sim_params)
+            self._sim_dlg.show()
+            self._sim_dlg.raise_()
+        except Exception as e:
+            self.log("Simulation panel failed: %s" % e, "ERROR", tab="sim")
+
+    def _sim_apply(self, params: dict) -> None:
+        """面板 Run: 参数直达 run_forward (ray 数/seed/收敛/场景上限)."""
+        self._begin_forward(
+            n_per_source=int(params.get("n_per_source", 40)),
+            seed=params.get("seed"),
+            max_bounces=int(params.get("max_bounces", 32)),
+            max_tris=int(params.get("max_tris", 24000)))
+
     def _begin_forward(self, n_per_source: int = 40, preview: bool = True,
-                       extra: bool = False) -> None:
+                       extra: bool = False, *, seed: Optional[int] = None,
+                       max_bounces: int = 32, max_tris: int = 24000) -> None:
         if self.model is None or not self.model.objects:
             self.log("Load a model before tracing.", "WARN")
             return
         if extra:
             n_per_source = max(n_per_source, 80)
-            self._trace_seed += 1
-        self.log("Begin Forward Simulation (%d rays/source)…" % n_per_source,
+        if seed is None:
+            if extra:
+                self._trace_seed += 1
+            seed = self._trace_seed
+        self.log("Begin Forward Simulation (%d rays/source, seed=%d, "
+                 "bounces=%d, tris<=%d)…" % (n_per_source, seed,
+                                             max_bounces, max_tris),
                  tab="sim")
         try:
             from lts.trace.from_model import run_forward, format_trace_report
             pack = run_forward(
-                self.model, n_per_source=n_per_source,
-                preview=80 if preview else 0, seed=self._trace_seed)
+                self.model, n_per_source=n_per_source, max_tris=max_tris,
+                max_bounces=max_bounces,
+                preview=80 if preview else 0, seed=seed)
         except Exception as e:
             self.log("Forward simulation failed: %s" % e, "ERROR", tab="sim")
             return
         self._last_trace = pack
+        self._last_sim_params = {
+            "n_per_source": n_per_source, "seed": seed,
+            "max_bounces": max_bounces, "max_tris": max_tris}
         try:
             self.config_panel.mark_last_sim(self.config_engine.current() or "Default")
         except Exception:

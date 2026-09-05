@@ -25,6 +25,7 @@ IMPLEMENTED = {
     "view_3d", "view_console",
     "block", "sphere", "cylinder", "toroid", "sketch_feature",
     "begin_fwd", "begin_all_sim", "continue_sim", "quick_preview",
+    "sim_params",
     "aim_nss", "ray_display", "reset_seeds",
     "user_materials", "opt_props", "glass_cat",
     "analysis_illum", "analysis_intensity", "table_view",

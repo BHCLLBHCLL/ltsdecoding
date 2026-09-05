@@ -167,6 +167,15 @@
 - tests/test_gui_surface_props.py (8, offscreen): Mirror/Lambert(用户 R/T/side)/命令名直译/单面写回/显式振幅优先回归/场景消费 + 对话框页参数启停与信号 + viewer 命令与属性页 Apply 贯通。
 - 验证: base pytest 315 passed / 10 skipped (+8); coverage --gate 710/710 PASS; verify_all --full 全绿 (UI registry 202/202, parity 45 PASS)。
 
+
+### R6 续 · 仿真面板参数化（ray 数/seed/收敛 → run_forward）+ 草图 3D 预览核对（2026-09-05）
+- lts_gui_sim.py (新): SimulationParamsDialog —— Begin Forward Simulation 参数面板 (每源 ray 数 / 随机 seed / max_bounces 收敛 / max_tris 场景上限), Run 触发 on_run(params), 参数经 QSettings 持久化回填; params()/set_params() 纯逻辑可 headless 测试。
+- lts_gui: _begin_forward 扩展签名接收 seed/max_bounces/max_tris (直通 run_forward) + 记录 _last_sim_params; 新增 _sim_params (参数面板) / _sim_apply (Run 回调); begin_fwd 菜单绑定改为打开参数面板 (命令行 begin_fwd N 宏路径保持直达); IMPLEMENTED 83 (sim_params)。
+- lts_gui._on_sketch_generated 修复: 原调 _refresh() (磁盘重载; 新建无 path 模型不生效, 已保存模型会丢弃内存新增实体) -> 改为内存内更新: 选中新实体 + sys_nav.populate + _rebuild_scene(fit=True) 重建 actor/高亮/fit + _mark_dirty; insert_mesh 已同步 geo_boxes/tess_parts, 3D 装配层一条龙。
+- tests/test_gui_sim.py (5): 对话框默认/编辑参数、Run 回调+持久化回填、_sim_apply 直达追迹 (n_rays=6 / n_tris<=6000)、菜单命令开面板、同 seed 多次追迹 rayspace 一致性。
+- tests/test_gui_sketch.py 增 3D 核对 (VTK 依存, Render 打桩 — 无 GPU 环境像素渲染不可用; 核对装配层): 新建无路径模型草图实体 -> actor 逐实体、选中高亮色 (1.0,0.85,0.2)、dirty。
+- 验证: base pytest 321 passed / 10 skipped (+6); coverage --gate 710/710 PASS; verify_all --full 全绿 (UI registry 202/202, parity 45 PASS)。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
