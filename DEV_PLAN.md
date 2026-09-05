@@ -65,11 +65,13 @@
 - lt_parity _lt_status 重构为可扩的 LIVE_MAP：现对 macro_for_sum (LT Eval)、cie_ybar_550 (GetCIE1931YBar)、photopic_550 (GetPhotopicFunction) 取 3 条 live LT 派生，全部 MATCH。
   live: macro_for_sum=15.0 (rel=0), cie_ybar_550=0.9949501 (rel=1e-7), photopic_550=0.9949501 (rel=1e-7)。
 - 新语料项 photopic_550（colorimetry, v_lambda）；lt_parity base 17 -> 19 / +5 OCC = 24。
-- **R2 剩余 (需逐用例 LT 命令序列, G3)**：
-  - bb_cct: LT Eval 无黑体/CCT 函数 (返回 0)，需建黑体光源+颜色分析命令序列。
-  - glass_bk7_nd: 材料 Cmd 无参为空操作；玻璃目录索引需正确材料创建 + DbGet；LTAPI3 暴露方法无材料创建。
-  - seq_focal: 需序列透镜建模 + QuickRayQuery (需模型设置/实参)。
-  - apod_lambert: 蒙特卡洛采样，需 LT 源 apodizer 查询。
+- **R2 剩余 (逐用例调通 LT 命令序列, G3) —— 本环境探明为硬阻塞**：
+  - 证据: LTAPI3 薄层 (Eval/Cmd/DbGet/GetVar) 无法触达 LT 内部模型/DB/宏系统：DbGet -> status 30 (not found)；GetVar -> (None,1) (Cmd 赋值不持久)；Begin/End -> status 70；DbList/DbKeyStr 对用户键全 NULL；Cmd("Material BK7"/"UserMaterials"/"GlassCatalogs"/"MaterialsTable") 返回 0 但无可查询对象；安装目录无可读玻璃目录文件 (Default 为 chart/env，Doc 无 glass/refract/schott)。
+  - bb_cct: 需建黑体光源+颜色分析命令序列 (候选 API: BBSpectrum/BBSpectrumPeak/MakeBlackbodySpectralRayDistribution，不在薄 COM 暴露面)；Eval 无黑体/CCT 函数 (返回 0)。
+  - glass_bk7_nd: 需正确材料创建 (MakeMaterialNew/SetMaterial) 后查其 DB 折射率键；薄 COM 无材料创建方法。
+  - seq_focal: 需序列透镜建模 + 追迹 (QuickRayQuery/GetReceiverRayData)；薄 COM 无建模命令。
+  - apod_lambert: 蒙卡采样；需 LT 源 apodizer 语义查询。
+  - 结论: 这四项当前为解析基线 (bb_cct=6500 / seq_focal=lensmaker / glass=Sellmeier / apod=2/3)，均 PASS；若要变 live LT 派生，需走 LT 全自动宏 (lt.exe 宏/批处理) 或 LT 完整 API (非薄 LTAPI3)。已用可扩 LIVE_MAP 预留接入位。
 
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
