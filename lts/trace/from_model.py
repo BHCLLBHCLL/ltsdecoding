@@ -378,16 +378,17 @@ def source_entities(objects: dict) -> list:
 
 def rays_from_sources(model, n_per_source: int = 40, *,
                       cone_deg: float = 8.0, wl_nm: float = 550.0,
-                      seed: int = 1,
-                      catalog: Optional[dict] = None) -> Tuple[list, RaySpace]:
+                      seed: int = 1, catalog: Optional[dict] = None,
+                      apodizer: str = "") -> Tuple[list, RaySpace]:
     """从光源发射面发射 (表面+方向 apodizer、光谱、灯功率通量).
 
     每个光源的每个发射面 (setIsEmitting=Yes) 采样 n_per_source 条:
       1. 发射三角 = 该区所属实体表面的三角 (逐面分类)
       2. 表面采样: uniform area-weighted (surface apodizer)
-      3. 方向采样: Lambertian / Uniform / Power 方向 apodizer (半球)
+      3. 方向采样: Lambertian / Uniform / Power 方向 apodizer (半球);
+         apodizer 非空时全局覆盖各源的发射方向 apodizer (仿真面板下沉)
       4. 权重 = lamp_power · weight_factor / 本光源总发射条数 (lm/ray)
-      5. 波长按光谱权重逆变换采样
+      5. 波长按光谱权重逆变换采样 (wl_nm 无光谱源的主波长)
     光源无实体/无发射面时退回点锥形 (不承载光通量, 仅预览几何)。
     """
     rng = RNG(seed)
@@ -423,7 +424,7 @@ def rays_from_sources(model, n_per_source: int = 40, *,
                         origin, normal = _sample_on_tris(verts, part.triangles,
                                                          tri_idx, rng)
                         d = _sample_emitter_dir(spec, normal, rng,
-                                                apod_kind=e.dir_apod)
+                                                apod_kind=apodizer or e.dir_apod)
                         cos_t = float(np.dot(d, normal))
                         wl = _sample_source_wl(spec, rng.next1(), wl_nm,
                                                 cos_theta=cos_t)
@@ -672,12 +673,23 @@ def trace_preview(scene, rays, *, max_bounces: int = 32,
 
 def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
                 max_bounces: int = 32, preview: int = 40,
-                seed: int = 1) -> dict:
-    """Forward illumination: Monte-Carlo stats + preview polylines."""
+                seed: int = 1, receiver_rows: Optional[int] = None,
+                receiver_cols: Optional[int] = None,
+                emission_wl: Optional[float] = None,
+                apodizer: str = "") -> dict:
+    """Forward illumination: Monte-Carlo stats + preview polylines.
+
+    面板参数下沉 (仿真面板直通): receiver_rows/cols 覆盖接收器网格
+    (None=用接收器自带), emission_wl 主波长 (材料色散/发射采样共用),
+    apodizer 非空时全局覆盖发射方向 apodizer。
+    """
     catalog = bind_materials(model.objects)
-    scene, meta = scene_from_model(model, max_tris=max_tris, catalog=catalog)
+    wl_nm = float(emission_wl or 550.0)
+    scene, meta = scene_from_model(model, max_tris=max_tris, wl_nm=wl_nm,
+                                   catalog=catalog)
     rays, rs = rays_from_sources(model, n_per_source=n_per_source, seed=seed,
-                                 catalog=catalog)
+                                 catalog=catalog, wl_nm=wl_nm,
+                                 apodizer=apodizer or "")
     eng = Engine(scene, max_bounces=max_bounces, seed=seed)
     eng.set_medium_absorption(meta.get("alphas") or {})
     if meta.get("media"):
@@ -685,7 +697,10 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
     recv_specs = bind_receivers(model.objects)
     planes = [{"pos": r.pos, "rot": r.rot,
                "bounds": r.bounds or (0.0, 1.0, 0.0, 1.0),
-               "rows": r.mesh_rows or 16, "cols": r.mesh_cols or 16}
+               "rows": (r.mesh_rows or 16) if receiver_rows is None
+               else receiver_rows,
+               "cols": (r.mesh_cols or 16) if receiver_cols is None
+               else receiver_cols}
               for r in recv_specs if r.kind == "plane"]
     eng.set_plane_receivers(planes)
     res = eng.trace(rays, record_hits=True, record_escaped=True)
@@ -695,13 +710,17 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
     for ri, recv in enumerate(recv_specs):
         try:
             if recv.kind == "plane":
-                grid = plane_receiver_grid(res.plane_hits, recv)
+                grid = plane_receiver_grid(res.plane_hits, recv,
+                                           rows=receiver_rows or 0,
+                                           cols=receiver_cols or 0)
                 try:
                     grid["stokes"] = plane_stokes_grid(res.plane_states, recv)
                 except Exception:
                     pass
             else:
-                grid = far_field_grid(res.escaped_dirs, recv)
+                grid = far_field_grid(res.escaped_dirs, recv,
+                                      n_rows=receiver_rows or 0,
+                                      n_cols=receiver_cols or 0)
                 try:
                     grid["stokes"] = stokes_grid(res.escaped_states, recv)
                     if np.size(grid["stokes"].get("mean_wl")):
@@ -1067,15 +1086,16 @@ def intensity_grid(escaped_dirs, *, n_theta: int = 18, n_phi: int = 36) -> dict:
             "n_theta": n_theta, "n_phi": n_phi}
 
 
-def plane_receiver_grid(plane_hits, recv) -> dict:
+def plane_receiver_grid(plane_hits, recv, rows: int = 0, cols: int = 0) -> dict:
     """平面接收器照度: 每格 E = Σw / cell_area (photometric lux).
 
     plane_hits: [(receiver_index, x_local, y_local, weight)] (engine 产出).
+    rows/cols 非 0 时覆盖接收器自带网格 (仿真面板下沉)。
     """
     b = recv.bounds or (0.0, 1.0, 0.0, 1.0)
     x0, x1, y0, y1 = b
-    rows = recv.mesh_rows or 16
-    cols = recv.mesh_cols or 16
+    rows = rows or recv.mesh_rows or 16
+    cols = cols or recv.mesh_cols or 16
     grid = np.zeros((rows, cols), dtype=float)
     n_used = 0
     if x1 <= x0:

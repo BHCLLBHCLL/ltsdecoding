@@ -176,6 +176,14 @@
 - tests/test_gui_sketch.py 增 3D 核对 (VTK 依存, Render 打桩 — 无 GPU 环境像素渲染不可用; 核对装配层): 新建无路径模型草图实体 -> actor 逐实体、选中高亮色 (1.0,0.85,0.2)、dirty。
 - 验证: base pytest 321 passed / 10 skipped (+6); coverage --gate 710/710 PASS; verify_all --full 全绿 (UI registry 202/202, parity 45 PASS)。
 
+
+### R6 续 · 仿真面板参数再下沉 + Continue 复用（2026-09-05 续）
+- lts/trace/from_model: run_forward 扩展 receiver_rows/receiver_cols (None=接收器自带; 覆盖平面接收器照度网格与远场强度网格) + emission_wl (主波长: 材料色散 scene wl_nm 与无光谱源发射采样共用) + apodizer (非空时全局覆盖各源发射方向 apodizer); rays_from_sources 增 apodizer 参数; plane_receiver_grid/far_field_grid 增加 rows/cols 覆盖透传。
+- lts_gui_sim: SimulationParamsDialog 增 4 字段 (Emission wavelength nm / Receiver mesh rows·cols [0=own] / Emission apodizer [Auto·Lambertian·Uniform·Power m=1]), DEFAULTS/QSettings 8 键全覆盖。
+- lts_gui: _begin_forward 接 8 参数 (记录 _last_sim_params 全量); 新增 _current_sim_params (面板当前值/上次/默认) + _continue_sim (复用当前参数: seed+1 换种子继续, ray 数保底 40); begin_all_sim/continue_sim 绑定改为复用面板参数 (原 continue_sim 单独 extra 逻辑归并)。
+- tests/test_gui_sim.py 5->9: 对话框 8 键默认/编辑/回填、_sim_apply 直达追迹、网格覆盖 (rows=10/cols=8)、波长下沉 (480)、apodizer 覆盖统计 (uniform mean cosθ≈0.5 < lambert≈2/3, 单 RNG 流, 800 样本)、continue 复用 (seed 9->10, ray 40 保底, bounces/tris 保留)。
+- 验证: base pytest 325 passed / 10 skipped (+4); coverage --gate 710/710 PASS; verify_all --full 全绿。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

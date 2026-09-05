@@ -13,11 +13,17 @@ import os
 
 from PyQt5.QtCore import QSettings
 from PyQt5.QtWidgets import (
-    QDialog, QFormLayout, QHBoxLayout, QLabel, QPushButton, QSpinBox,
-    QVBoxLayout,
+    QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QPushButton,
+    QSpinBox, QVBoxLayout,
 )
 
-DEFAULTS = {"n_per_source": 40, "seed": 1, "max_bounces": 32, "max_tris": 24000}
+DEFAULTS = {"n_per_source": 40, "seed": 1, "max_bounces": 32, "max_tris": 24000,
+            "receiver_rows": 0, "receiver_cols": 0,
+            "emission_wl": 550.0, "apodizer": ""}
+
+# apodizer 下拉文本 -> rays_from_sources.apodizer 值 (""=源自身 apodizer).
+APODIZER_CHOICES = [("Auto", ""), ("Lambertian", "lambertian"),
+                    ("Uniform", "uniform"), ("Power m=1", "power")]
 
 _ORGANIZATION = "ltsdecoding"
 _APP = "LightTools"
@@ -25,13 +31,17 @@ _SET_KEY = "sim/params"
 
 
 class SimulationParamsDialog(QDialog):
-    """Begin Forward Simulation 参数对话框 (ray 数/seed/收敛/场景上限)."""
+    """Begin Forward Simulation 参数对话框.
+
+    ray 数 / seed / max_bounces (收敛) / max_tris (场景上限) +
+    接收器网格 rows·cols (0=接收器自带) / 主波长 nm / 发射 apodizer 覆盖。
+    """
 
     def __init__(self, on_run=None, parent=None):
         super().__init__(parent)
         self._on_run = on_run
         self.setWindowTitle("Begin Forward Simulation")
-        self.resize(360, 220)
+        self.resize(380, 300)
         v = QVBoxLayout(self)
         form = QFormLayout()
 
@@ -55,9 +65,29 @@ class SimulationParamsDialog(QDialog):
         self._tris.setSingleStep(1000)
         form.addRow("Max scene triangles", self._tris)
 
+        self._wl = QSpinBox(self)
+        self._wl.setRange(380, 780)
+        self._wl.setSingleStep(10)
+        form.addRow("Emission wavelength (nm)", self._wl)
+
+        self._rrows = QSpinBox(self)
+        self._rrows.setRange(0, 512)
+        self._rrows.setSingleStep(4)
+        form.addRow("Receiver mesh rows (0=own)", self._rrows)
+
+        self._rcols = QSpinBox(self)
+        self._rcols.setRange(0, 512)
+        self._rcols.setSingleStep(4)
+        form.addRow("Receiver mesh cols (0=own)", self._rcols)
+
+        self._apod = QComboBox(self)
+        for lab, _val in APODIZER_CHOICES:
+            self._apod.addItem(lab)
+        form.addRow("Emission apodizer", self._apod)
+
         v.addLayout(form)
         note = QLabel("Begin Forward Simulation runs run_forward with these "
-                      "parameters; results appear in the Sim output tab.",
+                      "parameters; Continue reuses them (seed+1, more rays).",
                       self)
         note.setWordWrap(True)
         v.addWidget(note)
@@ -76,23 +106,36 @@ class SimulationParamsDialog(QDialog):
     # ---- 参数 ----
 
     def params(self) -> dict:
+        apod = dict(APODIZER_CHOICES)[self._apod.currentText()]
         return {
             "n_per_source": int(self._rays.value()),
             "seed": int(self._seed.value()),
             "max_bounces": int(self._bounces.value()),
             "max_tris": int(self._tris.value()),
+            "receiver_rows": int(self._rrows.value()),
+            "receiver_cols": int(self._rcols.value()),
+            "emission_wl": float(self._wl.value()),
+            "apodizer": apod,
         }
 
     def set_params(self, p: dict) -> None:
         for key, spin in (("n_per_source", self._rays),
                           ("seed", self._seed),
                           ("max_bounces", self._bounces),
-                          ("max_tris", self._tris)):
+                          ("max_tris", self._tris),
+                          ("receiver_rows", self._rrows),
+                          ("receiver_cols", self._rcols),
+                          ("emission_wl", self._wl)):
             if key in p:
                 try:
                     spin.setValue(int(p[key]))
                 except (TypeError, ValueError):
                     pass
+        if p.get("apodizer"):
+            for i, (_lab, val) in enumerate(APODIZER_CHOICES):
+                if val == p["apodizer"]:
+                    self._apod.setCurrentIndex(i)
+                    break
 
     def _load_prefs(self) -> None:
         try:

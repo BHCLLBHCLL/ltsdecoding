@@ -420,8 +420,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("refresh", self._refresh)
         b.bind("begin_fwd", lambda: self._sim_params())
         b.bind("sim_params", lambda: self._sim_params())
-        b.bind("begin_all_sim", lambda: self._begin_forward(preview=True))
-        b.bind("continue_sim", lambda: self._begin_forward(preview=True, extra=True))
+        b.bind("begin_all_sim", lambda: self._sim_apply(self._current_sim_params()))
+        b.bind("continue_sim", lambda: self._continue_sim())
         b.bind("quick_preview", lambda: self._begin_forward(n_per_source=8, preview=True))
         b.bind("aim_nss", self._aim_nss)
         b.bind("ray_display", self._toggle_ray_display)
@@ -2846,16 +2846,52 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             self.log("Simulation panel failed: %s" % e, "ERROR", tab="sim")
 
     def _sim_apply(self, params: dict) -> None:
-        """面板 Run: 参数直达 run_forward (ray 数/seed/收敛/场景上限)."""
+        """面板 Run: 参数直达 run_forward (ray 数/seed/收敛/场景上限/网格/波长/apodizer)."""
         self._begin_forward(
             n_per_source=int(params.get("n_per_source", 40)),
             seed=params.get("seed"),
             max_bounces=int(params.get("max_bounces", 32)),
-            max_tris=int(params.get("max_tris", 24000)))
+            max_tris=int(params.get("max_tris", 24000)),
+            receiver_rows=params.get("receiver_rows") or None,
+            receiver_cols=params.get("receiver_cols") or None,
+            emission_wl=params.get("emission_wl") or None,
+            apodizer=params.get("apodizer") or "")
+
+    def _current_sim_params(self) -> dict:
+        """仿真面板当前值 (无面板时上次/默认), 供 begin_all/continue 复用."""
+        try:
+            if getattr(self, "_sim_dlg", None) is not None:
+                return self._sim_dlg.params()
+        except Exception:
+            pass
+        if getattr(self, "_last_sim_params", None):
+            return dict(self._last_sim_params)
+        from lts_gui_sim import SimulationParamsDialog
+        return SimulationParamsDialog.defaults()
+
+    def _continue_sim(self) -> None:
+        """Continue Simulation: 复用当前面板参数, 换随机种子继续 (ray 数保底 40)."""
+        if self.model is None or not self.model.objects:
+            self.log("Load a model before tracing.", "WARN")
+            return
+        p = self._current_sim_params()
+        self._begin_forward(
+            n_per_source=max(int(p.get("n_per_source", 40)), 40),
+            seed=int(p.get("seed") or 0) + 1,
+            max_bounces=int(p.get("max_bounces", 32)),
+            max_tris=int(p.get("max_tris", 24000)),
+            receiver_rows=p.get("receiver_rows") or None,
+            receiver_cols=p.get("receiver_cols") or None,
+            emission_wl=p.get("emission_wl") or None,
+            apodizer=p.get("apodizer") or "", preview=True)
 
     def _begin_forward(self, n_per_source: int = 40, preview: bool = True,
                        extra: bool = False, *, seed: Optional[int] = None,
-                       max_bounces: int = 32, max_tris: int = 24000) -> None:
+                       max_bounces: int = 32, max_tris: int = 24000,
+                       receiver_rows: Optional[int] = None,
+                       receiver_cols: Optional[int] = None,
+                       emission_wl: Optional[float] = None,
+                       apodizer: str = "") -> None:
         if self.model is None or not self.model.objects:
             self.log("Load a model before tracing.", "WARN")
             return
@@ -2866,22 +2902,31 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                 self._trace_seed += 1
             seed = self._trace_seed
         self.log("Begin Forward Simulation (%d rays/source, seed=%d, "
-                 "bounces=%d, tris<=%d)…" % (n_per_source, seed,
-                                             max_bounces, max_tris),
+                 "bounces=%d, tris<=%d, wl=%s, mesh=%sx%s, apod=%s)…" % (
+                     n_per_source, seed, max_bounces, max_tris,
+                     emission_wl or 550.0, receiver_rows or "own",
+                     receiver_cols or "own", apodizer or "auto"),
                  tab="sim")
         try:
             from lts.trace.from_model import run_forward, format_trace_report
             pack = run_forward(
                 self.model, n_per_source=n_per_source, max_tris=max_tris,
                 max_bounces=max_bounces,
-                preview=80 if preview else 0, seed=seed)
+                preview=80 if preview else 0, seed=seed,
+                receiver_rows=receiver_rows, receiver_cols=receiver_cols,
+                emission_wl=emission_wl, apodizer=apodizer or "")
         except Exception as e:
             self.log("Forward simulation failed: %s" % e, "ERROR", tab="sim")
             return
         self._last_trace = pack
         self._last_sim_params = {
             "n_per_source": n_per_source, "seed": seed,
-            "max_bounces": max_bounces, "max_tris": max_tris}
+            "max_bounces": max_bounces, "max_tris": max_tris,
+            "receiver_rows": receiver_rows or 0,
+            "receiver_cols": receiver_cols or 0,
+            "emission_wl": float(emission_wl or 550.0),
+            "apodizer": apodizer or "",
+        }
         try:
             self.config_panel.mark_last_sim(self.config_engine.current() or "Default")
         except Exception:
