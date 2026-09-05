@@ -143,6 +143,13 @@
 - test_physics 15 -> 18 (光栅 sinc²/色散/归一, 退偏 ensemble DOP 单调, 相干/反相/随机相位)。
 - 验证: base pytest 303 passed; lt_parity --gate 45 PASS。
 
+
+### R4 收尾 · 物理语料与 LT 派生再对表（2026-09-04 续）
+- lt_parity LIVE_MAP 扩展 9 项物理 LT 派生 (经 LT Eval 度制求值): phys_fresnel_norm / phys_grating_angle / phys_tir_crit / phys_brewster / phys_pol_malus / phys_beer / phys_stokes / phys_sag_sphere / phys_grat_disp。
+- 探明 LT Eval 语义: 度制三角 (Atan/Asin/Sin/Cos 度数), ^ 幂, Exp/Sqrt/Log(log10), 无 Pi 常量 (Pi=0)。故 grating_order/hg 等用 Radian sinc 的项不走 Eval (保留解析 ref)。
+- 实测 lt_parity --lt: **12 条 live LT 派生全 MATCH** (macro/cie_ybar/photopic + 9 物理, rel 0 或 1e-6), parity --gate 45 PASS。
+- 说明: 这些物理项经 LT 数值引擎 (Eval) 计算, 与 our 解析一致 -> 物理语料从「pinned/解析」升级为「live LT 派生」。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

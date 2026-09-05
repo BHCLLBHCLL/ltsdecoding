@@ -140,7 +140,8 @@
   },
   "phys_fresnel_norm": {
     "R": 0.04238804559477586,
-    "tol": 0.0001
+    "tol": 0.0001,
+    "_lt_derived": true
   },
   "phys_fresnel_45": {
     "R": 0.052837307132390876,
@@ -148,7 +149,8 @@
   },
   "phys_tir_crit": {
     "crit_deg": 41.18823199903502,
-    "tol": 0.01
+    "tol": 0.01,
+    "_lt_derived": true
   },
   "phys_grin_snell": {
     "invariant": 0.7499999999999999,
@@ -160,7 +162,8 @@
   },
   "phys_beer": {
     "T": 0.36787944117144233,
-    "tol": 1e-06
+    "tol": 1e-06,
+    "_lt_derived": true
   },
   "phys_mfp": {
     "mfp": 2.0,
@@ -172,7 +175,8 @@
   },
   "phys_grating_angle": {
     "angle": 15.962014162847236,
-    "tol": 0.0001
+    "tol": 0.0001,
+    "_lt_derived": true
   },
   "phys_grating_order": {
     "eff": 0.4052847345693511,
@@ -180,7 +184,8 @@
   },
   "phys_stokes": {
     "shift": 1.5068493150684932,
-    "tol": 1e-06
+    "tol": 1e-06,
+    "_lt_derived": true
   },
   "phys_visibility": {
     "vis": 0.5,
@@ -204,7 +209,8 @@
   },
   "phys_pol_malus": {
     "T": 0.5,
-    "tol": 1e-06
+    "tol": 1e-06,
+    "_lt_derived": true
   },
   "phys_pol_dop": {
     "dop": 1.0,
@@ -212,7 +218,8 @@
   },
   "phys_brewster": {
     "deg": 56.63331304474833,
-    "tol": 0.1
+    "tol": 0.1,
+    "_lt_derived": true
   },
   "phys_ar_reflect": {
     "R": 0.04238513893357508,
@@ -220,7 +227,8 @@
   },
   "phys_sag_sphere": {
     "sag": 4.1742430504416035,
-    "tol": 1e-06
+    "tol": 1e-06,
+    "_lt_derived": true
   },
   "phys_grat_sinc2": {
     "w": 0.8105694691387023,
@@ -228,7 +236,8 @@
   },
   "phys_grat_disp": {
     "disp": 29.911779,
-    "tol": 0.001
+    "tol": 0.001,
+    "_lt_derived": true
   },
   "phys_grat_sum": {
     "sum": 1.0,
@@ -241,5 +250,8 @@
   "phys_poldep0": {
     "dop": 1.0,
     "tol": 1e-06
+  },
+  "phys_grating_disp": {
+    "_lt_derived": true
   }
 }

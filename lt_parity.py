@@ -393,6 +393,16 @@ LIVE_MAP = {
     "macro_for_sum": lambda s: s.eval("1+2+3+4+5"),
     "cie_ybar_550": lambda s: _lt_float(s, "GetCIE1931YBar", 550.0),
     "photopic_550": lambda s: _lt_float(s, "GetPhotopicFunction", 550.0),
+    # R4 收尾: 物理语料经 LT Eval 求值 (度制), 与 our 对表 (LT 派生)
+    "phys_fresnel_norm": lambda s: s.eval("((1.5185223876207927-1)/(1.5185223876207927+1))^2"),
+    "phys_grating_angle": lambda s: s.eval("Asin(0.55/2)"),
+    "phys_tir_crit": lambda s: s.eval("Asin(1/1.5185223876207927)"),
+    "phys_brewster": lambda s: s.eval("Atan(1.5185223876207927)"),
+    "phys_pol_malus": lambda s: s.eval("Cos(45)^2"),
+    "phys_beer": lambda s: s.eval("Exp(-1)"),
+    "phys_stokes": lambda s: s.eval("550/365"),
+    "phys_sag_sphere": lambda s: s.eval("50-Sqrt(2500-400)"),
+    "phys_grat_disp": lambda s: s.eval("(Asin(0.6/2)-Asin(0.55/2))/0.05"),
 }
 
 
