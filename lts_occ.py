@@ -44,17 +44,21 @@ try:
         BRepAlgoAPI_Common, BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse,
     )
     from OCC.Core.BRepBuilderAPI import (
-        BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon,
-        BRepBuilderAPI_MakeSolid, BRepBuilderAPI_Sewing,
+        BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeFace,
+        BRepBuilderAPI_MakePolygon, BRepBuilderAPI_MakeSolid,
+        BRepBuilderAPI_MakeWire, BRepBuilderAPI_Sewing,
         BRepBuilderAPI_Transform,
     )
     from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
     from OCC.Core.BRepPrimAPI import (
         BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCone,
         BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakeSphere,
-        BRepPrimAPI_MakeTorus,
+        BRepPrimAPI_MakeTorus, BRepPrimAPI_MakeRevol,
+        BRepPrimAPI_MakePrism,
     )
-    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf
+    from OCC.Core.BRepOffsetAPI import BRepOffsetAPI_MakePipe, BRepOffsetAPI_ThruSections
+    from OCC.Core.gp import gp_Ax2, gp_Ax1, gp_Circ, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
+    from OCC.Core.TopoDS import TopoDS_Wire
     from OCC.Core.TopAbs import TopAbs_FACE, TopAbs_SHELL, TopAbs_SOLID
     from OCC.Core.TopExp import TopExp_Explorer
     from OCC.Core.TopLoc import TopLoc_Location
@@ -437,6 +441,62 @@ def prim_torus(maj: float, minor: float, alpha_deg: Optional[float]):
         return BRepPrimAPI_MakeTorus(ax, R, r).Shape()
     sweep = math.radians(abs(float(alpha_deg)))
     return BRepPrimAPI_MakeTorus(ax, R, r, sweep).Shape()
+
+
+# ---------------------------------------------------------------------------
+# 草图 B-rep 图元: 挤出/回转/放样/扫掠 (LT sketch 系统对应)
+# ---------------------------------------------------------------------------
+
+def _wire_from_polygon(points) -> TopoDS_Wire:
+    """闭合多边形点串(3D) -> TopoDS_Wire."""
+    poly = BRepBuilderAPI_MakePolygon()
+    for p in points:
+        poly.Add(gp_Pnt(float(p[0]), float(p[1]), float(p[2])))
+    poly.Close()
+    return poly.Wire()
+
+
+def prim_prism(profile2d, height: float):
+    """草图挤出: XY 平面闭合多边形 profile2d=[(x,y)..] 沿 +Z 挤出 height."""
+    wire = _wire_from_polygon([(x, y, 0.0) for (x, y) in profile2d])
+    face = BRepBuilderAPI_MakeFace(wire).Face()
+    return BRepPrimAPI_MakePrism(face, gp_Vec(0.0, 0.0, float(abs(height)))).Shape()
+
+
+def prim_revolve(profile2d, axis=(0.0, 0.0, 1.0), angle_deg: float = 360.0):
+    """草图回转: profile2d=[(r,z)..] (r=半径, z=高度, 位于 XZ 面) 绕轴回转."""
+    wire = _wire_from_polygon([(r, 0.0, z) for (r, z) in profile2d])
+    face = BRepBuilderAPI_MakeFace(wire).Face()
+    ax = gp_Ax1(gp_Pnt(0.0, 0.0, 0.0), gp_Dir(axis[0], axis[1], axis[2]))
+    return BRepPrimAPI_MakeRevol(face, ax, math.radians(float(angle_deg))).Shape()
+
+
+def _circle_wire(radius: float, z: float) -> TopoDS_Wire:
+    circ = gp_Circ(gp_Ax2(gp_Pnt(0.0, 0.0, z), gp_Dir(0.0, 0.0, 1.0)),
+                   float(max(radius, 1e-9)))
+    edge = BRepBuilderAPI_MakeEdge(circ).Edge()
+    return BRepBuilderAPI_MakeWire(edge).Wire()
+
+
+def prim_loft(r0: float, r1: float, length: float):
+    """放样: 两圆截面 (z=0 半径 r0, z=length 半径 r1) 蒙皮 -> 锥台/锥."""
+    ts = BRepOffsetAPI_ThruSections(True)          # isSolid=True
+    ts.AddWire(_circle_wire(r0, 0.0))
+    ts.AddWire(_circle_wire(r1, float(abs(length))))
+    return ts.Shape()
+
+
+def prim_pipe(spine_p0, spine_p1, radius: float):
+    """扫掠: 半径 radius 圆面沿直线 spine_p0->spine_p1 扫掠 (管/柱)."""
+    d = (spine_p1[0] - spine_p0[0], spine_p1[1] - spine_p0[1], spine_p1[2] - spine_p0[2])
+    sw = BRepBuilderAPI_MakeWire()
+    sw.Add(BRepBuilderAPI_MakeEdge(gp_Pnt(*spine_p0), gp_Pnt(*spine_p1)).Edge())
+    prof = BRepBuilderAPI_MakeEdge(
+        gp_Circ(gp_Ax2(gp_Pnt(*spine_p0), gp_Dir(d[0], d[1], d[2])), float(radius))).Edge()
+    pw = BRepBuilderAPI_MakeWire()
+    pw.Add(prof)
+    prof_face = BRepBuilderAPI_MakeFace(pw.Wire()).Face()
+    return BRepOffsetAPI_MakePipe(sw.Wire(), prof_face).Shape()
 
 
 def shape_from_mesh(points: np.ndarray, triangles: np.ndarray):

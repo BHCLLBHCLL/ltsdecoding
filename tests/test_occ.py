@@ -77,6 +77,15 @@ def test_occ_step_roundtrip():
     assert abs(m1["volume"] - m0["volume"]) < 1e-3
 
 
+def test_occ_sketch_primitives():
+    import math
+    # 草图 B-rep: 挤出/回转/放样/扫掠 体积精确
+    assert abs(lo.shape_metrics(lo.prim_prism([(0, 0), (2, 0), (0, 2)], 3.0))["volume"] - 6.0) < 1e-6
+    assert abs(lo.shape_metrics(lo.prim_revolve([(1, 0), (2, 0), (2, 1), (1, 1)], angle_deg=360.0))["volume"] - math.pi * 3.0) < 1e-6
+    assert abs(lo.shape_metrics(lo.prim_loft(2.0, 1.0, 3.0))["volume"] - math.pi * 7.0) < 1e-6
+    assert abs(lo.shape_metrics(lo.prim_pipe((0, 0, 0), (0, 0, 5.0), 1.0))["volume"] - math.pi * 5.0) < 1e-4
+
+
 def test_occ_project_csg_first_class():
     # project geometry 在 OCC 可用时走 B-rep 精确体积 (engine=OCC)
     import lts_geom_exec as gel

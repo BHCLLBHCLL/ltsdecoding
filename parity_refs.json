@@ -97,5 +97,21 @@
     "photopic": 0.9949501,
     "tol": 0.001,
     "_lt_derived": true
+  },
+  "geom_occ_prism_vol": {
+    "volume": 6.0,
+    "tol": 0.01
+  },
+  "geom_occ_revolve_vol": {
+    "volume": 9.42477796076938,
+    "tol": 0.01
+  },
+  "geom_occ_loft_vol": {
+    "volume": 21.991148575128552,
+    "tol": 0.01
+  },
+  "geom_occ_pipe_vol": {
+    "volume": 15.707963267948966,
+    "tol": 0.01
   }
 }

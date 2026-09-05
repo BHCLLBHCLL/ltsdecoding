@@ -307,6 +307,20 @@ def occ_solid_metrics(kind="sphere", **params):
         sh = lo.prim_cuboid(float(params.get("width", 2.0)),
                             float(params.get("height", 2.0)),
                             float(params.get("length", 2.0)))
+    elif kind == "prism":
+        sh = lo.prim_prism(params.get("profile", [(0, 0), (2, 0), (0, 2)]),
+                           float(params.get("height", 3.0)))
+    elif kind == "revolve":
+        sh = lo.prim_revolve(params.get("profile", [(1, 0), (2, 0), (2, 1), (1, 1)]),
+                             angle_deg=float(params.get("angle_deg", 360.0)))
+    elif kind == "loft":
+        sh = lo.prim_loft(float(params.get("r0", 2.0)),
+                          float(params.get("r1", 1.0)),
+                          float(params.get("length", 3.0)))
+    elif kind == "pipe":
+        sh = lo.prim_pipe(params.get("p0", (0.0, 0.0, 0.0)),
+                          params.get("p1", (0.0, 0.0, 5.0)),
+                          float(params.get("radius", 1.0)))
     else:
         return None
     return lo.shape_metrics(sh)
@@ -322,6 +336,10 @@ def occ_geometry_corpus():
         ("geom_occ_cone_vol", "cone", {"radius0": 1.0, "radius1": 0.0, "length": 2.0}, 1.0/3.0*math.pi*1.0*1.0*2.0, None),
         ("geom_occ_torus_vol", "torus", {"maj": 1.0, "minor": 0.4}, 2.0*math.pi*math.pi*1.0*0.16, None),
         ("geom_occ_block_vol", "block", {"width": 3.0, "height": 4.0, "length": 5.0}, 60.0, 2.0*(12+15+20)),
+        ("geom_occ_prism_vol", "prism", {"profile": [(0, 0), (2, 0), (0, 2)], "height": 3.0}, 0.5 * 2 * 2 * 3, None),
+        ("geom_occ_revolve_vol", "revolve", {"profile": [(1, 0), (2, 0), (2, 1), (1, 1)], "angle_deg": 360.0}, math.pi * 3.0, None),
+        ("geom_occ_loft_vol", "loft", {"r0": 2.0, "r1": 1.0, "length": 3.0}, math.pi * 7.0, None),
+        ("geom_occ_pipe_vol", "pipe", {"p0": (0.0, 0.0, 0.0), "p1": (0.0, 0.0, 5.0), "radius": 1.0}, math.pi * 5.0, None),
     ]:
         m = occ_solid_metrics(kind, **p)
         if m is None:

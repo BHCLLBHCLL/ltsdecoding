@@ -73,6 +73,15 @@
   - apod_lambert: 蒙卡采样；需 LT 源 apodizer 语义查询。
   - 结论: 这四项当前为解析基线 (bb_cct=6500 / seq_focal=lensmaker / glass=Sellmeier / apod=2/3)，均 PASS；若要变 live LT 派生，需走 LT 全自动宏 (lt.exe 宏/批处理) 或 LT 完整 API (非薄 LTAPI3)。已用可扩 LIVE_MAP 预留接入位。
 
+
+### R3 工程侧 · OCC 运行时纳入 CI + 更多 B-rep 图元/草图/扫掠/放样（2026-09-04 续）
+- **CI 纳入**: 新增 ci_occ.ps1 —— 用 occ env (Library/bin PATH + UTF-8) 跑 OCC 专项: occ_available/engine 断言 + pytest tests/test_occ.py + lt_parity --gate (含 9 OCC 几何语料) [+ -Full 时 verify_cad_exchange]。
+- **更多 B-rep 图元 (草图/扫掠/放样)**: lts_occ 新增 prim_prism(草图挤出 / BRepPrimAPI_MakePrism)、prim_revolve(草图回转 / MakeRevol)、prim_loft(放样 / BRepOffsetAPI_ThruSections)、prim_pipe(扫掠 / BRepOffsetAPI_MakePipe，截面为 face 才成实体)。全部 GProp 体积与解析一致 (rel~1e-16)。
+  - prism_tri=6.0 / revolve_tube=pi*3=9.4248 / revolve_disc=pi*4=12.5664 / loft_frustum=pi*7=21.991 / loft_cone=3.1419 / pipe_cyl=pi*5=15.708。
+- lts_geom_exec: occ_solid_metrics 支持 prism/revolve/loft/pipe；occ_geometry_corpus 增 4 项 (geom_occ_prism/revolve/loft/pipe_vol)。
+- test_occ 增 test_occ_sketch_primitives (occ 6 通过 / base skip)。
+- lt_parity OCC 语料 5 -> 9；occ --gate 26 项全 PASS。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
