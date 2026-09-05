@@ -137,5 +137,25 @@
   "geom_occ_sketchtri_vol": {
     "volume": 12.0,
     "tol": 0.01
+  },
+  "phys_fresnel_norm": {
+    "R": 0.04238804559477586,
+    "tol": 0.0001
+  },
+  "phys_fresnel_45": {
+    "R": 0.052837307132390876,
+    "tol": 0.0001
+  },
+  "phys_tir_crit": {
+    "crit_deg": 41.18823199903502,
+    "tol": 0.01
+  },
+  "phys_grin_snell": {
+    "invariant": 0.7499999999999999,
+    "tol": 0.0001
+  },
+  "phys_bsdf_frac": {
+    "frac": 0.75,
+    "tol": 0.01
   }
 }

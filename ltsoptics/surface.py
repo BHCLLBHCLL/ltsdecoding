@@ -55,8 +55,8 @@ def fresnel_coeff(ct1, ct2, n1, n2):
     """入射/折射角余弦 -> (Rs, Rp)。"""
     if ct1 <= 0:
         return 1.0, 1.0
-    rs = (n1 * ct1 - n2 * ct2) / (ct1 * n2 + ct2 * n1)
-    rp = (n1 * ct2 - n2 * ct1) / (ct1 * n1 + ct2 * n2)
+    rs = (n1 * ct1 - n2 * ct2) / (n1 * ct1 + n2 * ct2)
+    rp = (n2 * ct1 - n1 * ct2) / (n2 * ct1 + n1 * ct2)
     return rs * rs, rp * rp
 
 

@@ -82,6 +82,41 @@ def our_cie_ybar(wl):
     return interp_cie(float(wl))[1]
 
 
+
+
+
+def our_fresnel_norm():
+    import ltsoptics.surface as sur
+    return float(sur.fresnel(0.0, 1.0, 1.5185223876207927)["R"])
+
+
+def our_fresnel_45():
+    import ltsoptics.surface as sur
+    return float(sur.fresnel(math.radians(45.0), 1.0, 1.5185223876207927)["R"])
+
+
+def our_tir_crit():
+    return float(math.degrees(math.asin(1.0 / 1.5185223876207927)))
+
+
+def our_grin_snell():
+    # 轴向 GRIN: 动量不变 n(z)*d_x (n0 sin(theta0) = 1.5*sin30 = 0.75)
+    import ltsoptics.grin as grin
+    g = grin.make_grin("axial", n0=1.5, nk=(0.1,))
+    pts, dirs = g.trace((0.0, 0.0, 0.0),
+                        (math.sin(math.radians(30.0)), 0.0, math.cos(math.radians(30.0))),
+                        5.0, ds=0.01)
+    nz = [g.index_at(p) for p in pts]
+    return float(nz[-1] * dirs[-1][0])
+
+
+def our_bsdf_frac():
+    # Lambertian 余弦分布: cos>0.5 的占比 = 1 - 0.5^2 = 0.75 (解析)
+    import numpy as np
+    rng = np.random.default_rng(0)
+    cs = np.sqrt(rng.random(20000))
+    return float(float(np.mean(cs > 0.5)));
+
 def our_photopic(wl):
     from ltsoptics.spectrum import v_lambda
     return float(v_lambda(float(wl)))
@@ -112,6 +147,11 @@ CORPUS = [
     {"id": "glass_bk7_nd", "kind": "glass", "fn": lambda: our_glass_nd("BK7"), "src": "nd", "tol_key": "nd"},
     {"id": "cie_ybar_550", "kind": "colorimetry", "fn": lambda: float(our_cie_ybar(550.0)), "src": "ybar", "tol_key": "ybar"},
     {"id": "photopic_550", "kind": "colorimetry", "fn": lambda: float(our_photopic(550.0)), "src": "photopic", "tol_key": "photopic"},
+    {"id": "phys_fresnel_norm", "kind": "physics", "fn": our_fresnel_norm, "src": "R", "tol_key": "R"},
+    {"id": "phys_fresnel_45", "kind": "physics", "fn": our_fresnel_45, "src": "R", "tol_key": "R"},
+    {"id": "phys_tir_crit", "kind": "physics", "fn": our_tir_crit, "src": "crit_deg", "tol_key": "crit_deg"},
+    {"id": "phys_grin_snell", "kind": "physics", "fn": our_grin_snell, "src": "invariant", "tol_key": "invariant"},
+    {"id": "phys_bsdf_frac", "kind": "physics", "fn": our_bsdf_frac, "src": "frac", "tol_key": "frac"},
     {"id": "geom_box_volume", "kind": "geometry", "fn": lambda: gel.mesh_volume(gel.box_mesh(2, 2, 2)), "src": "volume", "tol_key": "volume"},
     {"id": "geom_transform_centroid", "kind": "geometry", "fn": lambda: float(gel.mesh_centroid(gel.transform_mesh(gel.box_mesh(2, 2, 2), translate=(1, 2, 3)))[0]), "src": "centroid_x", "tol_key": "x"},
     {"id": "geom_array_count", "kind": "geometry", "fn": lambda: float(len(gel.array_positions("rect", 9))), "src": "count", "tol_key": "count"},

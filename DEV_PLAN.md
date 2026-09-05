@@ -116,6 +116,13 @@
 - 新验证器 verify_raytrace_occ.py: 阶段A 图元级 (block/cylinder 精确, sphere<0.1%) + 阶段B --model rearlighting 最大实体 (sphere 2690 tris 等, mesh vs OCC rel=0)。OCC 不可用 SKIP; 接入 ci_occ.ps1 -Full。
 - 验证: ci_occ -Full 全 PASS (cad_exchange 59/66 + ray-occ 图元/模型精确 + test_occ 10 + parity 15 OCC)；base geom/sketch 15 passed (无回归)。
 
+
+### R4 · 物理等价语料 + 修复 Fresnel 非正入射 bug（2026-09-04 续）
+- **发现并修复 bug**: ltsoptics.surface.fresnel_coeff 在非正入射时 Rs/Rp 分母约定错误 (R45=0.05707 vs 标准 0.05284, 差约 8%)。改为标准 Fresnel: rs=(n1 ct1 - n2 ct2)/(n1 ct1 + n2 ct2), rp=(n2 ct1 - n1 ct2)/(n2 ct1 + n1 ct2)。修正后 0-56° 全角度与标准解析一致 (rel~1e-16)。
+- **物理等价语料** (lt_parity, base 19 -> 24): phys_fresnel_norm(0.042388)/phys_fresnel_45(0.052837)/phys_tir_crit(41.19°)/phys_grin_snell(n·d_x=0.75 守恒)/phys_bsdf_frac(cos>0.5 占比=0.75)。
+- test_physics.py (6 测试): Fresnel 全角度 vs 标准、TIR 临界角/全反射、BSDF Lambertian KS(<0.02)、GRIN Snell 动量守恒+均匀直行、透镜焦距。
+- 修复后 verify_all --full 全绿: 16 golden OK, raytrace conservation 0.0007%, parity 24 全 PASS (rearlighting_trace_escape 仍 PASS, 修正后更贴近 LT ref ratio=0.1267)。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
