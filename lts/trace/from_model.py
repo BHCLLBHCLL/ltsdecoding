@@ -676,12 +676,13 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
                 seed: int = 1, receiver_rows: Optional[int] = None,
                 receiver_cols: Optional[int] = None,
                 emission_wl: Optional[float] = None,
-                apodizer: str = "") -> dict:
+                apodizer: str = "", spectrum_bins: int = 0) -> dict:
     """Forward illumination: Monte-Carlo stats + preview polylines.
 
     面板参数下沉 (仿真面板直通): receiver_rows/cols 覆盖接收器网格
     (None=用接收器自带), emission_wl 主波长 (材料色散/发射采样共用),
-    apodizer 非空时全局覆盖发射方向 apodizer。
+    apodizer 非空时全局覆盖发射方向 apodizer, spectrum_bins>0 时接收器
+    光谱按 380..780nm 均匀分箱 (色度采样)。
     """
     catalog = bind_materials(model.objects)
     wl_nm = float(emission_wl or 550.0)
@@ -726,7 +727,9 @@ def run_forward(model, *, n_per_source: int = 40, max_tris: int = 24000,
                     if np.size(grid["stokes"].get("mean_wl")):
                         grid["stokes"]["colorshift"] = color_shift_grid(grid["stokes"])
                     grid["coherence"] = coherent_grid(res.escaped_states, recv)
-                    grid["spectrum"] = receiver_spectrum(res.escaped_states, recv=recv)
+                    grid["spectrum"] = receiver_spectrum(res.escaped_states,
+                                                         recv=recv,
+                                                         bins=spectrum_bins)
                     if grid["spectrum"]:
                         from ltsoptics.colorimetry import colour_temperature
                         grid["color"] = colour_temperature(grid["spectrum"])
@@ -852,10 +855,13 @@ def format_stokes_report(stk, recv) -> list:
 
 
 
-def receiver_spectrum(escaped_states, *, bounds=None, recv=None) -> dict:
+def receiver_spectrum(escaped_states, *, bounds=None, recv=None,
+                      bins: int = 0) -> dict:
     """把逃逸 (带波长) 按接收器角域聚合成光谱: {wl: flux}.
 
     escaped_states: (dx,dy,dz,weight,jones,wl_or_None). 可选角域过滤.
+    bins>0 时按 380..780 nm 均匀分箱 (色度采样分箱, 面板参数下沉);
+    bins=0 保留原生离散波长。
     """
     import math as _m
     from collections import OrderedDict
@@ -864,6 +870,7 @@ def receiver_spectrum(escaped_states, *, bounds=None, recv=None) -> dict:
     phi0, phi1, theta0, theta1 = (bounds if bounds is not None
                                   else (0.0, 360.0, 0.0, 180.0))
     r = np.asarray(recv.rot, dtype=float) if recv is not None else np.eye(3)
+    nb = int(bins)
     acc = OrderedDict()
     for st in (escaped_states or []):
         dx, dy, dz, w, jones = st[0], st[1], st[2], st[3], (st[4] if len(st) > 4 else None)
@@ -879,6 +886,11 @@ def receiver_spectrum(escaped_states, *, bounds=None, recv=None) -> dict:
             if ph < phi0 or ph > phi1 or th < theta0 or th > theta1:
                 continue
         wl = float(wl)
+        if nb > 0:
+            if not (380.0 <= wl <= 780.0):
+                continue
+            i = min(int((wl - 380.0) * nb / 400.0), nb - 1)
+            wl = 380.0 + (i + 0.5) * 400.0 / nb
         if wl not in acc:
             acc[wl] = 0.0
         acc[wl] += float(w)

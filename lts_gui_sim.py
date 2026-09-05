@@ -19,7 +19,9 @@ from PyQt5.QtWidgets import (
 
 DEFAULTS = {"n_per_source": 40, "seed": 1, "max_bounces": 32, "max_tris": 24000,
             "receiver_rows": 0, "receiver_cols": 0,
-            "emission_wl": 550.0, "apodizer": ""}
+            "emission_wl": 550.0, "apodizer": "",
+            "illum_bins": 32, "intensity_theta": 18, "intensity_phi": 36,
+            "spectrum_bins": 0}
 
 # apodizer 下拉文本 -> rays_from_sources.apodizer 值 (""=源自身 apodizer).
 APODIZER_CHOICES = [("Auto", ""), ("Lambertian", "lambertian"),
@@ -34,7 +36,8 @@ class SimulationParamsDialog(QDialog):
     """Begin Forward Simulation 参数对话框.
 
     ray 数 / seed / max_bounces (收敛) / max_tris (场景上限) +
-    接收器网格 rows·cols (0=接收器自带) / 主波长 nm / 发射 apodizer 覆盖。
+    接收器网格 rows·cols (0=接收器自带) / 主波长 nm / 发射 apodizer 覆盖 +
+    分析网格 (Illuminance bins / Intensity theta·phi) 与光谱分箱 (色度采样)。
     """
 
     def __init__(self, on_run=None, parent=None):
@@ -86,6 +89,28 @@ class SimulationParamsDialog(QDialog):
         form.addRow("Emission apodizer", self._apod)
 
         v.addLayout(form)
+
+        anal = QVBoxLayout()
+        anal.addWidget(QLabel("Analysis", self))
+        af = QFormLayout()
+        self._ibins = QSpinBox(self)
+        self._ibins.setRange(8, 256)
+        self._ibins.setSingleStep(4)
+        af.addRow("Illuminance bins (fallback)", self._ibins)
+        self._it = QSpinBox(self)
+        self._it.setRange(4, 90)
+        af.addRow("Intensity theta bins (fallback)", self._it)
+        self._ip = QSpinBox(self)
+        self._ip.setRange(8, 180)
+        self._ip.setSingleStep(4)
+        af.addRow("Intensity phi bins (fallback)", self._ip)
+        self._sbins = QSpinBox(self)
+        self._sbins.setRange(0, 128)
+        self._sbins.setSingleStep(4)
+        af.addRow("Spectrum bins (0=as sampled)", self._sbins)
+        anal.addLayout(af)
+        v.addLayout(anal)
+
         note = QLabel("Begin Forward Simulation runs run_forward with these "
                       "parameters; Continue reuses them (seed+1, more rays).",
                       self)
@@ -116,6 +141,10 @@ class SimulationParamsDialog(QDialog):
             "receiver_cols": int(self._rcols.value()),
             "emission_wl": float(self._wl.value()),
             "apodizer": apod,
+            "illum_bins": int(self._ibins.value()),
+            "intensity_theta": int(self._it.value()),
+            "intensity_phi": int(self._ip.value()),
+            "spectrum_bins": int(self._sbins.value()),
         }
 
     def set_params(self, p: dict) -> None:
@@ -125,7 +154,11 @@ class SimulationParamsDialog(QDialog):
                           ("max_tris", self._tris),
                           ("receiver_rows", self._rrows),
                           ("receiver_cols", self._rcols),
-                          ("emission_wl", self._wl)):
+                          ("emission_wl", self._wl),
+                          ("illum_bins", self._ibins),
+                          ("intensity_theta", self._it),
+                          ("intensity_phi", self._ip),
+                          ("spectrum_bins", self._sbins)):
             if key in p:
                 try:
                     spin.setValue(int(p[key]))

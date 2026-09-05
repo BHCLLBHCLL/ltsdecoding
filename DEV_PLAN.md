@@ -184,6 +184,14 @@
 - tests/test_gui_sim.py 5->9: 对话框 8 键默认/编辑/回填、_sim_apply 直达追迹、网格覆盖 (rows=10/cols=8)、波长下沉 (480)、apodizer 覆盖统计 (uniform mean cosθ≈0.5 < lambert≈2/3, 单 RNG 流, 800 样本)、continue 复用 (seed 9->10, ray 40 保底, bounces/tris 保留)。
 - 验证: base pytest 325 passed / 10 skipped (+4); coverage --gate 710/710 PASS; verify_all --full 全绿。
 
+
+### R6 续 · 分析面板参数接线 + Quick Preview 复用（2026-09-06）
+- lts/trace/from_model: run_forward 增 spectrum_bins (>0 时接收器光谱按 380..780nm 均匀分箱, 色度采样); receiver_spectrum 增 bins 参数 (0=保留原生离散波长, >0=重构光谱 bin 中心键, 关联 colour_temperature 色度计算)。
+- lts_gui_sim: SimulationParamsDialog 增 Analysis 区 4 字段 (Illuminance bins fallback 8..256=32 / Intensity theta·phi fallback 4..90·8..180=18·36 / Spectrum bins 0..128=0), DEFAULTS/QSettings 12 键全覆盖。
+- lts_gui: _analysis_illuminance/_analysis_intensity 无接收器 fallback 改用面板 bins (_analysis_param 从面板/上次/默认取值); _preview_forward (quick_preview: ray 数压至 8, 其余面板参数——seed/bounces/tris/网格/波长/apodizer/光谱分箱——全复用); _continue_sim 联动 spectrum_bins。
+- tests/test_gui_sim.py 9->12: 12 键默认/编辑/持久化回填、spectrum_bins 分箱 (黑体源 3500K, 光谱键 ≤16 且 ∈(380,780))、quick_preview 复用 (n_rays=8, seed/bounces/tris/spectrum_bins 保留)、_analysis_param 面板读数与默认回落。
+- 验证: base pytest 328 passed / 10 skipped (+3); coverage --gate 710/710 PASS; verify_all --full 全绿。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

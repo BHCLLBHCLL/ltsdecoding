@@ -34,15 +34,21 @@ def test_sim_dialog_defaults_and_params(qapp):
     assert dlg.params() == {"n_per_source": 40, "seed": 1,
                             "max_bounces": 32, "max_tris": 24000,
                             "receiver_rows": 0, "receiver_cols": 0,
-                            "emission_wl": 550.0, "apodizer": ""}
+                            "emission_wl": 550.0, "apodizer": "",
+                            "illum_bins": 32, "intensity_theta": 18,
+                            "intensity_phi": 36, "spectrum_bins": 0}
     dlg.set_params({"n_per_source": 200, "seed": 42,
                     "max_bounces": 8, "max_tris": 12000,
                     "receiver_rows": 24, "receiver_cols": 20,
-                    "emission_wl": 450, "apodizer": "uniform"})
+                    "emission_wl": 450, "apodizer": "uniform",
+                    "illum_bins": 48, "intensity_theta": 24,
+                    "intensity_phi": 72, "spectrum_bins": 16})
     assert dlg.params() == {"n_per_source": 200, "seed": 42,
                             "max_bounces": 8, "max_tris": 12000,
                             "receiver_rows": 24, "receiver_cols": 20,
-                            "emission_wl": 450.0, "apodizer": "uniform"}
+                            "emission_wl": 450.0, "apodizer": "uniform",
+                            "illum_bins": 48, "intensity_theta": 24,
+                            "intensity_phi": 72, "spectrum_bins": 16}
 
 
 def test_sim_dialog_run_callback_and_persist(qapp):
@@ -52,18 +58,23 @@ def test_sim_dialog_run_callback_and_persist(qapp):
     dlg.set_params({"n_per_source": 16, "seed": 3,
                     "max_bounces": 6, "max_tris": 8000,
                     "receiver_rows": 10, "receiver_cols": 8,
-                    "emission_wl": 460, "apodizer": "lambertian"})
+                    "emission_wl": 460, "apodizer": "lambertian",
+                    "illum_bins": 40, "intensity_theta": 20,
+                    "intensity_phi": 40, "spectrum_bins": 12})
     dlg._run()
     assert got and got[0] == {"n_per_source": 16, "seed": 3,
                               "max_bounces": 6, "max_tris": 8000,
                               "receiver_rows": 10, "receiver_cols": 8,
-                              "emission_wl": 460.0, "apodizer": "lambertian"}
+                              "emission_wl": 460.0, "apodizer": "lambertian",
+                              "illum_bins": 40, "intensity_theta": 20,
+                              "intensity_phi": 40, "spectrum_bins": 12}
     # QSettings 持久化: 新实例回填上次参数
     dlg2 = SimulationParamsDialog()
     assert dlg2.params()["n_per_source"] == 16
     assert dlg2.params()["seed"] == 3
     assert dlg2.params()["receiver_rows"] == 10
     assert dlg2.params()["apodizer"] == "lambertian"
+    assert dlg2.params()["spectrum_bins"] == 12
 
 
 def test_sim_apply_runs_forward_with_params(qapp):
@@ -136,13 +147,62 @@ def test_continue_reuses_panel_params(qapp):
     v.model = _mini_model()
     v._sim_apply({"n_per_source": 6, "seed": 9, "max_bounces": 4,
                   "max_tris": 6000, "receiver_rows": 0, "receiver_cols": 0,
-                  "emission_wl": 550.0, "apodizer": ""})
+                  "emission_wl": 550.0, "apodizer": "",
+                  "spectrum_bins": 8})
     v._continue_sim()
     p = v._last_sim_params
     assert p["seed"] == 10                     # continue: 换 seed 继续
     assert p["n_per_source"] == 40             # 保底 40 rays/source
     assert p["max_bounces"] == 4 and p["max_tris"] == 6000
+    assert p["spectrum_bins"] == 8             # 光谱分箱联动保留
     assert v._last_trace is not None
+
+
+def test_spectrum_bins_sink(qapp):
+    """色度采样下沉: spectrum_bins>0 时接收器光谱按 380..780nm 分箱 (≤bins 键)."""
+    from lts_model import LTSModel
+    import lts_insert
+    from lts.trace.from_model import run_forward
+    m = LTSModel()
+    lts_insert.create_solid(m, "sphere", name="Ball", radius=30.0)
+    lts_insert.create_source(m, "cylinder", name="S1", lamp_power=1.0,
+                             blackbody_temp=3500.0)
+    lts_insert.create_receiver(m, "farfield", name="R1")
+    p = run_forward(m, n_per_source=24, spectrum_bins=16)
+    spec = p["receivers"][0]["grid"].get("spectrum") or {}
+    assert len(spec) > 0 and len(spec) <= 16
+    assert all(380.0 < wl < 780.0 for wl in spec)
+
+
+def test_quick_preview_reuses_panel_params(qapp):
+    """Quick Preview 复用面板参数: ray 数压至 8, 其余参数 (seed/bounces/光谱) 保留."""
+    import lts_gui
+    v = lts_gui.LTSViewer(enable_3d=False)
+    v.model = _mini_model()
+    v._sim_apply({"n_per_source": 60, "seed": 21, "max_bounces": 4,
+                  "max_tris": 6000, "receiver_rows": 0, "receiver_cols": 0,
+                  "emission_wl": 550.0, "apodizer": "",
+                  "spectrum_bins": 8})
+    v.run_command("quick_preview")
+    t = v._last_trace
+    assert t is not None and t["n_rays"] == 8            # 预览 ray 数 8
+    p = v._last_sim_params
+    assert p["seed"] == 21 and p["max_bounces"] == 4    # 面板参数保留
+    assert p["max_tris"] == 6000 and p["spectrum_bins"] == 8
+
+
+def test_analysis_param_reads_panel(qapp):
+    """分析视图参数 (fallback bins) 从面板当前值读取, 无面板时回落默认."""
+    import lts_gui
+    from lts_gui_sim import SimulationParamsDialog
+    v = lts_gui.LTSViewer(enable_3d=False)
+    assert v._analysis_param("illum_bins", 32) == 32    # 无面板 -> 默认
+    v._sim_dlg = SimulationParamsDialog()
+    v._sim_dlg.set_params({"illum_bins": 40, "intensity_theta": 20,
+                           "intensity_phi": 40})
+    assert v._analysis_param("illum_bins", 32) == 40
+    assert v._analysis_param("intensity_theta", 18) == 20
+    assert v._analysis_param("intensity_phi", 36) == 40
 
 
 def test_sim_panel_command_opens_dialog(qapp):

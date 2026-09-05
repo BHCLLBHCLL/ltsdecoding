@@ -422,7 +422,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("sim_params", lambda: self._sim_params())
         b.bind("begin_all_sim", lambda: self._sim_apply(self._current_sim_params()))
         b.bind("continue_sim", lambda: self._continue_sim())
-        b.bind("quick_preview", lambda: self._begin_forward(n_per_source=8, preview=True))
+        b.bind("quick_preview", lambda: self._preview_forward())
         b.bind("aim_nss", self._aim_nss)
         b.bind("ray_display", self._toggle_ray_display)
         b.bind("set_depth", self._begin_set_depth)
@@ -2846,7 +2846,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             self.log("Simulation panel failed: %s" % e, "ERROR", tab="sim")
 
     def _sim_apply(self, params: dict) -> None:
-        """面板 Run: 参数直达 run_forward (ray 数/seed/收敛/场景上限/网格/波长/apodizer)."""
+        """面板 Run: 参数直达 run_forward (ray/seed/收敛/场景/网格/波长/apodizer/光谱)."""
         self._begin_forward(
             n_per_source=int(params.get("n_per_source", 40)),
             seed=params.get("seed"),
@@ -2855,7 +2855,27 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             receiver_rows=params.get("receiver_rows") or None,
             receiver_cols=params.get("receiver_cols") or None,
             emission_wl=params.get("emission_wl") or None,
-            apodizer=params.get("apodizer") or "")
+            apodizer=params.get("apodizer") or "",
+            spectrum_bins=int(params.get("spectrum_bins") or 0))
+
+    def _analysis_param(self, key: str, default):
+        """分析视图参数 (bins/色度采样) 从仿真面板/上次/默认取值."""
+        p = self._current_sim_params()
+        v = p.get(key)
+        return default if v is None else v
+
+    def _preview_forward(self) -> None:
+        """Quick Preview: 复用面板参数, 仅 ray 数压至 8 (快速反馈)."""
+        p = self._current_sim_params()
+        self._begin_forward(
+            n_per_source=8, seed=p.get("seed"), preview=True,
+            max_bounces=int(p.get("max_bounces", 32)),
+            max_tris=int(p.get("max_tris", 24000)),
+            receiver_rows=p.get("receiver_rows") or None,
+            receiver_cols=p.get("receiver_cols") or None,
+            emission_wl=p.get("emission_wl") or None,
+            apodizer=p.get("apodizer") or "",
+            spectrum_bins=int(p.get("spectrum_bins") or 0))
 
     def _current_sim_params(self) -> dict:
         """仿真面板当前值 (无面板时上次/默认), 供 begin_all/continue 复用."""
@@ -2883,7 +2903,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             receiver_rows=p.get("receiver_rows") or None,
             receiver_cols=p.get("receiver_cols") or None,
             emission_wl=p.get("emission_wl") or None,
-            apodizer=p.get("apodizer") or "", preview=True)
+            apodizer=p.get("apodizer") or "",
+            spectrum_bins=int(p.get("spectrum_bins") or 0), preview=True)
 
     def _begin_forward(self, n_per_source: int = 40, preview: bool = True,
                        extra: bool = False, *, seed: Optional[int] = None,
@@ -2891,7 +2912,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                        receiver_rows: Optional[int] = None,
                        receiver_cols: Optional[int] = None,
                        emission_wl: Optional[float] = None,
-                       apodizer: str = "") -> None:
+                       apodizer: str = "", spectrum_bins: int = 0) -> None:
         if self.model is None or not self.model.objects:
             self.log("Load a model before tracing.", "WARN")
             return
@@ -2902,10 +2923,12 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                 self._trace_seed += 1
             seed = self._trace_seed
         self.log("Begin Forward Simulation (%d rays/source, seed=%d, "
-                 "bounces=%d, tris<=%d, wl=%s, mesh=%sx%s, apod=%s)…" % (
+                 "bounces=%d, tris<=%d, wl=%s, mesh=%sx%s, apod=%s, "
+                 "spec_bins=%s)…" % (
                      n_per_source, seed, max_bounces, max_tris,
                      emission_wl or 550.0, receiver_rows or "own",
-                     receiver_cols or "own", apodizer or "auto"),
+                     receiver_cols or "own", apodizer or "auto",
+                     spectrum_bins or "as-sampled"),
                  tab="sim")
         try:
             from lts.trace.from_model import run_forward, format_trace_report
@@ -2914,7 +2937,8 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                 max_bounces=max_bounces,
                 preview=80 if preview else 0, seed=seed,
                 receiver_rows=receiver_rows, receiver_cols=receiver_cols,
-                emission_wl=emission_wl, apodizer=apodizer or "")
+                emission_wl=emission_wl, apodizer=apodizer or "",
+                spectrum_bins=int(spectrum_bins or 0))
         except Exception as e:
             self.log("Forward simulation failed: %s" % e, "ERROR", tab="sim")
             return
@@ -2926,6 +2950,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             "receiver_cols": receiver_cols or 0,
             "emission_wl": float(emission_wl or 550.0),
             "apodizer": apodizer or "",
+            "spectrum_bins": int(spectrum_bins or 0),
         }
         try:
             self.config_panel.mark_last_sim(self.config_engine.current() or "Default")
@@ -3143,7 +3168,9 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                                              float(grid["illuminance"].max())))
                 lines.append("")
         else:
-            grid = illuminance_grid(res.hits)
+            grid = illuminance_grid(res.hits,
+                                    bins=int(self._analysis_param(
+                                        "illum_bins", 32)))
             x0, x1, y0, y1 = grid["extent"]
             g = grid["grid"]
             lines.append("Illuminance (hit XY histogram, %dx%d)" % (
@@ -3216,7 +3243,11 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
                 lines.append(_ascii_intensity_map(grid["intensity"]))
                 lines.append("")
         else:
-            grid = intensity_grid(res.escaped_dirs)
+            grid = intensity_grid(res.escaped_dirs,
+                                  n_theta=int(self._analysis_param(
+                                      "intensity_theta", 18)),
+                                  n_phi=int(self._analysis_param(
+                                      "intensity_phi", 36)))
             lines.append("Intensity (escaped far-field, %d theta x %d phi)" % (
                 grid["n_theta"], grid["n_phi"]))
             lines.append("  peak bin : %.6g" % grid["max"])
