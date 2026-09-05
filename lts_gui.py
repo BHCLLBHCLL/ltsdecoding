@@ -381,6 +381,7 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("sphere", lambda: self._insert_kind("sphere"))
         b.bind("cylinder", lambda: self._insert_kind("cylinder"))
         b.bind("toroid", lambda: self._insert_kind("toroid"))
+        b.bind("sketch_feature", self._sketch_feature)
         b.bind("undo", self._undo)
         b.bind("redo", self._redo)
         b.bind("print", self._export_view_png)
@@ -1122,6 +1123,24 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             self.log("Run: %s" % path)
             import subprocess
             subprocess.Popen([path])
+
+    def _sketch_feature(self) -> None:
+        """草图特征 (R6): 约束求解 -> 实体生成, 接入 lts_sketch + OCC/网格."""
+        try:
+            from lts_gui_sketch import SketchFeatureDialog
+            if self.model is None:
+                self.log("Sketch Feature: no model; use New first", level="WARN")
+                return
+            dlg = SketchFeatureDialog(model=self.model,
+                                      on_generated=self._on_sketch_generated,
+                                      parent=self)
+            dlg.show()
+        except Exception as e:
+            self.log("Sketch Feature: %s" % e, level="ERROR")
+
+    def _on_sketch_generated(self, model, oid, profile, vol) -> None:
+        self._refresh()
+        self.log("Sketch Feature: solid %s volume=%.4f" % (oid, vol))
 
     # -- Edit ---------------------------------------------------------------
     def _copy_clip(self) -> None:

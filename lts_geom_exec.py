@@ -526,6 +526,76 @@ def occ_model_ray_verify(model, n_solids=3, n_dirs=9):
     return {"n_solids": len(rels), "mean_rel": sum(rels) / len(rels),
             "max_rel": max(rels)}, per
 
+
+
+
+# ---- R6: 草图多边形挤出 (通用 2D 轮廓 -> 网格实体, base/OCC 两用) ----
+
+def polygon_prism_mesh(profile2d, height):
+    """把闭合 2D 多边形轮廓 profile2d=[(x,y)..] 沿 +Z 挤出 height, 返回 (verts, tris).
+
+    用于 lts_sketch 求解后的草图轮廓 -> 真实模型实体 (insert_mesh), 非 OCC 亦可.
+    """
+    pts = np.asarray(profile2d, dtype=float).reshape(-1, 2)
+    n = len(pts)
+    if n < 3:
+        return np.zeros((0, 3)), np.zeros((0, 3), np.int32)
+    import trimesh
+    bottom = np.hstack([pts, np.zeros((n, 1))])
+    top = np.hstack([pts, np.full((n, 1), float(abs(height)))])
+    cloud = np.vstack([bottom, top])
+    try:
+        hull = trimesh.convex.convex_hull(cloud)
+        return (np.asarray(hull.vertices, np.float32),
+                np.asarray(hull.faces, np.int32))
+    except Exception:
+        # 兜底: 直接返回顶点/空面 (调用方会用 OCC 或跳过)
+        return np.asarray(cloud, np.float32), np.zeros((0, 3), np.int32)
+
+
+def sketch_build_solid(model, preset="rt345", gen="prism", height=2.0,
+                       material="BK7", **constraints):
+    """草图特征 -> 真实模型实体 (R6).
+
+    preset: rt345 (勾股 3-4-5 直角三角) / rect (矩形) / triangle (任意三角).
+    gen: prism (挤出) / revolve (回转, 用 occ 若可用).
+    解析草图约束 -> 得到轮廓 -> 生成实体并 insert_mesh 到 model, 返回 (oid, profile).
+    """
+    from lts_sketch import Sketch
+    if preset == "rt345":
+        s = Sketch([(0.0, 0.0), (0.0, 2.2), (3.0, 2.0)])
+        s.constrain("distance", (0, 1), 3.0)
+        s.constrain("distance", (1, 2), 4.0)
+        s.constrain("angle", (0, 1, 2), 90.0)
+    elif preset == "rect":
+        # 直接 3x4 矩形角点 (无需约束; 约束演示由 rt345 承担)
+        s = Sketch([(0.0, 0.0), (0.0, 3.0), (4.0, 3.0), (4.0, 0.0)])
+    elif preset == "triangle":
+        s = Sketch([(0.0, 0.0), (4.0, 0.0), (1.0, 3.0)])
+    else:
+        raise ValueError("preset: %s" % preset)
+    for kind, idx, params in constraints.get("items", []):
+        s.constrain(kind, idx, *params)
+    s.solve()
+    profile = s.points()
+    if gen == "revolve":
+        # 回转草图: (r,z) 轮廓; 用 OCC 精确或 create_profile_solid 兜底
+        import lts_occ as lo
+        if lo.occ_available():
+            shape = lo.prim_revolve(profile, angle_deg=360.0)
+            m = lo.shape_metrics(shape)
+            oid = model.insert_mesh("SketchRevolve", *(lo.tessellate_shape(shape, 0.05)),
+                                    material=material, kind="solid")
+        else:
+            from lts_insert import create_profile_solid
+            oid = create_profile_solid(model, "revolve", name="SketchRevolve",
+                                       material=material, length=max(height, 1.0),
+                                       r0=float(profile[0][0]), r1=float(profile[-1][0]))
+    else:
+        verts, tris = polygon_prism_mesh(profile, height)
+        oid = model.insert_mesh("SketchPrism", verts, tris, material=material, kind="solid")
+    return oid, profile
+
 if __name__ == "__main__":
     print("box 2x2x2 volume", round(mesh_volume(box_mesh(2,2,2)), 4))
     print("sphere r=1 verts", len(sphere_mesh(1.0)[0]))

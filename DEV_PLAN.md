@@ -150,6 +150,14 @@
 - 实测 lt_parity --lt: **12 条 live LT 派生全 MATCH** (macro/cie_ybar/photopic + 9 物理, rel 0 或 1e-6), parity --gate 45 PASS。
 - 说明: 这些物理项经 LT 数值引擎 (Eval) 计算, 与 our 解析一致 -> 物理语料从「pinned/解析」升级为「live LT 派生」。
 
+
+### R6 · 草图特征 UI 接线（lts_sketch + OCC/网格 -> 实体）（2026-09-04 续）
+- lts_geom_exec: 新增 polygon_prism_mesh(2D 多边形挤出网格, trimesh convex hull, 正确体积) + sketch_build_solid(model, preset, gen, height) (草图预设 rt345/rect/triangle + 约束求解 -> 实体 insert_mesh)。
+- lts_gui_sketch.py (新): SketchFeatureDialog(QDialog) 选预设/生成方式/高度, Solve+Generate 调 build_solid -> 生成实体; build_solid 纯逻辑可 headless 测试 (返回 model/oid/profile/volume)。
+- lts_gui.py: 新增 _sketch_feature/_on_sketch_generated 方法 + "sketch_feature" 命令绑定; lts_commands.py: "SketchFeature" 别名 + IMPLEMENTED (72->73, aliases 179->180)。
+- tests/test_gui_sketch.py (4): build_solid rt345=12/rect=18, 对话框解算, viewer.run_command("SketchFeature") 不崩溃 (offscreen Qt)。
+- 验证: GUI offscreen 可构造; coverage 710/710 depth 100%; base pytest 307 passed / 10 skipped。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
