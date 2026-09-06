@@ -38,12 +38,16 @@ def main():
     # 重任务默认跳过; --full 才跑
     if "--full" in sys.argv:
         for name, args in (("verify_pipeline.py", None),
-                           ("verify_raytrace.py", None)):
+                           ("verify_raytrace.py", None),
+                           ("verify_lt_bridge.py", None)):
             print("== %s ==" % name)
             codes.append(run(name, args))
     else:
-        print("(重任务 verify_pipeline/verify_raytrace 用 --full 运行)")
-    return max(codes, default=0)
+        print("(重任务 verify_pipeline/verify_raytrace/verify_lt_bridge "
+              "用 --full 运行)")
+    # G4 LT COM 验收: 无 LT 环境 SKIP (exit 2) 不算失败
+    skip_only = [c for c in codes if c not in (0, 2)]
+    return max(skip_only, default=0)
 
 
 if __name__ == "__main__":

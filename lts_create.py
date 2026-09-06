@@ -74,7 +74,8 @@ def render_object(cls, oid, props=None, edges=None, indent='    ') -> str:
     return '\n'.join(lines) + '\n'
 
 
-def render_graph(root_oid, objects, sat_provider=None, indent='    '):
+def render_graph(root_oid, objects, sat_provider=None, block_provider=None,
+                 indent='    '):
     """渲染对象图 -> 真实 LT 嵌套语法 (写回 .lts 作者化).
 
     与 render_object (flat, 边渲染为体内键行) 不同, 这里按 LT 写盘风格:
@@ -83,32 +84,54 @@ def render_graph(root_oid, objects, sat_provider=None, indent='    '):
     根块闭合为纯 `}`。SAT 子块 (make_solid_block) 的末行同样替换为挂父行。
 
     sat_provider(obj) 返回 SAT 文本时, 该子块渲染为 readSATdata 实体块。
+    block_provider(obj) 返回 (cls, text) 时, 直接用 text 作为子块内容 (cls 用于
+    替换原始 obj.cls 的渲染类名, 通常不变; text 已自含闭合).
+    block_provider 优先于 sat_provider (CSG 写出优先于内嵌 SAT).
     外部引用 (无对象/已被访问) 的边回退 props 键行 (断链保语法自洽)。
     """
     seen = set()
 
-    def walk(oid, depth, close_spec):
+    def walk(oid, depth, close_spec, body_lines=None, cls_override=None):
         o = objects.get(oid)
         if o is None:
             return []
         sub = indent * depth
-        lines = ['%s$%s create -> $%s' % (sub, o.cls,
+        cls = cls_override or o.cls
+        lines = ['%s$%s create -> $%s' % (sub, cls,
                                           oid[1:] if oid.startswith('$') else oid),
                  sub + '{']
-        for key, val in (o.props or {}).items():
-            lines.append('%s%s: %s ;' % (sub + indent, key, fmt_value(val)))
+        if body_lines is not None:
+            # block/sat provider 提供"自体段" (参数化 CSG / 内嵌 SAT);
+            # 边 (addSurfaceInfo 区链等) 仍由本函数嵌套渲染, 不吞子树。
+            lines.extend(body_lines)
+        else:
+            for key, val in (o.props or {}).items():
+                lines.append('%s%s: %s ;' % (sub + indent, key, fmt_value(val)))
         for method, ref in (o.edges or []):
             ref = str(ref)
             if ref in objects and ref not in seen:
                 seen.add(ref)
-                sat_text = sat_provider(objects[ref]) if sat_provider else None
-                if sat_text:
-                    blk = make_solid_block(objects[ref].cls, ref,
-                                           objects[ref].props.get("setName")
-                                           or ref, sat_text, sub + indent)
-                    body, _last = blk.rstrip('\n').rsplit('\n', 1)
-                    lines.append(body)
-                    lines.append('%s} %s: %s ;' % (sub + indent, method, ref))
+                child = objects[ref]
+                blk_cls = None
+                blk_text = None
+                if block_provider:
+                    r = block_provider(child)
+                    if r is not None:
+                        blk_cls, blk_text = r
+                if blk_text is None and sat_provider:
+                    sat_text = sat_provider(child)
+                    if sat_text:
+                        blk = make_solid_block(child.cls, ref,
+                                               child.props.get("setName")
+                                               or ref, sat_text, sub + indent)
+                        blk_text = blk
+                if blk_text:
+                    blines = blk_text.rstrip('\n').splitlines()
+                    # 去掉 create 头行 + '{' 行 + 闭合 '}' 行 -> 自体段内嵌
+                    inner = blines[2:-1] if len(blines) > 3 else []
+                    lines.extend(walk(ref, depth + 1, (method, ref),
+                                      body_lines=inner,
+                                      cls_override=blk_cls))
                 else:
                     lines.extend(walk(ref, depth + 1, (method, ref)))
             else:

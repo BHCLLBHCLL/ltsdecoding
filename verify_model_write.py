@@ -113,9 +113,11 @@ def main() -> int:
     v_ball = _mesh_volume(m2, ball)
     rel_ball = (abs(v_ball - 4 / 3 * 3.141592653589793 * 125.0) /
                 (4.349e2)) if v_ball is not None else 1.0
-    if _prim_prop(m2, ball, "setRadius") != 5.0:
+    r_ball = _prim_prop(m2, ball, "setRadius")
+    if r_ball is None or abs(float(r_ball) - 5.0) > 1e-5:
         ok = False
-        print("FAIL: sphere radius param lost (prim=%s)" % _prim_oid(m2, ball))
+        print("FAIL: sphere radius param lost (prim=%s got=%r)" % (
+            _prim_oid(m2, ball), r_ball))
     if rel_ball > 0.05:
         # 网格 tessellation 近似 (非信息丢失): 容差 5%
         ok = False

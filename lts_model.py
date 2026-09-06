@@ -190,30 +190,61 @@ class LTSModel:
         self.inserted_oids = []
         return True
 
-    def _sat_text_for_part(self, obj):
-        """网格实体 (无 raw_sat) -> LT 原生内嵌 SAT 文本 (OCC 序列化).
+    # ------------------------------------------------------------------
+    # 双路径 SAT/CSG 写出 (P0)
+    # ------------------------------------------------------------------
+    #
+    # 思路: LT 原生几何是 CSG 参数化 (Cuboid/Cylinder/Sphere/Toroid primitive
+    # 携带 setRadius/Width/Height/Length/Taper), 不需要内嵌 SAT; 仅自由形状
+    # (GenericPrimitive/SAT-导入) 才需要 SAT。
+    #
+    # 因此:
+    #   - _primitive_block_for(obj) -> (cls, text) 或 None
+    #       先 OCC 形状识别; 命中 CSG primitive -> render_csg_primitive_block;
+    #       否则降级 freeform_sat_for -> None
+    #   - _sat_text_for_part(obj) -> str (SAT 文本) 或 None
+    #       仅当 OCC SAT 写出可用时返回文本; 否则 None (props-only 降级)
+    # ------------------------------------------------------------------
 
-        仅当 OCC 可用且存在对应 tess_part 时: mesh -> sew B-rep -> SAT,
-        写回的 .lts 与带 SAT 导入实体同构 (G4/LT 打开几何完整)。
-        失败时返回 None (调用方回退 props 语义块)。
+    def _shape_for_obj(self, obj):
+        """从 obj 关联的 tess_part 提取 OCC shape; 失败返回 None."""
+        try:
+            part = next((p for p in (self.tess_parts or [])
+                         if p.primitive_oid == obj.oid), None)
+            if part is None or len(part.triangles) < 4:
+                return None
+            import lts_occ
+            if not lts_occ.occ_available():
+                return None
+            return lts_occ.shape_from_mesh(part.points, part.triangles)
+        except Exception:
+            return None
+
+    def csg_primitive_for(self, shape):
+        """OCC shape -> ('cuboid'|'cylinder'|'sphere', params) 或 None.
+
+        由 lts_csg_prim.classify_shape 暴露; 单独可测, 也可被上层复用。
         """
-        if obj is None:
+        try:
+            import lts_csg_prim
+            return lts_csg_prim.classify_shape(shape)
+        except Exception:
             return None
-        sat = getattr(obj, "raw_sat", None)
-        if sat:
-            return sat
-        part = next((p for p in (self.tess_parts or [])
-                     if p.primitive_oid == obj.oid), None)
-        if part is None or len(part.triangles) < 4:
-            return None
+
+    def freeform_sat_for(self, shape):
+        """OCC shape -> SAT 文本 (走 OCCT SATControl_Writer) 或 None.
+
+        P2: 当前本环境 OCP 缺 SATControl, 此分支在本环境返回 None;
+        后续若 OCCT SAT 写后端可用, 这里直接返回文本, _primitive_block_for
+        会自动把它走 block_provider 路径 (CLS 仍为 GenericPrimitive).
+        """
         try:
             import lts_occ
             if not lts_occ.occ_available():
                 return None
-            shape = lts_occ.shape_from_mesh(part.points, part.triangles)
             if shape is None:
                 return None
-            import tempfile
+            import tempfile, os
             fd, path = tempfile.mkstemp(suffix=".sat")
             os.close(fd)
             try:
@@ -230,6 +261,56 @@ class LTSModel:
         except Exception:
             return None
 
+    def _primitive_block_for(self, obj):
+        """obj -> (cls, block_text) 或 None.
+
+        双路径:
+          1) 识别为 CSG primitive (cuboid/cylinder/sphere) -> render_csg_primitive_block
+          2) 自由形状 -> freeform_sat_for 文本 -> make_solid_block (GenericPrimitive)
+          3) 都失败 -> None (props-only 降级)
+        """
+        if obj is None:
+            return None
+        shape = self._shape_for_obj(obj)
+        if shape is None:
+            return None
+        # 1) CSG primitive
+        try:
+            import lts_csg_prim
+            hit = lts_csg_prim.classify_shape(shape)
+            if hit is not None:
+                kind, params = hit
+                name = (obj.props.get("setName") if obj.props else None) or obj.oid
+                blk = lts_csg_prim.render_csg_primitive_block(
+                    kind, obj.oid, name, params)
+                if blk:
+                    return (lts_csg_prim._PRIM_CLS[kind], blk)
+        except Exception:
+            pass
+        # 2) 自由形状 SAT
+        sat_text = self.freeform_sat_for(shape)
+        if sat_text:
+            name = (obj.props.get("setName") if obj.props else None) or obj.oid
+            blk = lts_create.make_solid_block(
+                obj.cls, obj.oid, name, sat_text)
+            return (obj.cls, blk)
+        return None
+
+    def _sat_text_for_part(self, obj):
+        """保持向后兼容: 返回 SAT 文本 (或 None).
+
+        现实现 = freeform_sat_for; CSG 路径请走 _primitive_block_for.
+        """
+        if obj is None:
+            return None
+        sat = getattr(obj, "raw_sat", None)
+        if sat:
+            return sat
+        shape = self._shape_for_obj(obj)
+        if shape is None:
+            return None
+        return self.freeform_sat_for(shape)
+
     def _persist_inserted(self, lines: List[str]) -> List[str]:
         """Append create-blocks for session-inserted solids and wire Part DB."""
         import lts_create
@@ -245,18 +326,34 @@ class LTSModel:
             inject = []
             existing = "\n".join(lines[pdb.line:e + 1])
             for oid in self.inserted_oids:
-                token = "restoreObject: %s" % oid
-                if token not in existing:
-                    inject.append("        restoreObject: %s ;" % oid)
+                obj = self.objects.get(oid)
+                if obj is None or obj.line is not None:
+                    continue
+                blk = lts_create.render_graph(
+                    oid, self.objects,
+                    block_provider=self._primitive_block_for,
+                    sat_provider=self._sat_text_for_part)
+                blines = [x.rstrip("\n") for x in blk.splitlines()]
+                # 根块闭合行 `}` -> `} restoreObject: $oid;`:
+                # LT 原生结构 = 成员 create 块嵌在 PartDB 管理器内部并以
+                # 挂回行闭合 (EOF 孤儿块 + 裸链接行会让 LT restore 崩溃)。
+                if blines[-1].rstrip().endswith("}"):
+                    blines[-1] = "%s restoreObject: %s;" % (
+                        blines[-1].rstrip(), oid)
+                inject.extend(blines)
             if inject:
                 lines = lines[:e] + inject + lines[e:]
+            return lines
+        # 无 PartDB (空模板): 回退 EOF 追加 (纯 create 块, 无挂回行)
         extra = []
         for oid in self.inserted_oids:
             obj = self.objects.get(oid)
             if obj is None or obj.line is not None:
                 continue
             extra.append(lts_create.render_graph(
-                oid, self.objects, sat_provider=self._sat_text_for_part))
+                oid, self.objects,
+                block_provider=self._primitive_block_for,
+                sat_provider=self._sat_text_for_part))
         if extra:
             block = "\n".join(x.rstrip("\n") for x in extra)
             lines = list(lines) + block.splitlines()

@@ -223,6 +223,16 @@
 - depth_tier: optimization + colorimetry 90/90 达 T3 (命令面 depth 打标); Phase A 池随转正缩水 (real 551->467), test_phase_a_depth_real 门槛 500->450 (口径注释)。
 - 验证: base pytest **351 passed** / 10 skipped (+7); coverage --gate 710/710 + depth-gate 100% (real 710/710) PASS。
 
+
+### R5 G4 · LT 验收链路打通: COM 桥 + 作者化实开 + P2 SAT 实导（2026-09-06 续）
+- **COM 链路打通** (原"lt.exe headless 超时"根因 = 启动时 About/许可模态对话框阻塞 COM): 复用 DialogWatchdog (自动关 About, 单会话最多压 31 次) -> Dispatch LightTools.LTAPI3 12-35s 连接稳定; 命令语法经 CommandReferenceGuide.pdf 实锤 (ImportPlainSAT filename / ExportPlainSAT3 "name" "28.0" 1 0 0 1 / Open "path")。
+- **作者化 .lts 实开**: _persist_inserted 修复 —— 原 EOF 孤儿 create 块 + 裸 restoreObject 链接行会让 LT restore **崩溃** (RPC 断连, probe 二分 v1 重存 OK / v2 +block 崩溃定位); 改为 create 块**嵌 PartDB 管理器内部**、根块闭合行改写 `} restoreObject: $oid;` (与 LT 原生同构); 空模板无 PartDB 回退 EOF 追加。实测: Open lt_bridge_authored.lts stat=0, LtBridgeBlock 读回, **VOLUME=480.000038 (10x8x6, rel=7.8e-8)**。
+- **P2 SAT 30.0 对齐**: 从 LT ExportPlainSAT3 导出 (exp7 + native box) 提取 ACIS 30.0 记录签名 —— 混合 bare int/$ref (前 4 位 `$-1 -1 -1 $-1`), plane-surface 9 double (point/normal/u_vec, 原 6+d 布局缺 u_vec 致 "missing double"), transform 第 3 位 bare 1 (原缺致 "missing integer"), edge t0 bare 0 + @7 恒定, face `single F F`, 头部 2800/30.0/F 行; write_box_body 全布局重写, self_check 63/63 保持。实测: **ImportPlainSAT 自研 box.sat stat=0**。
+- verify_lt_bridge.py (新, 接 verify_all --full; 无 LT 环境 exit 2=SKIP): 作者化 .lts Open+VOLUME 读回 / 自研 SAT 导入 / ExportPlainSAT3 落盘 三链验收; 会话韧性 (首次 Open 视图未就绪重试 + keep_alive key 查询 + \V3D 重试)。终验 **G4: PASS**。
+- lts_create.render_graph block_provider 语义修正: provider 提供"自体段" (剥 create 头/`{`/`}` 三行) 而非替换子树 —— 边 (addSurfaceInfo 区链) 仍嵌套渲染, cls 覆盖 (T5); 原 block_provider 吞子树致 zone 链丢失 (reload zones 3->0 已修)。
+- verify_model_write: 球半径断言放宽 1e-5 (tessellation 噪声 5.0000001); B-rep STEP 保真核对保持 rel=0。
+- 验证: base pytest 351 passed / 10 skipped (无回归); **verify_lt_bridge G4 PASS** (真 LT 9.1.0 COM 实开实读); coverage --gate 710/710 PASS。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
