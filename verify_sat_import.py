@@ -644,12 +644,19 @@ def connect_lt(timeout=300):
         import win32com.client
         pythoncom.CoInitialize()
 
-        # 1) Dispatch 优先: 正在运行的 LT 实例直接附着; 否则由 COM SCM
-        #    启动嵌入实例。注意: 不要预先 Popen lt.exe, 否则与 COM 启动的
-        #    嵌入实例发生单实例冲突 (CO_E_SERVER_EXEC_FAILURE)。
-        #    (LTLocator.GetLTAPI 返回的接口缺 GetActiveView 等方法, 不再使用)
+        # R5 G4 修复 (2026-09-06): COM 直接 Dispatch 启动的嵌入实例 license
+        # 初始化异常 (\\V3D 失败 / DbList 查不到 solid / ImportPlainSAT 假 stat=0);
+        # 改为先以 GUI 方式 Popen lt.exe (license 正常初始化), 再 Dispatch 附着到
+        # 已运行实例。无现存实例时才 GUI 启动。
         if not existing:
-            print("[lt] Dispatch will launch lt.exe via COM ...", flush=True)
+            print("[lt] Popen lt.exe (GUI) then attach ...", flush=True)
+            try:
+                subprocess.Popen([str(LT_EXE)])
+                spawned = True
+                time.sleep(25)   # license 初始化 + GUI 就绪
+            except Exception as e:
+                print(f"[lt] Popen lt.exe failed: {e}", flush=True)
+
         t0 = time.time()
         last_err = None
         while time.time() - t0 < timeout:
@@ -667,7 +674,7 @@ def connect_lt(timeout=300):
             if lt_pids() - existing:
                 spawned = True
 
-        # 3) Dispatch 自己拉起的进程也视为 spawned
+        # Dispatch 附着到我们 Popen 拉起的进程也视为 spawned
         if lt is not None:
             try:
                 pid = int(lt.GetServerID())
