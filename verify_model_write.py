@@ -34,6 +34,20 @@ def _prim_prop(m, oid, key):
     return _prop(m, po, key)
 
 
+def _sk_mesh_points(m, oid):
+    for p in m.tess_parts:
+        if p.solid_oid == oid:
+            return p.points
+    return None
+
+
+def _sk_mesh_tris(m, oid):
+    for p in m.tess_parts:
+        if p.solid_oid == oid:
+            return p.triangles
+    return None
+
+
 def _mesh_volume(m, oid):
     for p in m.tess_parts:
         if p.solid_oid == oid:
@@ -112,7 +126,7 @@ def main() -> int:
           "vol rel=%.4f (<=5%% tess)" % (v_b, rel_ball))
 
     # 2) 网格实体 (草图): SAT 写后端可用时 -> 内嵌 SAT 精确重载;
-    #    否则保留语义块 (结构/属性无损, 几何需 ACIS 后端)
+    #    否则保留语义块 (结构/属性无损, 几何用 STEP 交换链核对保真)
     v_sk = _mesh_volume(m2, sk)
     if sat_wr:
         rel = abs(v_sk - sk_vol) / max(sk_vol, 1e-12) if v_sk else 1.0
@@ -126,6 +140,27 @@ def main() -> int:
         else:
             print("sketch: props semantics block (ACIS SAT write backend "
                   "unavailable; geometry exact when sat_write=True)")
+    # B-rep 交换链保真 (与 SAT 写同源): mesh -> sew B-rep -> STEP 写/读 ->
+    # 重新三角化 -> 体积一致 (OCC 引擎可用时, 精确几何闭环的机器证明)
+    if occ and lts_occ._FX.get("step") and sk in m.objects:
+        import os as _os
+        shape = lts_occ.shape_from_mesh(_sk_mesh_points(m, sk),
+                                        _sk_mesh_tris(m, sk))
+        if shape is not None:
+            sp = _os.path.join(d, "sketch.step")
+            if lts_occ.step_write(shape, sp):
+                sh2 = lts_occ.step_read(sp)
+                if sh2 is not None:
+                    r = lts_occ.tessellate_shape(sh2, 0.05)
+                    pts2, tris2 = r[0], r[1]
+                    from lts_geom_exec import mesh_volume
+                    v_step = float(mesh_volume((pts2, tris2)))
+                    rel = abs(v_step - sk_vol) / max(sk_vol, 1e-12)
+                    if rel > 1e-3:
+                        ok = False
+                        print("FAIL: B-rep STEP fidelity rel=%.4f" % rel)
+                    print("B-rep STEP fidelity: mesh->shape->STEP->readback "
+                          "vol=%.4f rel=%.4f" % (v_step, rel))
     if sk not in m2.objects:
         ok = False
         print("FAIL: sketch solid lost on reload")

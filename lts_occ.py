@@ -117,23 +117,43 @@ except Exception:
             BRepAlgoAPI_Common, BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse,
         )
         from OCP.BRepBuilderAPI import (
+            BRepBuilderAPI_GTransform, BRepBuilderAPI_MakeEdge,
             BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon,
             BRepBuilderAPI_MakeSolid, BRepBuilderAPI_Sewing,
-            BRepBuilderAPI_Transform,
+            BRepBuilderAPI_Transform, BRepBuilderAPI_MakeWire,
         )
         from OCP.BRepMesh import BRepMesh_IncrementalMesh
         from OCP.BRepPrimAPI import (
             BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCone,
-            BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakeSphere,
+            BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakePrism,
+            BRepPrimAPI_MakeRevol, BRepPrimAPI_MakeSphere,
             BRepPrimAPI_MakeTorus,
         )
-        from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf
-        from OCP.TopAbs import TopAbs_FACE, TopAbs_SHELL, TopAbs_SOLID
+        from OCP.BRepOffsetAPI import (
+            BRepOffsetAPI_MakePipe, BRepOffsetAPI_MakeThickSolid,
+            BRepOffsetAPI_ThruSections,
+        )
+        from OCP.BRepFilletAPI import BRepFilletAPI_MakeFillet
+        from OCP.gp import (
+            gp_Ax1, gp_Ax2, gp_Circ, gp_Dir, gp_GTrsf, gp_Pnt, gp_Trsf,
+            gp_Vec,
+        )
+        from OCP.TopAbs import (
+            TopAbs_EDGE, TopAbs_FACE, TopAbs_SHELL, TopAbs_SOLID,
+        )
         from OCP.TopExp import TopExp_Explorer
         from OCP.TopLoc import TopLoc_Location
         from OCP.TopoDS import (
             TopoDS, TopoDS_Compound, TopoDS_Face, TopoDS_Shell,
+            TopoDS_Wire,
         )
+        _topods = type("_topods", (), {
+            "Face": staticmethod(TopoDS.Face_s),
+            "Edge": staticmethod(TopoDS.Edge_s),
+            "Shell": staticmethod(TopoDS.Shell_s),
+            "Vertex": staticmethod(TopoDS.Vertex_s),
+        })
+        topods = _topods
         _OCC_KIND = "ocp"
         try:
             from OCP.SATControl import SATControl_Reader
@@ -236,8 +256,12 @@ def ray_intersect(shape, origin, direction, tmax=1.0e6):
     origin/direction (3 元组), 返回按 t 升序的 [(t, [x,y,z]), ...].
     用于追迹网格求交的校验路径 (ground truth).
     """
-    from OCC.Core.IntCurvesFace import IntCurvesFace_ShapeIntersector
-    from OCC.Core.gp import gp_Lin, gp_Pnt, gp_Dir
+    root = "OCP" if _OCC_KIND == "ocp" else "OCC.Core"
+    import importlib
+    _intcurves = importlib.import_module(root + ".IntCurvesFace")
+    _gpmod = importlib.import_module(root + ".gp")
+    IntCurvesFace_ShapeIntersector = _intcurves.IntCurvesFace_ShapeIntersector
+    gp_Lin, gp_Pnt, gp_Dir = _gpmod.gp_Lin, _gpmod.gp_Pnt, _gpmod.gp_Dir
     o = np.asarray(origin, dtype=float)
     d = np.asarray(direction, dtype=float)
     d = d / (np.linalg.norm(d) or 1.0)
@@ -555,7 +579,10 @@ def boolean_tree(op, shapes):
 
 def prim_shell(shape, thickness):
     """抽壳: 移除一个面, 向内空腔 thickness (BRepOffsetAPI_MakeThickSolidByJoin)."""
-    from OCC.Core.TopTools import TopTools_ListOfShape
+    root = "OCP" if _OCC_KIND == "ocp" else "OCC.Core"
+    import importlib
+    TopTools_ListOfShape = importlib.import_module(
+        root + ".TopTools").TopTools_ListOfShape
     exp = TopExp_Explorer(shape, TopAbs_FACE)
     if not exp.More():
         return shape

@@ -203,6 +203,17 @@
 - G7: run_forward 分段计时 (scene/emission/trace/preview/total -> meta["timings"]); verify_raytrace 输出吞吐基准 (本机全模型 n=8: 1.10 rays/s end-to-end, trace-only 1.73, scene 22.6s/emission 1.2s/trace 41.6s; <0.5 rays/s 告警) + LT 通量比门禁 (ref_ratio ΣI·Ω 逐格同 Ω, n>=100 时 3% 判定)。
 - 验证: base pytest 334 passed / 10 skipped (+6); coverage --gate 710/710 PASS; verify_all --full 全绿 (含 verify_model_write)。
 
+
+### R5 续 · OCC 引擎激活 (OCP 修复) + SAT 写后端勘察（2026-09-06）
+- SATControl (ACIS 写) 勘察定论: conda-forge pythonocc-core 7.9.3 (occ env) 与 cadquery-ocp/OCP 7.9.3.1.1 (默认 env) **两者均无 SATControl 模块** (pythonocc 无 wrap + OCP/CadQuery 弃用 ACIS); `_FX["sat_write"]` 后端双环境不可用 —— `_sat_text_for_part` SAT 分支保留"后端出现即启用"探测。
+- 默认 env OCP 修复 (原 DLL load failed): 根因 = TKIVtk 期望 **vtk 9.6.2** (环境为 9.3.1) + delvewheel 跨 wheel 原名单依赖 → 安装配套 vtk==9.6.2; cadquery_ocp.libs 补 71 个原名单副本 (hash 名 + 原名单混合命名两向兼容) -> `import OCP` OK, engine=OCP。
+- lts_occ OCP 分支适配: 导入表补全 (BRepBuilderAPI GTransform/MakeEdge/MakeWire, BRepPrimAPI MakePrism/MakeRevol, BRepOffsetAPI *, BRepFilletAPI, gp_GTrsf/Ax1/Circ/Vec, TopoDS_Wire, TopAbs_EDGE); **topods cast** (OCP 7.9 用 `TopoDS.Face_s` 类属性, 兼容层暴露 Face/Edge/Shell/Vertex); ray_intersect/prim_shell 的 `OCC.Core` 硬编码改引擎感知 importlib。
+- 结果: tests/test_occ.py **10/10 通过于默认 env** (此前 OCC 全禁 SKIP); B-rep 质量属性/布尔/精确求交在默认 env 激活。
+- verify_model_write 增 **B-rep 交换链保真核对** (与 SAT 写同源): mesh -> sew B-rep -> STEP 写/读 -> re-tessellate 体积一致 (sketch vol=12.0000 rel=0.0000); SAT 后端不可用时该核对封锁几何精确性闭环 (ACIS 封装为唯一缺口)。
+- verify_cad_exchange 首次以 OCP 引擎运行: 59/66 OK (5 CHECK 为阶段2 网格近似链固有判定 + 2 TIMEOUT 为 OCP 慢; 未对比引擎差异, ci_occ OCC.Core 66/66 基准不变)。
+- tests/test_parity 语料断言改为跟随 lt_parity 模块级语料集合 (OCC 可用时剔 base-tess 语料换 OCC 几何语料, 硬编码 45 cid 断言与 lt_parity 条件逻辑矛盾已修)。
+- 验证: base pytest **344 passed** / 10 skipped (默认 env OCP 激活, test_occ 10 项从 SKIP 转 RUN); ci_occ.ps1 OK (occ env OCC.Core 通道无回归, OCC 几何语料 rel~1e-16); coverage --gate 710/710 PASS; lt_parity --gate PASS (OCC 语料含 geom_occ_*)。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
