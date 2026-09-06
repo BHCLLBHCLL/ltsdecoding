@@ -153,6 +153,24 @@ LT_ALIASES.update(SET_PROP_ALIASES)
 IMPLEMENTED.update(SET_PROP_ALIASES.values())
 
 
+def _extend_subsystem_cmds() -> tuple:
+    """R6 排产: optimization/colorimetry 子系统命令挂真实执行 handler.
+
+    须在 _extend_aliases_from_menus() 之后调用: 菜单注册表官方映射
+    (analysis_* 真实执行链) 优先, 其余命令走子系统执行器 (T3)。
+    返回子系统 handler id 集合。
+    """
+    try:
+        from lts_cmd_exec import subsystem_aliases
+        aliases = subsystem_aliases()
+    except Exception:
+        return set()
+    for _k, _v in aliases.items():
+        LT_ALIASES.setdefault(_k, _v)
+    IMPLEMENTED.update(set(aliases.values()))
+    return set(aliases.values())
+
+
 def _extend_aliases_from_menus() -> None:
     """把菜单注册表声明的 官方命令名 -> handler 映射并入别名表."""
     try:
@@ -164,6 +182,18 @@ def _extend_aliases_from_menus() -> None:
 
 
 _extend_aliases_from_menus()
+# 菜单映射目标 (analysis_*/optimize_* 等) 均为 GUI 真实绑定 -> 入 IMPLEMENTED
+try:
+    from lts_menus import official_aliases
+    IMPLEMENTED.update(set(official_aliases().values()))
+except Exception:
+    pass
+_SUBSYSTEM_HANDLERS = _extend_subsystem_cmds()
+
+
+def subsystem_handler_ids() -> set:
+    """已注册的子系统 handler id (GUI 绑定用)."""
+    return set(_SUBSYSTEM_HANDLERS)
 
 
 def load_lt_command_names() -> list[str]:

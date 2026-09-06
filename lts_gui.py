@@ -382,6 +382,12 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("cylinder", lambda: self._insert_kind("cylinder"))
         b.bind("toroid", lambda: self._insert_kind("toroid"))
         b.bind("sketch_feature", self._sketch_feature)
+        # R6 排产: optimization/colorimetry 子系统命令 -> 真实执行 handler
+        from lts_cmd_exec import COLORIMETRY, OPTIMIZATION
+        for _lt, _hid in COLORIMETRY.items():
+            b.bind(_hid, lambda lt=_lt: self._cmd_colorimetry(lt))
+        for _lt, _hid in OPTIMIZATION.items():
+            b.bind(_hid, lambda lt=_lt: self._cmd_optimization(lt))
         for _preset, _sfx in (
                 ("Mirror", "mirror"), ("Absorber", "absorber"),
                 ("Smooth Optical Surface", "smooth_optical"),
@@ -834,6 +840,34 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
             self._fill_surface_info(oid)
         else:
             self.log("No property zones on selection", "WARN")
+
+    def _cmd_colorimetry(self, lt_name: str) -> None:
+        """R6 排产: colorimetry 子系统命令真实执行 (黑体->CIE 链路)."""
+        try:
+            from lts_cmd_exec import run_colorimetry
+            r = run_colorimetry(lt_name)
+        except Exception as e:
+            self.log("Colorimetry %s failed: %s" % (lt_name, e), "ERROR")
+            return
+        self.log("Colorimetry %s: family=%s metric=%s CCT=%.1fK xy=(%.5f,%.5f)"
+                 % (lt_name, r["family"], r["metric"], r["cct"],
+                    r["xy"][0], r["xy"][1]), tab="sim")
+
+    def _cmd_optimization(self, lt_name: str) -> None:
+        """R6 排产: optimization 子系统命令真实执行 (merit/变量/求解)."""
+        try:
+            from lts_cmd_exec import run_optimization
+            r = run_optimization(lt_name)
+        except Exception as e:
+            self.log("Optimization %s failed: %s" % (lt_name, e), "ERROR")
+            return
+        if r.get("op") == "optimize":
+            self.log("Optimization %s: best=%s value=%.2e iters=%d"
+                     % (lt_name, r.get("best"), r.get("value"),
+                        r.get("iterations")), tab="sim")
+        else:
+            self.log("Optimization %s: %s" % (lt_name, r.get("op", r.get(
+                "message", "ok"))), tab="sim")
 
     def _set_prop_to(self, preset: str) -> None:
         """SetPropertyTo* 命令族: 预设默认 R/T 直接写回选中实体."""

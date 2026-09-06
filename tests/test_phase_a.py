@@ -32,7 +32,9 @@ def test_phase_a_run_unknown_graceful():
 def test_phase_a_depth_real():
     import lts_phase_a
     d = lts_phase_a.depth_stats()
-    assert d["real"] >= 500, d         # 已有 500+ 条 Phase A 真实 handler
+    # Phase A 池 = 未覆盖命令; R6 排产把 optimization/colorimetry 等 90 条
+    # 转正 (lts_cmd_exec/analysis_*) 后该池缩水 -> 门槛随池调整 (550->450)
+    assert d["real"] >= 450, d         # Phase A 真实 handler 保持多数
     r = lts_phase_a.run("Collapse", {})
     assert r.get("status") == "real", r
     from ltsoptics.colorimetry import MacAdamEllipse  # 确保依赖可导入

@@ -214,6 +214,15 @@
 - tests/test_parity 语料断言改为跟随 lt_parity 模块级语料集合 (OCC 可用时剔 base-tess 语料换 OCC 几何语料, 硬编码 45 cid 断言与 lt_parity 条件逻辑矛盾已修)。
 - 验证: base pytest **344 passed** / 10 skipped (默认 env OCP 激活, test_occ 10 项从 SKIP 转 RUN); ci_occ.ps1 OK (occ env OCC.Core 通道无回归, OCC 几何语料 rel~1e-16); coverage --gate 710/710 PASS; lt_parity --gate PASS (OCC 语料含 geom_occ_*)。
 
+
+### R6 排产 · optimization/colorimetry 子系统全命令面 T3（2026-09-06 续）
+- lts_cmd_exec.py (新): 命令面 T3 执行器 —— colorimetry 45 条按 族(CCT/CIE/LumViewCCT/RGB)×度量(Illum/Intensity/Luminance/Mesh) 真实执行: 黑体光谱 -> CIE 1931 三刺激 -> xy/uv/CCT (3500K 解析回读 3509.9) + RGB 再现; optimization 45 条状态机 (变量/merit/约束/容差/扰动真实增删) + lts.optimizer 真实求解 (nelder_mead 收敛 (x-3)² best=2.99975 value=6e-8; 中心差分梯度 [-6.0] 解析精确; 报表/敏感性/清除闭环)。
+- lts_commands: _extend_subsystem_cmds (菜单官方映射优先 setdefault, 其余挂执行器 snake id); 菜单映射目标 (analysis_*/optimize_*) 一并入 IMPLEMENTED (原手工清单缺口, 6 条 T1 项修复); 90 条官方命令名全部可解析。
+- lts_gui: COLORIMETRY/OPTIMIZATION 绑定循环 (闭包捕获 LT 名) + _cmd_colorimetry/_cmd_optimization (真实执行 + Sim tab 日志)。
+- tests/test_cmd_exec.py (7): 色度真实载荷 (CCT/xy/flux/RGB/族-度量), 45+45 全可解析, 优化状态机 (增删/报表), 真实求解收敛, 灵敏度解析梯度, 别名注册 (菜单优先项断言 analysis_*/optimize_*), GUI 命令绑定执行。
+- depth_tier: optimization + colorimetry 90/90 达 T3 (命令面 depth 打标); Phase A 池随转正缩水 (real 551->467), test_phase_a_depth_real 门槛 500->450 (口径注释)。
+- 验证: base pytest **351 passed** / 10 skipped (+7); coverage --gate 710/710 + depth-gate 100% (real 710/710) PASS。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**
