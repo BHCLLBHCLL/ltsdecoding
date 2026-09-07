@@ -760,8 +760,15 @@ def tessellate_sat(sat_text: str) -> Tuple[np.ndarray, np.ndarray, dict]:
 
 
 def read_sat_bodies(sat_text: str) -> int:
-    """返回 SAT 文本中的 body 数量。"""
-    return sum(1 for r in tokenize_sat(sat_text) if r[0] == 'body')
+    """返回 SAT 文本中的 body 数量 (按记录起始 'body' 关键字统计, 兼容 '-N' 前缀)."""
+    import re
+    n = 0
+    for line in sat_text.splitlines():
+        s = line.lstrip()
+        m = re.match(r'^(?:-d+s+)?body(?!list)\b', s)
+        if m:
+            n += 1
+    return n
 
 
 if __name__ == '__main__':

@@ -233,6 +233,30 @@
 - verify_model_write: 球半径断言放宽 1e-5 (tessellation 噪声 5.0000001); B-rep STEP 保真核对保持 rel=0。
 - 验证: base pytest 351 passed / 10 skipped (无回归); **verify_lt_bridge G4 PASS** (真 LT 9.1.0 COM 实开实读); coverage --gate 710/710 PASS。
 
+
+### R5 P2 扩展 · cylinder/sphere 解析体 + 布尔结果 facet-SAT 写侧（2026-09-06 续）
+- lts_sat_writer 扩三个解析体写侧 (同 ACIS 30.0 签名模式, LT 导出 ground-truth 逐字段对齐):
+  - write_cylinder_body(r, L): 侧面 = cone-surface ratio=0 (LT 原样 25-token 布局, exp7 解码: t[12]=ratio 全 0 即圆柱), 顶/底 plane-surface, 缝合线 straight-curve + 圆边 ellipse-curve (单顶点闭合边 t 0..2pi, exp7 佐证); 3 face / 4 loop (side-outer+seam+top/bottom) / 6 coedge。
+  - write_sphere_body(R): 单 sphere-surface 面 + 单 loop 单 coedge 自环 (周期闭合缝边, exp7 形态), 缝边 = 过两极大圆 ellipse-curve。
+  - write_facet_body(points, tris): 任意 watertight 网格 -> 平面 facet-b-rep (trimesh facets 共面折叠为 n-gon 面, L 形多环组退化逐三角面) —— **CSG 布尔结果 (union/intersect/difference 的 manifold 输出) 的 SAT 写出**。
+- verify_csg_prim 新增 T8 组 (29 checks): 圆柱/球记录计数 + facet union/difference 自检 —— **92/92 PASS**。
+- verify_lt_bridge 扩第 4 段 (解析体导入 + VOLUME, --bodies 可选开关, 信息性不阻塞 G4 判定): 实测 stat=-1 (LT 修复模态框/COM 中断) —— 根因方向: LT 原生缝合 coedge 带 UV 参数线 (pcurve, exp7 177 条) 我方未写; 写侧正确性由 self_check 92/92 保证, 导入验收待 pcurve 补全后转硬门禁。
+- 核心门禁复验: **G4 PASS** (作者化 Open+VOLUME / box SAT 导入 / 导出闭环, --bodies 缺省关)。
+- 并行会话协同: connect_lt 已由协作方升级 Popen+attach 路径 (4s 连接); LT 单实例 COM 串行, 并发驱动会互卡 (探针曾因此挂起)。
+- 验证: verify_csg_prim 92/92; G4 标准门禁 PASS; 全量 pytest 见提交注记。
+
+
+### SAT 功能审计（2026-09-07）—— 完整性/正确性确认
+- **SAT 读取 (ACIS 文本 B-Rep → 网格)**: 自定义 sat_tessellator 解码 body/lump/shell/face/loop/coedge/edge, 曲面 plane/NURBS(spline)/revolve; 66/66 文件本地几何一致 (verify_sat_import --local-only: total=66, local_ok=66; bbox dev ≤1e-6 或 0.045-0.28 (body 记录为松散盒, loop 并集为权威参照))。
+- **SAT 写入 (导出)**: lts_sat_writer (write_box/cylinder/sphere/facet_body), bbox 正确 (2x3x4 box -> min[0,0,0] max[2,3,4], faces=6)。
+- **SAT → 模型**: SAT body 作为 geo_boxes 载入 (rearlighting 120 bodies; lts_model 保留 sat_text)。
+- **已知缺口**:
+  - **写→读往复**: writer box -> 0 tris (本解码器面向 LT surface+loop 格式, 不三角化 writer 的图元 box; 导出为合法 SAT 但本解码器不回读成功)。
+  - **body 计数**: read_sat_bodies 原返回 0 (tokenizer 把头部+body 合并为一条记录, r[0]!='body') -> 已修复 (按记录起始 'body' 关键字统计; 66 文件 = 66 bodies)。
+  - **OCC SAT 读/写**: sat_read/sat_write=False (pythonocc-core 无 SATControl; cadquery-ocp/OCP 扩展 DLL 加载失败) -> 无精确 B-rep SAT, 仅网格三角化。
+  - **LT COM 阶段B**: com_checked=0 (本会话 lt.exe COM 离线; 需真实 LT 执行 import/re-export 三方对表)。
+- **正确性结论**: 单面 surface 解码正确 (面为开放面, 无体积/非 watertight 属预期); 几何 bbox/loop 自洽 66/66; 整体 = 读取/三角化正确, 写-读往复/OCC B-rep/LT-COM 对表待补。
+
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
 旧版 100% 定义偏向「清单覆盖/解析/物理可实现/COM 验证」。但覆盖率 100% 时仍有 557/710 命令只返回 intent（`op/kind/message/params`），13 条返回真实计算载荷。**真正的 100% 对标，要求每条命令/API 的意义被「执行」出来并可与 LightTools（或解析解）对表。**

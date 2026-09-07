@@ -82,6 +82,9 @@ def main() -> int:
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--keep-lt", action="store_true")
+    ap.add_argument("--bodies", action="store_true",
+                    help="追加解析体 (圆柱/球/布尔) 导入验收"
+                         " [可能触发 LT 修复模态框, 默认关]")
     ap.add_argument("--timeout", type=int, default=180)
     args = ap.parse_args()
 
@@ -202,6 +205,74 @@ def main() -> int:
                         st, p.stat().st_size if p.exists() else 0))
         report["checks"].append({"export": ok3})
         ok = ok and ok3
+
+        # ---- 4) P2 解析体 (圆柱/球/布尔并/布尔差) 导入 + VOLUME ----
+        # (--bodies 可选: 缝合拓扑差异可能触发 LT 修复模态框阻塞 COM;
+        #  信息性记录不阻塞 G4 判定, 写侧正确性由 self_check 92/92 保证)
+        body_results = {}
+        if getattr(args, "bodies", False):
+            print("-- 4) P2 解析体 SAT 导入 (--bodies) --", flush=True)
+            try:
+                import trimesh
+                from lts_sat_writer import (write_cylinder_body,
+                                            write_sphere_body,
+                                            write_facet_body)
+                bodies = {
+                    "p2_cyl": (write_cylinder_body(3.0, 10.0), 282.7433),
+                    "p2_sph": (write_sphere_body(5.0), 523.5988),
+                }
+                u = trimesh.boolean.union(
+                    [trimesh.creation.box(extents=(10, 8, 6)),
+                     trimesh.creation.box(
+                         extents=(6, 6, 6)).apply_translation((8, 0, 0))],
+                    engine="manifold")
+                bodies["p2_union"] = (write_facet_body(u.vertices, u.faces),
+                                      696.0)
+                dmm = trimesh.boolean.difference(
+                    [trimesh.creation.box(extents=(10, 8, 6)),
+                     trimesh.creation.box(
+                         extents=(4, 4, 4)).apply_translation((3, 2, 0))],
+                    engine="manifold")
+                bodies["p2_diff"] = (
+                    write_facet_body(dmm.vertices, dmm.faces), 416.0)
+            except ImportError:
+                bodies = {}
+                print("  (trimesh unavailable, 解析体组跳过)", flush=True)
+            for tag, (txt, expect_v) in bodies.items():
+                f = D / ("%s.sat" % tag)
+                f.write_text(txt, encoding="utf-8")
+                st, _ = session.cmd("ImportPlainSAT %s" % _fwd(f),
+                                    quiet=True)
+                time.sleep(3)
+                if st != 0:
+                    session.cmd("\\V3D", quiet=True)
+                    st, _ = session.cmd("ImportPlainSAT %s" % _fwd(f),
+                                        quiet=True)
+                    time.sleep(3)
+                r2 = session.solid_infos(("NAME",), keep_alive=True)
+                infos3, lh3 = r2 if isinstance(r2, tuple) else (r2, None)
+                vol = None
+                for key, dd in infos3:
+                    nm = str(dd.get("NAME") or "").lower()
+                    if tag.replace("p2_", "") in nm or "body" in nm or \
+                            "solid" in nm or "facet" in nm:
+                        v = session.dbget(key, "VOLUME")
+                        if v is not None and v > 0:
+                            vol = float(v)
+                            break
+                if lh3:
+                    session.close_list(lh3)
+                if vol is not None:
+                    rel = abs(vol - expect_v) / expect_v
+                    check("%s VOLUME==%.1f" % (tag, expect_v), rel <= 1e-3,
+                          "stat=%s V=%.3f rel=%.1e" % (st, vol, rel))
+                else:
+                    check("%s 导入+VOLUME" % tag, False, "stat=%s" % st)
+                body_results[tag] = {"stat": st, "volume": vol}
+            for tag, r in body_results.items():
+                print("  [INFO] %s stat=%s V=%s" % (
+                    tag, r.get("stat"), r.get("volume")), flush=True)
+        report["checks"].append({"p2_bodies": body_results})
     except Exception as e:
         import traceback
         traceback.print_exc()

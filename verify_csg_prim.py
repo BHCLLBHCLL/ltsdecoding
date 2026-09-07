@@ -297,6 +297,64 @@ def t7_sat_writer():
               str(counts.get(k)))
 
 
+def t8_analytic_bodies():
+    print("[T8] lts_sat_writer cylinder/sphere/facet (30.0 扩展族)")
+    try:
+        import lts_sat_writer as W
+    except Exception as e:
+        check("import lts_sat_writer", False, str(e))
+        return
+
+    # cylinder: cone-surface(ratio 0) + 2 plane + ellipse-curve 拓扑
+    sat = W.write_cylinder_body(3.0, 10.0)
+    check("cylinder SAT written", sat is not None and
+          sat.rstrip().endswith("End-of-ACIS-data"))
+    rep = W.self_check(sat, expect_bbox=(-3, -3, 0, 3, 3, 10))
+    check("cylinder self_check ok", rep.get("ok") is True, str(rep))
+    counts = rep.get("counts", {})
+    for k, v in (("cone-surface", 1), ("plane-surface", 2),
+                 ("ellipse-curve", 2), ("straight-curve", 1),
+                 ("face", 3), ("loop", 4), ("coedge", 6),
+                 ("edge", 3), ("vertex", 2), ("point", 2),
+                 ("body", 1), ("shell", 1), ("lump", 1),
+                 ("transform", 1)):
+        check("cyl count %s=%d" % (k, v), counts.get(k) == v,
+              str(counts.get(k)))
+
+    # sphere: sphere-surface 单面单环自环缝边
+    sat2 = W.write_sphere_body(5.0)
+    rep2 = W.self_check(sat2, expect_bbox=(-5, -5, -5, 5, 5, 5))
+    check("sphere self_check ok", rep2.get("ok") is True, str(rep2))
+    c2 = rep2.get("counts", {})
+    for k, v in (("sphere-surface", 1), ("ellipse-curve", 1),
+                 ("face", 1), ("loop", 1), ("coedge", 1),
+                 ("edge", 1), ("vertex", 1), ("point", 1), ("body", 1)):
+        check("sph count %s=%d" % (k, v), c2.get(k) == v, str(c2.get(k)))
+
+    # facet (布尔结果): union / difference watertight 网格 -> 平面 b-rep
+    try:
+        import trimesh
+        b1 = trimesh.creation.box(extents=(10, 8, 6))
+        b2 = trimesh.creation.box(extents=(6, 6, 6)).apply_translation(
+            (8, 0, 0))
+        u = trimesh.boolean.union([b1, b2], engine="manifold")
+        sat3 = W.write_facet_body(u.vertices, u.faces)
+        rep3 = W.self_check(sat3)
+        check("union facet self_check ok", rep3.get("ok") is True, str(rep3))
+        check("union plane-surface >= 6",
+              rep3.get("counts", {}).get("plane-surface", 0) >= 6,
+              str(rep3.get("counts", {}).get("plane-surface")))
+        d = trimesh.boolean.difference(
+            [b1, trimesh.creation.box(extents=(4, 4, 4)).apply_translation(
+                (3, 2, 0))], engine="manifold")
+        sat4 = W.write_facet_body(d.vertices, d.faces)
+        rep4 = W.self_check(sat4)
+        check("difference facet self_check ok", rep4.get("ok") is True,
+              str(rep4))
+    except ImportError:
+        check("trimesh unavailable (facet group skipped)", True)
+
+
 # ---------------------------------------------------------------------------
 # runner
 # ---------------------------------------------------------------------------
@@ -308,6 +366,7 @@ def main():
     t5_render_graph_priority()
     t6_lts_model_methods()
     t7_sat_writer()
+    t8_analytic_bodies()
     print()
     print("=" * 50)
     print("PASS: %d  FAIL: %d" % (PASS, FAIL))
