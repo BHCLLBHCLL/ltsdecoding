@@ -382,12 +382,20 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         b.bind("cylinder", lambda: self._insert_kind("cylinder"))
         b.bind("toroid", lambda: self._insert_kind("toroid"))
         b.bind("sketch_feature", self._sketch_feature)
-        # R6 排产: optimization/colorimetry 子系统命令 -> 真实执行 handler
-        from lts_cmd_exec import COLORIMETRY, OPTIMIZATION
+        # R6 排产: optimization/colorimetry/receiver/misc/ui_view 子系统命令
+        # -> 真实执行 handler
+        from lts_cmd_exec import (COLORIMETRY, OPTIMIZATION,
+                                  RECEIVER_ANALYSIS, MISC, UI_VIEW)
         for _lt, _hid in COLORIMETRY.items():
             b.bind(_hid, lambda lt=_lt: self._cmd_colorimetry(lt))
         for _lt, _hid in OPTIMIZATION.items():
             b.bind(_hid, lambda lt=_lt: self._cmd_optimization(lt))
+        for _lt, _hid in RECEIVER_ANALYSIS.items():
+            b.bind(_hid, lambda lt=_lt: self._cmd_receiver(lt))
+        for _lt, _hid in MISC.items():
+            b.bind(_hid, lambda lt=_lt: self._cmd_misc(lt))
+        for _lt, _hid in UI_VIEW.items():
+            b.bind(_hid, lambda lt=_lt: self._cmd_uiview(lt))
         for _preset, _sfx in (
                 ("Mirror", "mirror"), ("Absorber", "absorber"),
                 ("Smooth Optical Surface", "smooth_optical"),
@@ -852,6 +860,44 @@ class LTSViewer(QMainWindow if _HAS_GUI_DEPS else object):
         self.log("Colorimetry %s: family=%s metric=%s CCT=%.1fK xy=(%.5f,%.5f)"
                  % (lt_name, r["family"], r["metric"], r["cct"],
                     r["xy"][0], r["xy"][1]), tab="sim")
+
+    def _cmd_receiver(self, lt_name: str) -> None:
+        """R6 排产: receiver_analysis 子系统命令真实执行 (真实追迹网格)."""
+        try:
+            from lts_cmd_exec import run_receiver
+            r = run_receiver(lt_name)
+        except Exception as e:
+            self.log("Receiver %s failed: %s" % (lt_name, e), "ERROR")
+            return
+        if r.get("op") == "chart":
+            self.log("Receiver %s: %s grid %sx%s peak=%.4g sum=%.4g"
+                     % (lt_name, r["metric"], r["rows"], r["cols"],
+                        r["peak"], r["sum"]), tab="sim")
+        else:
+            self.log("Receiver %s: %s" % (lt_name, r.get("op")), tab="sim")
+
+    def _cmd_misc(self, lt_name: str) -> None:
+        """R6 排产: misc 子系统命令真实执行 (变量/测量/视图状态)."""
+        try:
+            from lts_cmd_exec import run_misc
+            r = run_misc(lt_name)
+        except Exception as e:
+            self.log("Misc %s failed: %s" % (lt_name, e), "ERROR")
+            return
+        self.log("Misc %s: %s -> %s" % (
+            lt_name, r.get("op"),
+            {k: v for k, v in r.items()
+             if k not in ("api", "op", "status")}), tab="sim")
+
+    def _cmd_uiview(self, lt_name: str) -> None:
+        """R6 排产: ui_view 子系统命令真实执行 (视图状态机转移)."""
+        try:
+            from lts_cmd_exec import run_uiview
+            r = run_uiview(lt_name)
+        except Exception as e:
+            self.log("View %s failed: %s" % (lt_name, e), "ERROR")
+            return
+        self.log("View %s: %s" % (lt_name, r.get("op")), tab="sim")
 
     def _cmd_optimization(self, lt_name: str) -> None:
         """R6 排产: optimization 子系统命令真实执行 (merit/变量/求解)."""

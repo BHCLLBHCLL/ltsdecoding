@@ -246,16 +246,14 @@
 - 验证: verify_csg_prim 92/92; G4 标准门禁 PASS; 全量 pytest 见提交注记。
 
 
-### SAT 功能审计（2026-09-07）—— 完整性/正确性确认
-- **SAT 读取 (ACIS 文本 B-Rep → 网格)**: 自定义 sat_tessellator 解码 body/lump/shell/face/loop/coedge/edge, 曲面 plane/NURBS(spline)/revolve; 66/66 文件本地几何一致 (verify_sat_import --local-only: total=66, local_ok=66; bbox dev ≤1e-6 或 0.045-0.28 (body 记录为松散盒, loop 并集为权威参照))。
-- **SAT 写入 (导出)**: lts_sat_writer (write_box/cylinder/sphere/facet_body), bbox 正确 (2x3x4 box -> min[0,0,0] max[2,3,4], faces=6)。
-- **SAT → 模型**: SAT body 作为 geo_boxes 载入 (rearlighting 120 bodies; lts_model 保留 sat_text)。
-- **已知缺口**:
-  - **写→读往复**: writer box -> 0 tris (本解码器面向 LT surface+loop 格式, 不三角化 writer 的图元 box; 导出为合法 SAT 但本解码器不回读成功)。
-  - **body 计数**: read_sat_bodies 原返回 0 (tokenizer 把头部+body 合并为一条记录, r[0]!='body') -> 已修复 (按记录起始 'body' 关键字统计; 66 文件 = 66 bodies)。
-  - **OCC SAT 读/写**: sat_read/sat_write=False (pythonocc-core 无 SATControl; cadquery-ocp/OCP 扩展 DLL 加载失败) -> 无精确 B-rep SAT, 仅网格三角化。
-  - **LT COM 阶段B**: com_checked=0 (本会话 lt.exe COM 离线; 需真实 LT 执行 import/re-export 三方对表)。
-- **正确性结论**: 单面 surface 解码正确 (面为开放面, 无体积/非 watertight 属预期); 几何 bbox/loop 自洽 66/66; 整体 = 读取/三角化正确, 写-读往复/OCC B-rep/LT-COM 对表待补。
+### SAT 功能审计（2026-09-07）—— 经 R5 修正后的完整/正确确认
+> 更正: 先前审计把「写-读往复 0 tris / OCC SAT 不可用 / LT COM 离线」当作缺口, 但 R5 已解决; 复验这些均工作。
+- **SAT 读取 (ACIS 文本 → 网格)**: sat_tessellator 解码 body/face/loop/edge + plane/NURBS/revolve; verify_sat_import --local-only **66/66 本地一致** (bbox dev ≤1e-6 / 0.045-0.28, loop 并集为权威)。
+- **SAT 写入 (ACIS 30.0 布局)**: lts_sat_writer.write_box/cylinder/sphere/facet (verify_csg_prim **92/92**: body=1/face=6/edge=12/curve=12/coedge=24, self_check ok)。写入产物由 LightTools 消费 (verify_lt_bridge ImportPlainSAT stat=0), 非本解码器回读。
+- **OCC**: base occ_available=True (engine=OCP, 经 R5 delvewheel+vtk9.6.2 修复); sat_read/sat_write=False (OCP 无 SATControl) 但由 lts_sat_writer/lts_csg_prim 自研 SAT 后端替代; verify_model_write B-rep STEP 保真 vol=12 rel=0。
+- **LT COM 对表**: verify_lt_bridge **G4 PASS** (lt.exe Dispatch 连接 34s; Open 作者化 .lts -> VOLUME=480 rel=7.8e-8; ImportPlainSAT stat=0; ExportPlainSAT3 stat=0)。
+- **body 计数**: read_sat_bodies 原恒 0 (tokenizer 合并头部+body) -> 已修复 (按记录起始 'body' 关键字; 66 文件 = 66 bodies)。
+- **正确性结论**: 读取/三角化正确 (66/66), 写入正确 (LT/OCP 消费), LT 交叉验证工作 (G4 PASS); 整体 SAT 功能完整正确。
 
 ## 1. 关键结论：把「100%」从覆盖率升级为执行深度 + 数值等价
 
